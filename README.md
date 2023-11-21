@@ -48,7 +48,7 @@ deactivate
 cd ..
 
 ## Release : golden-muscat
-###Lead Developer : Xiyue
+### Lead Developer : Xiyue
 
 **Tag : golden-muscat_0.0.1**
 
