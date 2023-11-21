@@ -24,7 +24,10 @@ check gpu for tensorflow
 python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
-## Nathan : primordial-positron 
+## Release : primordial-positron
+### Lead Developer : Nathan
+
+**Tag : primordial-positron_0.0.3**
 
 URL = https://git.ncsa.illinois.edu/nj7/darpa_proj
 
@@ -44,10 +47,13 @@ python inference.py --mapPath "/projects/bbym/shared/data/commonPatchData/256/OK
 deactivate
 cd ..
 
-## Xiyue : golden-muscat
+## Release : golden-muscat
+###Lead Developer : Xiyue
+
+**Tag : golden-muscat_0.0.1**
 
 model = git lfs
-URL = https://github.com/xiyuez2/Darpa_Unet
+URL = https://github.com/xiyuez2/Darpa_Unet_Release
 
 cd
 wget https://github.com/git-lfs/git-lfs/releases/download/v3.4.0/git-lfs-linux-amd64-v3.4.0.tar.gz
@@ -69,7 +75,10 @@ python inference.py --mapPath "/projects/bbym/shared/data/commonPatchData/256/OK
 deactivate
 cd ..
 
-## Jiahua : quantum-sugar
+## Release : quantum-sugar
+### Lead Developer : Jiahua
+
+**Tag : quantum-sugar_0.0.1**
 
 model = https://github.com/Dongjiahua/DARPA_torch/releases/download/quantum-sugar_0.0.2/checkpoint.ckpt
 URL = https://github.com/Dongjiahua/DARPA_torch
