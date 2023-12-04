@@ -1,0 +1,9 @@
+[submodule "quantum-sugar"]
+	path = quantum-sugar
+	url = https://github.com/Dongjiahua/DARPA_torch
+[submodule "primordial-positron"]
+	path = primordial-positron
+	url = https://git.ncsa.illinois.edu/nj7/darpa_proj
+[submodule "golden-muscat"]
+	path = golden-muscat
+	url = https://github.com/xiyuez2/Darpa_Unet
