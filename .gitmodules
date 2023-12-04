@@ -7,3 +7,6 @@
 [submodule "golden-muscat"]
 	path = golden-muscat
 	url = https://github.com/xiyuez2/Darpa_Unet
+[submodule "legend-extraction"]
+	path = legend-extraction
+	url = git@git.ncsa.illinois.edu:albertbode/ta1-legend-extraction.git
