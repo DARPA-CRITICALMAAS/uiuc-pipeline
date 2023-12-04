@@ -1,3 +1,19 @@
+# setup
+
+This repository uses submodules. This requires a little bit of extra work to get started.
+
+```
+git clone git@git.ncsa.illinois.edu:criticalmaas/pipeline.git
+cd pipeline
+git submodule init
+git submodule update
+```
+
+If new changes are made to the submodules, you will need to rerun:
+```
+git submodule update
+```
+
 # pipeline flow
 
 INPUT = map URL + layer (can be all)
