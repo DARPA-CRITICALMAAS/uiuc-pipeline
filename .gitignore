@@ -1,11 +1,14 @@
-# models
-#golden-muscat
-#primordial-positron
-#quantum-sugar
+# some files to ignore
+*~
+*.pyc
+*.old
 
 # data
 input
 output
+
+# configuration file
+config.yaml
 
 # virtual environments
 venv

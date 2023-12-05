@@ -2,7 +2,7 @@
 
 This repository uses submodules. This requires a little bit of extra work to get started.
 
-```
+```bash
 git clone git@git.ncsa.illinois.edu:criticalmaas/pipeline.git
 cd pipeline
 git submodule init
@@ -10,9 +10,49 @@ git submodule update
 ```
 
 If new changes are made to the submodules, you will need to rerun:
-```
+
+```bash
 git submodule update
 ```
+
+On hydro make sure to load the modules for python and cuda:
+
+```bash
+module load python/3.9.13 cuda/12.2.1
+```
+
+Next you need to install requirements
+
+```bash
+python3 -m venv venv
+pip install -r requirements.txt
+```
+
+**HACK HACK HACK**
+You will need to copy the primordial-positron-pipeline.py to primordial-positron/pipeline.py
+
+Setup the config.yaml file, and run `python pipeline.py`
+```yaml
+s3:
+  access_key: 'XXXXXXXXXXXXXXXX'
+  secret_key: 'YYYYYYYYYYYYYYYY'
+  server: 'https://s3.example.com'
+  bucketname: 'maps'
+
+models:
+  - name: primordial-positron
+    folder: primordial-positron
+    module: pipeline
+    kwargs:
+      featureType: Polygon
+    checkpoint: primordial-positron/inference_model/Unet-attentionUnet.h5
+```
+
+## TODO
+- [ ] Allow user to input maps to process on command line
+- [ ] Add server that launches jobs on HPC
+
+# OLD NOTES
 
 # pipeline flow
 

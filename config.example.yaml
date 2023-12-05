@@ -1,0 +1,13 @@
+s3:
+  access_key: 'XXXXXXXXXXXXXXXX'
+  secret_key: 'YYYYYYYYYYYYYYYY'
+  server: 'https://s3.example.com'
+  bucketname: 'maps'
+
+models:
+  - name: primordial-positron
+    folder: primordial-positron
+    module: pipeline
+    kwargs:
+      featureType: Polygon
+    checkpoint: primordial-positron/inference_model/Unet-attentionUnet.h5

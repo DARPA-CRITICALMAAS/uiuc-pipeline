@@ -1,0 +1,22 @@
+# pipeline
+boto3>=1.33.7
+PyYAML>=6.0.1
+rasterio>=1.3.9
+
+# primordial-positron
+numpy>1.21
+pillow>9.0
+tensorflow[and-cuda]>2.10
+matplotlib>3.5
+keras>2.10
+opencv_python>4.8
+patchify>0.2
+scikit-learn>1.0%
+
+# models
+#pandas>=2.1.3
+
+# mlflow
+#mlflow>=2.8.1
+#psutil>=5.9.6
+#pynvml>=11.5.0
