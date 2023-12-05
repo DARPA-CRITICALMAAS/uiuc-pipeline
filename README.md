@@ -48,6 +48,16 @@ models:
     checkpoint: primordial-positron/inference_model/Unet-attentionUnet.h5
 ```
 
+## Pipeline Flow
+
+- [x] load data from S3 (image + json) to input folder
+- [x] load image to array
+- [x] load legends to array {name=image}
+- [x] load models (only tested with primordial-positron)
+- [ ] run model (model starts but does not predict, needs above hack)
+- [ ] save outputs (not implemented)
+- [ ] save outputs to S3 (not implmeneted)
+
 ## TODO
 - [ ] Allow user to input maps to process on command line
 - [ ] Add server that launches jobs on HPC
