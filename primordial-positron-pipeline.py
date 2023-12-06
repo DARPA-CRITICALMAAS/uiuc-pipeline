@@ -139,47 +139,50 @@ def inference_image(image, legends, model, feature_type, patch_size=256):
     for legend in (map_legends):
         logger.debug(f"Processing legend: {legend}")
         start_time = time.time()
-        
+
         # Create an empty array to store the full prediction
         full_prediction = np.zeros((map_width, map_height))
 
         # Get the legend patch
         legend_patch = legends[legend]
 
-        # Iterate through rows and columns to get map patches
-        for row in range(num_rows):
-            for col in range(num_cols):
+        try:
+            # Iterate through rows and columns to get map patches
+            for row in range(num_rows):
+                for col in range(num_cols):
 
-                # Calculate starting indices for rows and columns
-                x_start = row * patch_size
-                y_start = col * patch_size
+                    # Calculate starting indices for rows and columns
+                    x_start = row * patch_size
+                    y_start = col * patch_size
 
-                # Calculate ending indices for rows and columns
-                x_end = x_start + patch_size
-                y_end = y_start + patch_size
+                    # Calculate ending indices for rows and columns
+                    x_end = x_start + patch_size
+                    y_end = y_start + patch_size
 
-                # Adjust the ending indices if they go beyond the image size
-                x_end = min(x_end, map_width)
-                y_end = min(y_end, map_height)
+                    # Adjust the ending indices if they go beyond the image size
+                    x_end = min(x_end, map_width)
+                    y_end = min(y_end, map_height)
 
-                map_patch = image[:x_end-x_start, :y_end-y_start]
+                    map_patch = image[:x_end-x_start, :y_end-y_start]
 
-                # Get the prediction for the current patch
-                #prediction = np.zeros(map_patch.shape[:2])
-                prediction = perform_inference(legend_patch, map_patch, patch_size, model)
-                # logger.debug(f"Prediction for patch ({row}, {col}) completed.")
+                    # Get the prediction for the current patch
+                    #prediction = np.zeros(map_patch.shape[:2])
+                    prediction = perform_inference(legend_patch, map_patch, patch_size, model)
+                    # logger.debug(f"Prediction for patch ({row}, {col}) completed.")
 
-                # Adjust the shape of the prediction if necessary
-                prediction_shape_adjusted = prediction[:x_end-x_start, :y_end-y_start]
+                    # Adjust the shape of the prediction if necessary
+                    prediction_shape_adjusted = prediction[:x_end-x_start, :y_end-y_start]
 
-                # Assign the prediction to the correct location in the full_prediction array
-                full_prediction[x_start:x_end, y_start:y_end] = prediction_shape_adjusted
-            
-        # Mask out the map background pixels from the prediction
-        logger.debug("Applying mask to the full prediction.")
-        masked_prediction = prediction_mask(full_prediction, image)
-        predictions[legend] = masked_prediction
-        
+                    # Assign the prediction to the correct location in the full_prediction array
+                    full_prediction[x_start:x_end, y_start:y_end] = prediction_shape_adjusted
+
+            # Mask out the map background pixels from the prediction
+            logger.debug("Applying mask to the full prediction.")
+            masked_prediction = prediction_mask(full_prediction, image)
+            predictions[legend] = masked_prediction
+        except:
+            logger.exception("Error calculating mask for legend: {legend}")
+
         end_time = time.time()
         total_time = end_time - start_time
         logger.debug(f"Execution time for 1 legend: {total_time} seconds")
