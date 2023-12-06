@@ -21,7 +21,6 @@ from unet_util import (UNET_224, Residual_CNN_block,
 
 import logging
 
-
 logger = logging.getLogger('primordial-positron')
 
 def prediction_mask(prediction_result, map_array):
@@ -77,19 +76,56 @@ def prediction_mask(prediction_result, map_array):
     return masked_img
 
 
-def inference_image(image, legends, model, featureType, patch_size=256):
+def perform_inference(legend_patch, map_patch, patch_size, model):
+    """
+    Perform inference on a given map patch and legend patch using a trained model.
+
+    Parameters:
+    - legend_patch: numpy array, The legend patch from the map.
+    - map_patch: numpy array, The map patch for inference.
+    - model: tensorflow.keras Model, The trained deep learning model.
+
+    Returns:
+    - prediction: numpy array, The prediction result for the given map patch.
+    """
+    
+    # Resize the legend patch to match the h5 image patch size and normalize to [0,1]
+    legend_resized = cv2.resize(legend_patch, (patch_size, patch_size))
+    legend_resized = tf.cast(legend_resized, dtype=tf.float32) / 255.0
+
+    # Resize the map patch to match the h5 image patch size and normalize to [0,1]
+    map_patch_resize = cv2.resize(map_patch, (patch_size, patch_size))
+    map_patch_resize = tf.cast(map_patch_resize, dtype=tf.float32) / 255.0
+
+    # Concatenate the map and legend patches along the third axis (channels) and normalize to [-1,1]
+    input_patch = tf.concat(axis=2, values=[map_patch_resize, legend_resized])
+    input_patch = input_patch * 2.0 - 1.0
+    
+    # Resize the concatenated input patch to match the model's expected input size
+    input_patch_resized = tf.image.resize(input_patch, (patch_size, patch_size))
+    
+    # Expand the dimensions of the input patch for the prediction (models expect a batch dimension)
+    input_patch_expanded = tf.expand_dims(input_patch_resized, axis=0)
+
+    # Obtain the prediction from the trained model
+    prediction = model.predict(input_patch_expanded, verbose=0)
+
+    return prediction.squeeze()
+
+
+def inference_image(image, legends, model, feature_type, patch_size=256):
     predictions = {}
 
     # Filter the legends based on the feature type
-    # if featureType == "Polygon":
-    #     map_legends = [legend for legend in all_map_legends if "_poly" in legend]
-    # elif featureType == "Point":
-    #     map_legends = [legend for legend in all_map_legends if "_pt" in legend]
-    # elif featureType == "Line":
-    #     map_legends = [legend for legend in all_map_legends if "_line" in legend]
-    # elif featureType == "All":
-    #     map_legends = all_map_legends
-    map_legends = legends.keys()
+    if feature_type == "Polygon":
+        map_legends = [legend for legend in legends.keys() if "_poly" in legend]
+    elif feature_type == "Point":
+        map_legends = [legend for legend in legends.keys() if "_pt" in legend]
+    elif feature_type == "Line":
+        map_legends = [legend for legend in legends.keys() if "_line" in legend]
+    elif feature_type == "All":
+        map_legends = legends.keys()
+    # map_legends = legends.keys()
 
     # Get the size of the map
     map_width, map_height, _ = image.shape
@@ -129,8 +165,8 @@ def inference_image(image, legends, model, featureType, patch_size=256):
                 map_patch = image[:x_end-x_start, :y_end-y_start]
 
                 # Get the prediction for the current patch
-                prediction = np.zeros(map_patch.shape[:2])
-                #prediction = perform_inference(legend_patch, map_patch, model)
+                #prediction = np.zeros(map_patch.shape[:2])
+                prediction = perform_inference(legend_patch, map_patch, patch_size, model)
                 # logger.debug(f"Prediction for patch ({row}, {col}) completed.")
 
                 # Adjust the shape of the prediction if necessary
@@ -147,6 +183,7 @@ def inference_image(image, legends, model, featureType, patch_size=256):
         end_time = time.time()
         total_time = end_time - start_time
         logger.debug(f"Execution time for 1 legend: {total_time} seconds")
+    return predictions
 
 
 def inference(images, legends, checkpoint, **kwargs):

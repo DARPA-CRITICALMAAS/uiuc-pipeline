@@ -1,7 +1,6 @@
 import logging
 import s3
 import yaml
-import affine
 import rasterio
 import importlib
 import json
@@ -42,11 +41,11 @@ def load_maps(s3_inputs, input_folder, map_names):
                     elif image.shape[0] == 3:
                         image = image.transpose(1, 2, 0)
                 if 'crs' in profile:
-                    crs = src.profile['crs'].to_string()
+                    crs = src.profile['crs']
                 else:
                     crs = None
                 if 'transform' in profile:
-                    transform = affine.dumpsw(src.profile['transform'])
+                    transform = src.profile['transform']
                 else:
                     transform = None                    
                 maps[map] = {
@@ -63,7 +62,7 @@ def load_maps(s3_inputs, input_folder, map_names):
             logger.info(f'No {map}.tif found, skipping legend extraction')
             continue
         try:
-            files = s3_inputs.download(f'{map}.json', regex=False, folder='input')
+            files = s3_inputs.download(f'{map}.json', regex=False, folder=input_folder)
             if len(files) > 1:
                 logger.warning(f'Multiple {map}.json files found, using first one')
             if len(files) == 0:
@@ -78,7 +77,27 @@ def load_maps(s3_inputs, input_folder, map_names):
     return maps
 
 
-def pipeline(map_names):
+def save_results(prediction, crs, transform, filename):
+    """
+    Save the prediction results to a specified filename.
+
+    Parameters:
+    - prediction: The prediction result (should be a 2D or 3D numpy array).
+    - crs: The projection of the prediction.
+    - transform: The transform of the prediction.
+    - filename: The name of the file to save the prediction to.
+    """
+
+    if prediction.ndim == 3:
+        image = prediction[...].transpose(2, 0, 1)  # rasterio expects bands first
+    else:
+        image = np.array(prediction[...], ndmin=3)
+    rasterio.open(filename, 'w', driver='GTiff', compress='lzw',
+                  height=image.shape[1], width=image.shape[2], count=image.shape[0], dtype=image.dtype,
+                  crs=crs, transform=transform).write(image)
+
+
+def pipeline(map_names, input_folder="input", output_folder="output"):
     # load configuation
     if not os.path.exists('config.yaml'):
         raise Exception("No config.yaml found")
@@ -112,11 +131,12 @@ def pipeline(map_names):
         raise Exception("No s3 output configuration found in config.yaml")
 
     # load maps and legends
-    maps = load_maps(s3_inputs, "input", map_names)
+    maps = load_maps(s3_inputs, input_folder, map_names)
 
     # generate legends
     for map in maps.keys():
         logger.info(f"Generating legend for {map}")
+        # TODO implement
 
     # setup arguments for each model
     map_images = []
@@ -129,7 +149,7 @@ def pipeline(map_names):
             # cut legend from map
             label = legend['label']
             points = legend['points']
-            legends[label] = image[int(points[0][0]):int(points[0][1]), int(points[1][0]):int(points[1][1])]
+            legends[label] = image[int(points[0][0]):int(points[0][0]+points[0][1]), int(points[1][0]):int(points[1][0]+points[1][1])]
         map_legends.append(legends)
  
     # run models
@@ -147,12 +167,24 @@ def pipeline(map_names):
         logger.info(f"Execution time for {model['name']}: {time.time() - start_time} seconds")
         # save results
         logger.info(f"Saving results for model {model['name']}")
+        output_files = []
+        for idx, map_name in enumerate(map_names):
+            crs = maps[map_name]['crs']
+            transform = maps[map_name]['crs']
+            for legend, image in results[idx].items():
+                output_image_path = os.path.join(output_folder, f"{map_name}_{legend}.tif")
+                save_results(image, crs, transform, output_image_path)
+                output_files.append(output_image_path)
         # restore path
         sys.path.pop(0)
     
     # crete geojson
+    # TODO implement
 
     # upload results
+    for file in output_image_path:
+        s3_outputs.upload(file, regex=False)
+        # TODO upload geojson
 
 
 if __name__ == '__main__':
