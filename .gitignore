@@ -12,3 +12,6 @@ config.yaml
 
 # virtual environments
 venv
+
+# HPC output/error jobs
+*.[oe][0-9]*
