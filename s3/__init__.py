@@ -27,7 +27,7 @@ class S3:
         else:
             self.logger.debug(f"Uploading {filename}")
             self.bucket.upload_file(filename, filename)
-            outputs.append(file)
+            outputs.append(filename)
         return outputs
 
     def download(self, filename, regex=False, folder='.'):

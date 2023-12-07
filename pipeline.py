@@ -9,8 +9,8 @@ import sys
 import numpy as np
 import time
 
-
 logger = logging.getLogger('pipeline')
+
 
 def load_maps(s3_inputs, input_folder, map_names):
     """
@@ -104,6 +104,7 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
     with open('config.yaml') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
+    # setup s3input and s3output
     if 's3_inputs' in config:
         s3_inputs = s3.S3(config['s3_inputs']['access_key'],
                           config['s3_inputs']['secret_key'],
@@ -138,7 +139,7 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
         logger.info(f"Generating legend for {map}")
         # TODO implement
 
-    # setup arguments for each model
+    # create array of maps and extract legends from maps
     map_images = []
     map_legends = []
     for map in maps.values():
@@ -149,13 +150,14 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
             # cut legend from map
             label = legend['label']
             points = legend['points']
-            legends[label] = image[int(points[0][0]):int(points[0][0]+points[0][1]), int(points[1][0]):int(points[1][0]+points[1][1])]
+            legends[label] = image[int(points[0][1]):int(points[1][1]), int(points[0][0]):int(points[1][0])]
         map_legends.append(legends)
  
     # run models
+    output_files = []
     for model in config['models']:
         logging.getLogger(model['name']).setLevel(logger.getEffectiveLevel())
-        # add folde to path
+        # add folder to path
         sys.path.insert(0, model['folder'])
         # load model
         logger.info(f"Loading model {model['name']}")
@@ -163,18 +165,20 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
         # run model
         logger.info(f"Running model {model['name']}")
         start_time = time.time()
-        results = pymodel.inference(map_images, map_legends, model['checkpoint'], **model['kwargs'])
+        results = pymodel.inference(map_images, map_legends, model['checkpoint'], **model.get('kwargs', {}))
         logger.info(f"Execution time for {model['name']}: {time.time() - start_time} seconds")
         # save results
         logger.info(f"Saving results for model {model['name']}")
-        output_files = []
+        start_time = time.time()
         for idx, map_name in enumerate(map_names):
             crs = maps[map_name]['crs']
-            transform = maps[map_name]['crs']
+            transform = maps[map_name]['transform']
             for legend, image in results[idx].items():
-                output_image_path = os.path.join(output_folder, f"{map_name}_{legend}.tif")
+                output_image_path = os.path.join(output_folder, model['name'], f"{map_name}_{legend}.tif")
+                os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
                 save_results(image, crs, transform, output_image_path)
                 output_files.append(output_image_path)
+        logger.info(f"Saving time for {model['name']}: {time.time() - start_time} seconds")
         # restore path
         sys.path.pop(0)
     
@@ -182,7 +186,7 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
     # TODO implement
 
     # upload results
-    for file in output_image_path:
+    for file in output_files:
         s3_outputs.upload(file, regex=False)
         # TODO upload geojson
 

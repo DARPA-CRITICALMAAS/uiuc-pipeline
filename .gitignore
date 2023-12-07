@@ -2,6 +2,7 @@
 *~
 *.pyc
 *.old
+.idea
 
 # data
 input
