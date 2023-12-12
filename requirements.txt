@@ -13,6 +13,10 @@ opencv_python>4.8
 patchify>0.2
 scikit-learn>1.0%
 
+# legend-extraction
+easyocr
+pandas>=2.1.3
+
 # models
 #pandas>=2.1.3
 

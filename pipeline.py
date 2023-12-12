@@ -135,9 +135,14 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
     maps = load_maps(s3_inputs, input_folder, map_names)
 
     # generate legends
-    for map in maps.keys():
-        logger.info(f"Generating legend for {map}")
-        # TODO implement
+    le = importlib.import_module('legend-extraction.src.extraction', package='legend_extraction')
+    le = importlib.import_module('legend-extraction.src.IO', package='legend_extraction')
+    le = importlib.import_module('legend-extraction', package='legend_extraction')
+
+    for map in maps.values():
+        logger.info(f"Generating legend for {map['filename']}")
+        legend_predictions = le.src.extraction.extractLegends(map['image'])
+        map['jsonfile'] = le.src.IO.generateJsonData(legend_predictions, img_dims=map['image'].shape, force_rectangle=True)
 
     # create array of maps and extract legends from maps
     map_images = []
@@ -152,7 +157,7 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
             points = legend['points']
             legends[label] = image[int(points[0][1]):int(points[1][1]), int(points[0][0]):int(points[1][0])]
         map_legends.append(legends)
- 
+
     # run models
     output_files = []
     for model in config['models']:
