@@ -18,13 +18,14 @@ git submodule update
 On hydro make sure to load the modules for python and cuda:
 
 ```bash
-module load python/3.9.13
+module load python/3.9.13 cuda/11.7.0
 ```
 
 Next you need to install requirements
 
 ```bash
 python3 -m venv venv
+source ./venv/bin/activate
 pip install -r requirements.txt
 ```
 
