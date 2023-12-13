@@ -18,7 +18,7 @@ git submodule update
 On hydro make sure to load the modules for python and cuda:
 
 ```bash
-module load python/3.9.13 cuda/12.2.1
+module load python/3.9.13
 ```
 
 Next you need to install requirements
