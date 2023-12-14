@@ -140,8 +140,8 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
     le = importlib.import_module('legend-extraction.src.extraction', package='legend_extraction')
     le = importlib.import_module('legend-extraction.src.IO', package='legend_extraction')
     le = importlib.import_module('legend-extraction', package='legend_extraction')
-    vec = importlib.import_module('legend-extraction.src.polygonize', package='vectorization') 
-    vec = importlib.import_module('legend-extraction', package='vectorization')
+    vec = importlib.import_module('vectorization.src.polygonize', package='vectorization') 
+    vec = importlib.import_module('vectorization', package='vectorization')
 
     for map in maps.values():
         logger.info(f"Generating legend for {map['filename']}")
