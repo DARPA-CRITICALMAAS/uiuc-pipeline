@@ -3,6 +3,7 @@
 *.pyc
 *.old
 .idea
+.DS_Store
 
 # data
 input
