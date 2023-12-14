@@ -8,6 +8,7 @@ import os
 import sys
 import numpy as np
 import time
+import geopandas as gpd
 
 logger = logging.getLogger('pipeline')
 
@@ -135,9 +136,12 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
     maps = load_maps(s3_inputs, input_folder, map_names)
 
     # generate legends
+    # These import statements should probably be moved elsewhere
     le = importlib.import_module('legend-extraction.src.extraction', package='legend_extraction')
     le = importlib.import_module('legend-extraction.src.IO', package='legend_extraction')
     le = importlib.import_module('legend-extraction', package='legend_extraction')
+    vec = importlib.import_module('legend-extraction.src.polygonize', package='vectorization') 
+    vec = importlib.import_module('legend-extraction', package='vectorization')
 
     for map in maps.values():
         logger.info(f"Generating legend for {map['filename']}")
@@ -160,6 +164,7 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
 
     # run models
     output_files = []
+    geopackage_files = [] # Kept these as seperate lists incase they need to go to different locations later
     for model in config['models']:
         logging.getLogger(model['name']).setLevel(logger.getEffectiveLevel())
         # add folder to path
@@ -178,22 +183,26 @@ def pipeline(map_names, input_folder="input", output_folder="output"):
         for idx, map_name in enumerate(map_names):
             crs = maps[map_name]['crs']
             transform = maps[map_name]['transform']
+            output_geopackage_path = os.path.join(output_folder, model['name'], f"{map_name}.gpkg")
             for legend, image in results[idx].items():
+                geodf = vec.src.polygonize.polygonize(image, crs, transform, noise_threshold=10)
                 output_image_path = os.path.join(output_folder, model['name'], f"{map_name}_{legend}.tif")
                 os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
                 save_results(image, crs, transform, output_image_path)
+                vec.src.polygonize.exportVectorData(geodf, output_geopackage_path, layer=legend, filetype='geopackage')
                 output_files.append(output_image_path)
+            geopackage_files.append(output_geopackage_path)
         logger.info(f"Saving time for {model['name']}: {time.time() - start_time} seconds")
+        
         # restore path
         sys.path.pop(0)
-    
-    # crete geojson
-    # TODO implement
 
-    # upload results
-    for file in output_files:
-        s3_outputs.upload(file, regex=False)
-        # TODO upload geojson
+        # upload results
+        for file in output_files:
+            s3_outputs.upload(file, regex=False)
+        
+        for file in geopackage_files:
+            s3_outputs.upload(file, regex=False)
 
 
 if __name__ == '__main__':
