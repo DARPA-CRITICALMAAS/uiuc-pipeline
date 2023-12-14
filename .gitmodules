@@ -10,3 +10,6 @@
 [submodule "legend-extraction"]
 	path = legend-extraction
 	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-legend-extraction.git
+[submodule "vectorization"]
+	path = vectorization
+	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-vectorization.git
