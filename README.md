@@ -12,7 +12,9 @@ git submodule update
 If new changes are made to the submodules, you will need to rerun:
 
 ```bash
+git submodule init
 git submodule update
+pip install -r requirements.txt
 ```
 
 On hydro make sure to load the modules for python and cuda:
