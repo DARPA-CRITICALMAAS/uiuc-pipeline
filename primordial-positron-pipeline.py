@@ -163,7 +163,7 @@ def inference_image(image, legends, model, feature_type, patch_size=256):
                     x_end = min(x_end, map_width)
                     y_end = min(y_end, map_height)
 
-                    map_patch = image[:x_end-x_start, :y_end-y_start]
+                    map_patch = image[x_start:x_end, y_start:y_end]
 
                     # Get the prediction for the current patch
                     #prediction = np.zeros(map_patch.shape[:2])
