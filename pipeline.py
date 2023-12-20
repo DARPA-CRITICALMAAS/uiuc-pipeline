@@ -26,35 +26,40 @@ def load_maps(s3_inputs, input_folder, map_names):
     # load images of maps
     for map in map_names:
         logger.info(f"Loading map for {map}")
-        files = s3_inputs.download(f'{map}.tif', regex=False, folder=input_folder)
-        if len(files) > 1:
-            logger.warning(f'Multiple {map}.tif files found, using first one')
-        if len(files) == 0:
-            logger.info(f'No {map}.tif found skipping')
-        else:
+        filename = os.path.join(input_folder,map)
+        # Check for local copy of map first
+        if not os.path.exists(filename):
+            logger.info(f'Map file not found locally, Downloading map from S3')
+            files = s3_inputs.download(f'{map}.tif', regex=False, folder=input_folder)
+            if len(files) > 1:
+                logger.warning(f'Multiple {map}.tif files found, using first one')
+            if len(files) == 0:
+                logger.info(f'No {map}.tif found skipping')
             filename = files[0]
-            with rasterio.open(filename) as src:
-                profile = src.profile
-                image = src.read()
-                if len(image.shape) == 3:
-                    if image.shape[0] == 1:
-                        image = image[0]
-                    elif image.shape[0] == 3:
-                        image = image.transpose(1, 2, 0)
-                if 'crs' in profile:
-                    crs = src.profile['crs']
-                else:
-                    crs = None
-                if 'transform' in profile:
-                    transform = src.profile['transform']
-                else:
-                    transform = None                    
-                maps[map] = {
-                    'filename': filename,
-                    'image': image,
-                    'crs': crs,
-                    'transform': transform,
-                }
+        
+        # Load map into memory
+        with rasterio.open(filename) as src:
+            profile = src.profile
+            image = src.read()
+            if len(image.shape) == 3:
+                if image.shape[0] == 1:
+                    image = image[0]
+                elif image.shape[0] == 3:
+                    image = image.transpose(1, 2, 0)
+            if 'crs' in profile:
+                crs = src.profile['crs']
+            else:
+                crs = None
+            if 'transform' in profile:
+                transform = src.profile['transform']
+            else:
+                transform = None                    
+            maps[map] = {
+                'filename': filename,
+                'image': image,
+                'crs': crs,
+                'transform': transform,
+            }
 
     # load legends, only for maps that where loaded
     for map in maps.keys():
@@ -209,4 +214,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.WARNING)
     logger.setLevel(logging.DEBUG)
 
-    pipeline(['training/CA_Sage'])
+    pipeline(['CO_DenverW.tif'], input_folder='final_dataset')
