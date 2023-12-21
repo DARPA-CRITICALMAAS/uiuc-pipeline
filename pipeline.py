@@ -1,212 +1,183 @@
-import logging
-import s3
-import yaml
-import rasterio
-import importlib
-import json
 import os
-import sys
-import numpy as np
 import time
-import geopandas as gpd
+import logging
+import argparse
+import importlib
+from tqdm import tqdm
 
-logger = logging.getLogger('pipeline')
+import src.io as io
+import src.utils as utils
 
+log = logging.getLogger('DARPA_CMASS_PIPELINE')
 
-def load_maps(s3_inputs, input_folder, map_names):
-    """
-    Load maps from s3 if needed to input_folder. Next load the map data and store in a dictionary.
-    @param s3_inputs: s3 object to download maps from
-    @param input_folder: folder to download maps to
-    @param map_names: list of maps to download
-    @return: dictionary of maps
-    """
-    maps = {}
-
-    # load images of maps
-    for map in map_names:
-        logger.info(f"Loading map for {map}")
-        files = s3_inputs.download(f'{map}.tif', regex=False, folder=input_folder)
-        if len(files) > 1:
-            logger.warning(f'Multiple {map}.tif files found, using first one')
-        if len(files) == 0:
-            logger.info(f'No {map}.tif found skipping')
-        else:
-            filename = files[0]
-            with rasterio.open(filename) as src:
-                profile = src.profile
-                image = src.read()
-                if len(image.shape) == 3:
-                    if image.shape[0] == 1:
-                        image = image[0]
-                    elif image.shape[0] == 3:
-                        image = image.transpose(1, 2, 0)
-                if 'crs' in profile:
-                    crs = src.profile['crs']
-                else:
-                    crs = None
-                if 'transform' in profile:
-                    transform = src.profile['transform']
-                else:
-                    transform = None                    
-                maps[map] = {
-                    'filename': filename,
-                    'image': image,
-                    'crs': crs,
-                    'transform': transform,
-                }
-
-    # load legends, only for maps that where loaded
-    for map in maps.keys():
-        logger.info(f"Loading legend for {map}")
-        if map not in maps:
-            logger.info(f'No {map}.tif found, skipping legend extraction')
-            continue
-        try:
-            files = s3_inputs.download(f'{map}.json', regex=False, folder=input_folder)
-            if len(files) > 1:
-                logger.warning(f'Multiple {map}.json files found, using first one')
-            if len(files) == 0:
-                logger.info(f'No {map}.json found, will need to run legend extraction')
-            else:
-                maps[map]['jsonfile'] = json.load(open(files[0]))
-        except:
-            logger.info(f'No {map}.json found, will need to run legend extraction')
-            pass
-
-    # return maps and legends
-    return maps
-
-
-def save_results(prediction, crs, transform, filename):
-    """
-    Save the prediction results to a specified filename.
-
-    Parameters:
-    - prediction: The prediction result (should be a 2D or 3D numpy array).
-    - crs: The projection of the prediction.
-    - transform: The transform of the prediction.
-    - filename: The name of the file to save the prediction to.
-    """
-
-    if prediction.ndim == 3:
-        image = prediction[...].transpose(2, 0, 1)  # rasterio expects bands first
-    else:
-        image = np.array(prediction[...], ndmin=3)
-    rasterio.open(filename, 'w', driver='GTiff', compress='lzw',
-                  height=image.shape[1], width=image.shape[2], count=image.shape[0], dtype=image.dtype,
-                  crs=crs, transform=transform).write(image)
-
-
-def pipeline(map_names, input_folder="input", output_folder="output"):
-    # load configuation
-    if not os.path.exists('config.yaml'):
-        raise Exception("No config.yaml found")
-    with open('config.yaml') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-
-    # setup s3input and s3output
-    if 's3_inputs' in config:
-        s3_inputs = s3.S3(config['s3_inputs']['access_key'],
-                          config['s3_inputs']['secret_key'],
-                          config['s3_inputs']['server'],
-                          config['s3_inputs']['bucketname'])
-    elif 's3' in config:
-        s3_inputs = s3.S3(config['s3']['access_key'],
-                          config['s3']['secret_key'], 
-                          config['s3']['server'],
-                          config['s3']['bucketname'])
-    else:
-        raise Exception("No s3 input configuration found in config.yaml")
+def parse_command_line():
+    def parse_directory(path : str) -> str:
+        """Command line argument parser for directory path. Checks that the path exists and is a valid directory"""
+        # Check if it exists
+        if not os.path.exists(path):
+            msg = f'Invalid path "{path}" specified : Path does not exist\n'
+            raise argparse.ArgumentError(msg)
+        # Check if its a directory
+        if not os.path.isdir(path):
+            msg = f'Invalid path "{path}" specified : Path is not a directory\n'
+            raise argparse.ArgumentTypeError(msg)
+        return path
     
-    if 's3_outputs' in config:
-        s3_outputs = s3.S3(config['s3_outputs']['access_key'],
-                           config['s3_outputs']['secret_key'],
-                           config['s3_outputs']['server'],
-                           config['s3_outputs']['bucketname'])
-    elif 's3' in config:
-        s3_outputs = s3.S3(config['s3']['access_key'],
-                           config['s3']['secret_key'], 
-                           config['s3']['server'],
-                           config['s3']['bucketname'])
-    else:
-        raise Exception("No s3 output configuration found in config.yaml")
+    def parse_model(s : str) -> str:
+        # TODO Impelement a check for if a valid model has been provided.
+        return s
+    
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('-c','--config', 
+                        default=os.environ.get('DARPA_CMAAS_PIPELINE_CONFIG', 'default_pipeline_config.yaml'),
+                        help='')
+    parser.add_argument('-m','--model',
+                        type=parse_model,
+                        required=True,
+                        help='The model to use for processing, where is list of options???')
+    # Input Data
+    parser.add_argument('--data', 
+                        type=parse_directory,
+                        required=True,
+                        help='The raw map images to process. Is a directory')
+    parser.add_argument('--legends',
+                        type=parse_directory,
+                        default=None,
+                        help='Optional argument to provide precomputed legend json data. Is a directory')
+    parser.add_argument('--legend_layout',
+                        type=parse_directory,
+                        default=None,
+                        help='Optional argument to use uncharted layout segmentation for legend extraction. Is a directory')
+    parser.add_argument('--validation',
+                        type=parse_directory,
+                        default=None,
+                        help='Optional argument to provide true rasters to score output of model on. Is a directory')
+    # Output Data
+    parser.add_argument('--output',
+                        required=True,
+                        help='The directory to write the outputs of the pipeline to')
+    parser.add_argument('--feedback',
+                        default=None,
+                        help='Optional argument to turn on debugging outputs from the pipeline and write them to this directory')
+    return parser.parse_args()
 
-    # load maps and legends
-    maps = load_maps(s3_inputs, input_folder, map_names)
+def main():
+    # Start logger
+    utils.start_logger('Latest.log', logging.INFO)
 
-    # generate legends
-    # These import statements should probably be moved elsewhere
-    le = importlib.import_module('legend-extraction.src.extraction', package='legend_extraction')
-    le = importlib.import_module('legend-extraction.src.IO', package='legend_extraction')
-    le = importlib.import_module('legend-extraction', package='legend_extraction')
-    vec = importlib.import_module('vectorization.src.polygonize', package='vectorization') 
-    vec = importlib.import_module('vectorization', package='vectorization')
+    args = parse_command_line()
 
-    for map in maps.values():
-        logger.info(f"Generating legend for {map['filename']}")
-        legend_predictions = le.src.extraction.extractLegends(map['image'])
-        map['jsonfile'] = le.src.IO.generateJsonData(legend_predictions, img_dims=map['image'].shape, force_rectangle=True)
+    #loadconfig
+    # TODO
+    #if args.config is None:
+    #    exit(1)
 
-    # create array of maps and extract legends from maps
-    map_images = []
-    map_legends = []
-    for map in maps.values():
-        image = map['image']
-        map_images.append(image)
-        legends = {}
-        for legend in map['jsonfile']['shapes']:
-            # cut legend from map
-            label = legend['label']
-            points = legend['points']
-            legends[label] = image[int(points[0][1]):int(points[1][1]), int(points[0][0]):int(points[1][0])]
-        map_legends.append(legends)
+    # Log Run parameters
+    log.info('Running pipeline with following parameters:\n' +
+            f'\tModel : {args.model}\n' + 
+            f'\tData : {args.data}\n' +
+            f'\tLegends : {args.legends}\n' +
+            f'\tLegend_layout : {args.legend_layout}\n' +
+            f'\tValidation : {args.validation}\n' +
+            f'\tOutput : {args.output}\n' +
+            f'\tFeedback : {args.feedback}\n')
 
-    # run models
-    output_files = []
-    geopackage_files = [] # Kept these as seperate lists incase they need to go to different locations later
-    for model in config['models']:
-        logging.getLogger(model['name']).setLevel(logger.getEffectiveLevel())
-        # add folder to path
-        sys.path.insert(0, model['folder'])
-        # load model
-        logger.info(f"Loading model {model['name']}")
-        pymodel = importlib.import_module(model['module'])
-        # run model
-        logger.info(f"Running model {model['name']}")
-        start_time = time.time()
-        results = pymodel.inference(map_images, map_legends, model['checkpoint'], **model.get('kwargs', {}))
-        logger.info(f"Execution time for {model['name']}: {time.time() - start_time} seconds")
-        # save results
-        logger.info(f"Saving results for model {model['name']}")
-        start_time = time.time()
-        for idx, map_name in enumerate(map_names):
-            crs = maps[map_name]['crs']
-            transform = maps[map_name]['transform']
-            output_geopackage_path = os.path.join(output_folder, model['name'], f"{map_name}.gpkg")
-            for legend, image in results[idx].items():
-                geodf = vec.src.polygonize.polygonize(image, crs, transform, noise_threshold=10)
-                output_image_path = os.path.join(output_folder, model['name'], f"{map_name}_{legend}.tif")
-                os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
-                save_results(image, crs, transform, output_image_path)
-                vec.src.polygonize.exportVectorData(geodf, output_geopackage_path, layer=legend, filetype='geopackage')
-                output_files.append(output_image_path)
-            geopackage_files.append(output_geopackage_path)
-        logger.info(f"Saving time for {model['name']}: {time.time() - start_time} seconds")
+    # Create output directories if needed
+    if args.output is not None and not os.path.exists(args.output):
+        os.makedirs(args.output)
+    if args.feedback is not None and not os.path.exists(args.feedback):
+        os.makedirs(args.feedback)
+    
+    # Import local packages
+    try:
+        le = importlib.import_module('legend-extraction.src.extraction', package='legend_extraction')
+        le = importlib.import_module('legend-extraction.src.IO', package='legend_extraction')
+        le = importlib.import_module('legend-extraction', package='legend_extraction')
+        vec = importlib.import_module('vectorization.src.polygonize', package='vectorization') 
+        vec = importlib.import_module('vectorization', package='vectorization')
+        val = importlib.import_module('validation.src.raster_scoring', package='validation')
+        val = importlib.import_module('validation', package='validation')
+    except:
+        log.error('Cannot import submodule code\n' +
+                  'May need to do:\n' +
+                  'git submodule init' +
+                  'git submodule update')
+        exit(1)
+
+    # Load model
+    #log.info(f"Loading model {args.model}")
+    #pymodel = importlib.import_module(args.model)
+
+    maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
+    pbar = tqdm(maps)
+    log.info(f'Starting processing run of {len(maps)} maps')
+    for map_name in pbar:
+        log.info(f'Processing {map_name}')
+        pbar.set_description(f'Processing {map_name}')
+        pbar.refresh()
+
+        # Load img
+        img_path = os.path.join(args.data, map_name + '.tif')
+        map_img, map_crs, map_transform = io.loadGeoTiff(img_path)
+        if map_img is None:
+            continue
+
+        le_start_time = time.time()
+        # Check for existing legend
+        features = None
+        if args.legends:
+            legend_filepath = os.path.join(args.legends, map_name + '.json')
+            if os.path.exists(legend_filepath):
+                features = io.loadUSGSJson(legend_filepath, polyDataOnly=True)
         
-        # restore path
-        sys.path.pop(0)
-
-        # upload results
-        for file in output_files:
-            s3_outputs.upload(file, regex=False)
+        # If there was no pre-existing legend data generate it
+        if features is None:
+            # Check for legend region mask
+            legend_layout_path = os.path.join(args.legend_layout, map_name + '.json')
+            if os.path.exists(legend_layout_path):
+                legend_layout = io.loadUnchartedJson(legend_layout_path)
+            
+            # Extract Legends
+            if legend_layout is not None:
+                feature_data = le.src.extraction.extractLegends(map_img, legendcontour=legend_layout['legend_polygons']['bounds'])
+            else:
+                feature_data = le.src.extraction.extractLegends(map_img)
+            features = le.src.IO.generateJsonData(feature_data, img_dims=map_img.shape, force_rectangle=True)
+            
+            # Save legend data if feedback is on
+            legend_feedback_filepath = os.path.join(args.feedback, map_name, map_name + '.json')
+            if args.feedback is not None:
+                io.saveUSGSJson(legend_feedback_filepath, features)
+        log.info(f'Legend extraction execution time : {time.time() - le_start_time} secs')
         
-        for file in geopackage_files:
-            s3_outputs.upload(file, regex=False)
+        # Run Model
+        #start_time = time.time()
+        #results = pymodel.inference(map_img, map_legends, model['checkpoint'], **model.get('kwargs', {}))
+        #log.info(f"Execution time for {model['name']}: {time.time() - start_time} seconds")
 
+        # Save Results
+        #os.makedirs(os.path.join(args.output, map_name), exist_ok=True)
+        #output_geopackage_path = os.path.join(args.output, map_name + '.gpkg')
+        #for feature in results:
+        #    output_image_path = os.path.join(args.output, f'{map_name}_{feature['name']}.tif')
+        #    io.saveGeoTiff(feature['image'], map_crs, map_transform, output_image_path)
+        #    geodf = vec.src.polygonize.polygonize(feature['image'], map_crs, map_transform, noise_threshold=10)
+        #    io.saveGeopackage(geodf, output_geopackage_path, layer=feature['name'], filetype='geopackage')
+        
+    log.info('Done')
+
+    #if args.validation is not None:
+        #log.info('Performing validation')
+        #dst = args.output
+        #if args.feedback is not None:
+        #    dst = args.feedback
+        #for map in os.listdir(args.output):
+        #    score_df = val.src.gradeRasters(args.validation, dst, args.feedback)
+        #    score_df.to_csv(os.path.join(dst, map, '#' + map + '_results.csv'))
+        #    all_scores_df = pd.concat[all_scores_df, score_df]
+        #all_scores_df.to_csv(os.path.join(dst, '#' + args.data + '_results.csv'))
+
+#def gradeRasters(predictions, truths, output=None, underlay=None) -> pd.Dataframe
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.WARNING)
-    logger.setLevel(logging.DEBUG)
-
-    pipeline(['training/CA_Sage'])
+    main()
