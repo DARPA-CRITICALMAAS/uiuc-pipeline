@@ -35,3 +35,4 @@ geopandas
 # utils
 nvitop
 pipdeptree
+tqdm
