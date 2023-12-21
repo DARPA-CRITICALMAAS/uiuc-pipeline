@@ -14,11 +14,12 @@ def start_logger(filepath, debuglvl, writemode='a'):
 
     # Special handle for writing to 'latest' file
     if os.path.exists(filepath) and os.path.splitext(os.path.basename(filepath.lower()))[0] == 'latest':
-        # Rename previous latest log 
-        with open(filepath) as fh:
-            newfilename = '{}_{}.log'.format(*(fh.readline().split(' ')[0:2]))
-            newfilename = newfilename.replace('/','-').replace(':','-')            
-        os.rename(filepath, os.path.join(dirname, newfilename))
+        if not os.stat(filepath).st_size == 0: # Empty file
+            # Rename previous latest log
+            with open(filepath) as fh:
+                newfilename = '{}_{}.log'.format(*(fh.readline().split(' ')[0:2]))
+                newfilename = newfilename.replace('/','-').replace(':','-')            
+            os.rename(filepath, os.path.join(dirname, newfilename))
 
     # Formatter
     log_formatter = logging.Formatter('%(asctime)s %(levelname)s - %(message)s', datefmt='%d/%m/%Y %H:%M:%S')

@@ -4,6 +4,7 @@ import logging
 import argparse
 import importlib
 from tqdm import tqdm
+import multiprocessing
 
 import src.io as io
 import src.utils as utils
@@ -16,7 +17,7 @@ def parse_command_line():
         # Check if it exists
         if not os.path.exists(path):
             msg = f'Invalid path "{path}" specified : Path does not exist\n'
-            raise argparse.ArgumentError(msg)
+            raise argparse.ArgumentTypeError(msg)
         # Check if its a directory
         if not os.path.isdir(path):
             msg = f'Invalid path "{path}" specified : Path is not a directory\n'
@@ -25,13 +26,14 @@ def parse_command_line():
     
     def parse_model(s : str) -> str:
         # TODO Impelement a check for if a valid model has been provided.
+        # could just keep a list of strings that has to be manually updated when new models are added
         return s
     
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-c','--config', 
                         default=os.environ.get('DARPA_CMAAS_PIPELINE_CONFIG', 'default_pipeline_config.yaml'),
                         help='')
-    parser.add_argument('-m','--model',
+    parser.add_argument('--model',
                         type=parse_model,
                         required=True,
                         help='The model to use for processing, where is list of options???')
@@ -63,7 +65,7 @@ def parse_command_line():
 
 def main():
     # Start logger
-    utils.start_logger('Latest.log', logging.INFO)
+    utils.start_logger('logs/Latest.log', logging.INFO)
 
     args = parse_command_line()
 
@@ -80,7 +82,7 @@ def main():
             f'\tLegend_layout : {args.legend_layout}\n' +
             f'\tValidation : {args.validation}\n' +
             f'\tOutput : {args.output}\n' +
-            f'\tFeedback : {args.feedback}\n')
+            f'\tFeedback : {args.feedback}')
 
     # Create output directories if needed
     if args.output is not None and not os.path.exists(args.output):
@@ -95,43 +97,42 @@ def main():
         le = importlib.import_module('legend-extraction', package='legend_extraction')
         vec = importlib.import_module('vectorization.src.polygonize', package='vectorization') 
         vec = importlib.import_module('vectorization', package='vectorization')
-        val = importlib.import_module('validation.src.raster_scoring', package='validation')
-        val = importlib.import_module('validation', package='validation')
+        #val = importlib.import_module('validation.src.raster_scoring', package='validation')
+        #val = importlib.import_module('validation', package='validation')
     except:
-        log.error('Cannot import submodule code\n' +
+        log.exception('Cannot import submodule code\n' +
                   'May need to do:\n' +
-                  'git submodule init' +
+                  'git submodule init\n' +
                   'git submodule update')
         exit(1)
 
-    # Load model
-    #log.info(f"Loading model {args.model}")
-    #pymodel = importlib.import_module(args.model)
-
+    legend_dict = {}
     maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
     pbar = tqdm(maps)
-    log.info(f'Starting processing run of {len(maps)} maps')
+    log.info(f'Loading/Generating legends for {len(maps)} maps')
+    le_start_time = time.time()
+    p = multiprocessing.Pool()
     for map_name in pbar:
-        log.info(f'Processing {map_name}')
+        log.info(f'\tProcessing {map_name}')
         pbar.set_description(f'Processing {map_name}')
         pbar.refresh()
 
-        # Load img
-        img_path = os.path.join(args.data, map_name + '.tif')
-        map_img, map_crs, map_transform = io.loadGeoTiff(img_path)
-        if map_img is None:
-            continue
-
-        le_start_time = time.time()
         # Check for existing legend
         features = None
         if args.legends:
             legend_filepath = os.path.join(args.legends, map_name + '.json')
             if os.path.exists(legend_filepath):
                 features = io.loadUSGSJson(legend_filepath, polyDataOnly=True)
-        
+
         # If there was no pre-existing legend data generate it
         if features is None:
+            log.info(f'\tNo legend data found, generating instead')
+            # Load img
+            img_path = os.path.join(args.data, map_name + '.tif')
+            map_img, map_crs, map_transform = io.loadGeoTiff(img_path)
+            if map_img is None:
+                continue
+
             # Check for legend region mask
             legend_layout_path = os.path.join(args.legend_layout, map_name + '.json')
             if os.path.exists(legend_layout_path):
@@ -148,8 +149,30 @@ def main():
             legend_feedback_filepath = os.path.join(args.feedback, map_name, map_name + '.json')
             if args.feedback is not None:
                 io.saveUSGSJson(legend_feedback_filepath, features)
-        log.info(f'Legend extraction execution time : {time.time() - le_start_time} secs')
-        
+
+        legend_dict[map_name] = features
+    log.info(f'Legend extraction execution time : {time.time() - le_start_time} secs')
+
+    # Load model
+    #log.info(f"Loading model {args.model}")
+    #pymodel = importlib.import_module(args.model)
+
+    log.info('Exiting early for debugging')
+    return
+    maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
+    pbar = tqdm(maps)
+    log.info(f'Starting processing run of {len(maps)} maps')
+    for map_name in pbar:
+        log.info(f'Processing {map_name}')
+        pbar.set_description(f'Processing {map_name}')
+        pbar.refresh()
+
+        # Load img
+        img_path = os.path.join(args.data, map_name + '.tif')
+        map_img, map_crs, map_transform = io.loadGeoTiff(img_path)
+        if map_img is None:
+            continue
+
         # Run Model
         #start_time = time.time()
         #results = pymodel.inference(map_img, map_legends, model['checkpoint'], **model.get('kwargs', {}))
