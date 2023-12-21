@@ -32,35 +32,35 @@ def parse_command_line():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-c','--config', 
                         default=os.environ.get('DARPA_CMAAS_PIPELINE_CONFIG', 'default_pipeline_config.yaml'),
-                        help='')
+                        help='full path to configuration file')
     parser.add_argument('--model',
                         type=parse_model,
                         required=True,
-                        help='The model to use for processing, where is list of options???')
+                        help='Req: The model(s) to process input(s) with.')
     # Input Data
     parser.add_argument('--data', 
                         type=parse_directory,
                         required=True,
-                        help='The raw map images to process. Is a directory')
+                        help='Req: dir containing input images to process')
     parser.add_argument('--legends',
                         type=parse_directory,
                         default=None,
-                        help='Optional argument to provide precomputed legend json data. Is a directory')
+                        help='Optional dir with precomputing legend json data')
     parser.add_argument('--legend_layout',
                         type=parse_directory,
                         default=None,
-                        help='Optional argument to use uncharted layout segmentation for legend extraction. Is a directory')
+                        help='Optional dir with uncharged layout segmentation for legend extraction')
     parser.add_argument('--validation',
                         type=parse_directory,
                         default=None,
-                        help='Optional argument to provide true rasters to score output of model on. Is a directory')
+                        help='Optional dir containing true rasters for comparison')
     # Output Data
     parser.add_argument('--output',
                         required=True,
-                        help='The directory to write the outputs of the pipeline to')
+                        help='Req: directory to write the outputs of the pipeline to')
     parser.add_argument('--feedback',
                         default=None,
-                        help='Optional argument to turn on debugging outputs from the pipeline and write them to this directory')
+                        help='specifying "feedback" dir enables debugging and sends output to this directory') 
     return parser.parse_args()
 
 def main():
