@@ -135,9 +135,10 @@ def main():
                 continue
 
             # Check for legend region mask
-            legend_layout_path = os.path.join(args.legend_layout, map_name + '.json')
-            if os.path.exists(legend_layout_path):
-                legend_layout = io.loadUnchartedJson(legend_layout_path)
+            if args.legend_layout is not None:
+                legend_layout_path = os.path.join(args.legend_layout, map_name + '.json')
+                if os.path.exists(legend_layout_path):
+                    legend_layout = io.loadUnchartedJson(legend_layout_path)
             
             # Extract Legends
             if legend_layout is not None:
