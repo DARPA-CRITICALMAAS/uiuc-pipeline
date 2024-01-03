@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import logging
 import argparse
@@ -154,11 +155,16 @@ def main():
     log.info(f'Legend extraction execution time : {time.time() - le_start_time} secs')
 
     # Load model
-    #log.info(f"Loading model {args.model}")
+    log.info(f"Loading model {args.model}")
     #pymodel = importlib.import_module(args.model)
 
-    log.info('Exiting early for debugging')
-    return
+    # Tmp fix to run primordal-poistron
+    model_name = 'primordial-positron'
+    sys.path.insert(0, model_name)
+    pymodel = importlib.import_module('pipeline')
+    
+    #log.info('Exiting early for debugging')
+    #return
     maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
     pbar = tqdm(maps)
     log.info(f'Starting processing run of {len(maps)} maps')
@@ -172,22 +178,43 @@ def main():
         map_img, map_crs, map_transform = io.loadGeoTiff(img_path)
         if map_img is None:
             continue
+        if len(map_img.shape) == 3:
+            if map_img.shape[0] == 1:
+                map_img = map_img[0]
+            elif map_img.shape[0] == 3:
+                map_img = map_img.transpose(1, 2, 0)
 
+        # Cutout Legend
+        map_lgds = {}
+        for legend in legend_dict[map_name]['shapes']:
+            # cut legend from map
+            label = legend['label']
+            points = legend['points']
+            map_lgds[label] = map_img[int(points[0][1]):int(points[1][1]), int(points[0][0]):int(points[1][0])]
+
+        map_images = []
+        map_images.append(map_img)
+        map_legends = []
+        map_legends.append(map_lgds)
         # Run Model
-        #start_time = time.time()
-        #results = pymodel.inference(map_img, map_legends, model['checkpoint'], **model.get('kwargs', {}))
-        #log.info(f"Execution time for {model['name']}: {time.time() - start_time} seconds")
+        start_time = time.time()
+        results = pymodel.inference(map_images, map_legends, 'primordial-positron/inference_model/Unet-attentionUnet.h5', **{'featureType': 'Polygon'})
+        log.info(f"Execution time for {model_name}: {time.time() - start_time} seconds")
 
         # Save Results
-        #os.makedirs(os.path.join(args.output, map_name), exist_ok=True)
-        #output_geopackage_path = os.path.join(args.output, map_name + '.gpkg')
-        #for feature in results:
-        #    output_image_path = os.path.join(args.output, f'{map_name}_{feature['name']}.tif')
-        #    io.saveGeoTiff(feature['image'], map_crs, map_transform, output_image_path)
-        #    geodf = vec.src.polygonize.polygonize(feature['image'], map_crs, map_transform, noise_threshold=10)
-        #    io.saveGeopackage(geodf, output_geopackage_path, layer=feature['name'], filetype='geopackage')
+        os.makedirs(os.path.join(args.output, map_name), exist_ok=True)
+        output_geopackage_path = os.path.join(args.output, map_name + '.gpkg')
+
+        for feature, feature_mask in results[0].items():
+            output_image_path = os.path.join(args.output, '{}_{}.tif'.format(map_name, feature))
+            io.saveGeoTiff(feature_mask, map_crs, map_transform, output_image_path)
+            geodf = vec.src.polygonize.polygonize(feature_mask, map_crs, map_transform, noise_threshold=10)
+            io.saveGeopackage(geodf, output_geopackage_path, layer=feature, filetype='geopackage')
         
     log.info('Done')
+
+    # restore path
+    sys.path.pop(0)
 
     #if args.validation is not None:
         #log.info('Performing validation')

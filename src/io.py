@@ -14,7 +14,7 @@ def loadGeoTiff(filepath):
         return None
 
     with rasterio.open(filepath) as fh:
-        img = fh.read(1)
+        img = fh.read()
         crs = fh.crs
         transform = fh.transform
     if img is None:
