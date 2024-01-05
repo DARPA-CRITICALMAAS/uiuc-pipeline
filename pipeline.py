@@ -156,7 +156,7 @@ def main():
                 io.saveUSGSJson(legend_feedback_filepath, features)
 
         legend_dict[map_name] = features
-    log.info(f'Legend extraction execution time : {time.time() - le_start_time} secs')
+    log.info('Legend extraction execution time : {:.2f} secs'.format(time.time() - le_start_time))
 
     # Load model
     log.info(f"Loading model {args.model}")
@@ -199,13 +199,14 @@ def main():
         start_time = time.time()
         results = [infer.inference(model, map_img, legend_dict[map_name], batch_size=128)]
         #results = pymodel.inference(map_images, map_legends, 'primordial-positron/inference_model/Unet-attentionUnet.h5', **{'featureType': 'Polygon'})
-        log.info(f"\tExecution time for {model_name}: {time.time() - start_time} seconds")
+        log.info("\tExecution time for {}: {:.2f} seconds".format(model_name, time.time() - start_time))
 
         # Save Results
         os.makedirs(os.path.join(args.output, map_name), exist_ok=True)
         output_geopackage_path = os.path.join(args.output, map_name + '.gpkg')
-
+        log.info(f'Saving results for {map_name}')
         for feature, feature_mask in results[0].items():
+            log.info(f'\tSaving feature {feature}')
             output_image_path = os.path.join(args.output, '{}_{}.tif'.format(map_name, feature))
             io.saveGeoTiff(feature_mask, map_crs, map_transform, output_image_path)
             #geodf = vec.src.polygonize.polygonize(feature_mask, map_crs, map_transform, noise_threshold=10)

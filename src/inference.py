@@ -40,7 +40,6 @@ def inference(model, image, legends, batch_size=16, patch_size=256, patch_overla
         log.info('Inferencing legend: {}'.format(lgd['label']))
         lgd_stime = time()
         pts = lgd['points']
-        log.warn(f'points {pts}')
         legend_img = image[pts[0][1]:pts[1][1], pts[0][0]:pts[1][0]]
 
         # Resize the legend patch and normalize to [0,1]
@@ -74,13 +73,9 @@ def inference(model, image, legends, batch_size=16, patch_size=256, patch_overla
 
         lgd_time = time() - lgd_stime
         log.info("Execution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(lgd['label'], lgd_time, (rows*cols)/lgd_time))
-        
-        # Debug
-        log.warning('Breaking early for debugging : Inference.py line 79')
-        break
 
     map_time = time() - map_stime
-    log.info(f"Execution time for map: {map_time} seconds")
+    log.info('Execution time for map: {:.2f} seconds'.format(map_time))
     return predictions
     
 
@@ -98,5 +93,5 @@ def load_pipeline_model(checkpoint):
         # Load the standard Unet model with custom objects for dice coefficient loss
         model = load_model(checkpoint, custom_objects={'dice_coef_loss':dice_coef_loss, 
                                                             'dice_coef':dice_coef})
-    log.info(f'Model loaded in {time()-stime} seconds')
+    log.info('Model loaded in {:.2f} seconds'.format(time()-stime))
     return model
