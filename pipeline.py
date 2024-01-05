@@ -9,6 +9,7 @@ import multiprocessing
 
 import src.io as io
 import src.utils as utils
+import src.inference as infer
 
 log = logging.getLogger('DARPA_CMASS_PIPELINE')
 
@@ -135,13 +136,14 @@ def main():
                 continue
 
             # Check for legend region mask
-            if args.legend_layout is not None:
+            legend_layout = None
+            if args.legend_layout:
                 legend_layout_path = os.path.join(args.legend_layout, map_name + '.json')
                 if os.path.exists(legend_layout_path):
-                    legend_layout = io.loadUnchartedJson(legend_layout_path)
+                    legend_layout = io.loadUnchartedJson(legend_layout_path)  
             
             # Extract Legends
-            if legend_layout is not None:
+            if legend_layout:
                 feature_data = le.src.extraction.extractLegends(map_img, legendcontour=legend_layout['legend_polygons']['bounds'])
             else:
                 feature_data = le.src.extraction.extractLegends(map_img)
@@ -158,20 +160,21 @@ def main():
     # Load model
     log.info(f"Loading model {args.model}")
     #pymodel = importlib.import_module(args.model)
+    model = infer.load_pipeline_model('primordial-positron/inference_model/Unet-attentionUnet.h5')
 
     # Tmp fix to run primordal-poistron
     model_name = 'primordial-positron'
-    sys.path.insert(0, model_name)
-    pymodel = importlib.import_module('pipeline')
+    #sys.path.insert(0, model_name)
+    #pymodel = importlib.import_module('pipeline')
     
     #log.info('Exiting early for debugging')
     #return
     maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
     pbar = tqdm(maps)
-    log.info(f'Starting processing run of {len(maps)} maps')
+    log.info(f'Starting Inference run of {len(maps)} maps')
     for map_name in pbar:
-        log.info(f'Processing {map_name}')
-        pbar.set_description(f'Processing {map_name}')
+        log.info(f'\tPerforming inference on {map_name}')
+        pbar.set_description(f'Performing inference on {map_name}')
         pbar.refresh()
 
         # Load img
@@ -199,8 +202,9 @@ def main():
         map_legends.append(map_lgds)
         # Run Model
         start_time = time.time()
-        results = pymodel.inference(map_images, map_legends, 'primordial-positron/inference_model/Unet-attentionUnet.h5', **{'featureType': 'Polygon'})
-        log.info(f"Execution time for {model_name}: {time.time() - start_time} seconds")
+        results = [infer.inference(model, map_img, legend_dict[map_name], batch_size=128)]
+        #results = pymodel.inference(map_images, map_legends, 'primordial-positron/inference_model/Unet-attentionUnet.h5', **{'featureType': 'Polygon'})
+        log.info(f"\tExecution time for {model_name}: {time.time() - start_time} seconds")
 
         # Save Results
         os.makedirs(os.path.join(args.output, map_name), exist_ok=True)
@@ -209,13 +213,13 @@ def main():
         for feature, feature_mask in results[0].items():
             output_image_path = os.path.join(args.output, '{}_{}.tif'.format(map_name, feature))
             io.saveGeoTiff(feature_mask, map_crs, map_transform, output_image_path)
-            geodf = vec.src.polygonize.polygonize(feature_mask, map_crs, map_transform, noise_threshold=10)
-            io.saveGeopackage(geodf, output_geopackage_path, layer=feature, filetype='geopackage')
+            #geodf = vec.src.polygonize.polygonize(feature_mask, map_crs, map_transform, noise_threshold=10)
+            #io.saveGeopackage(geodf, output_geopackage_path, layer=feature, filetype='geopackage')
         
     log.info('Done')
 
     # restore path
-    sys.path.pop(0)
+    #sys.path.pop(0)
 
     #if args.validation is not None:
         #log.info('Performing validation')

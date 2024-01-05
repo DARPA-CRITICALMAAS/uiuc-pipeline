@@ -5,8 +5,17 @@ import logging
 import numpy as np
 import rasterio
 import geopandas as gpd
+import multiprocessing
 
 log = logging.getLogger('DARPA_CMASS_PIPELINE')
+
+def parallelLoadGeoTiffs(files, processes=1):
+    p=multiprocessing.Pool()
+    images = p.map(loadGeoTiff, files)
+    p.close()
+    p.join()
+
+    return images
 
 def loadGeoTiff(filepath):
     if not os.path.exists(filepath):
