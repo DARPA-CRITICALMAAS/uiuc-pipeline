@@ -111,7 +111,7 @@ def main():
     legend_dict = {}
     maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
     pbar = tqdm(maps)
-    log.info(f'Loading/Generating legends for {len(maps)} maps')
+    log.info(f'Loading legends for {len(maps)} maps')
     le_start_time = time.time()
     p = multiprocessing.Pool()
     for map_name in pbar:
@@ -152,6 +152,7 @@ def main():
             # Save legend data if feedback is on
             legend_feedback_filepath = os.path.join(args.feedback, map_name, map_name + '.json')
             if args.feedback is not None:
+                os.makedirs(os.path.join(args.feedback, map_name), exist_ok=True)
                 io.saveUSGSJson(legend_feedback_filepath, features)
 
         legend_dict[map_name] = features
@@ -167,8 +168,6 @@ def main():
     #sys.path.insert(0, model_name)
     #pymodel = importlib.import_module('pipeline')
     
-    #log.info('Exiting early for debugging')
-    #return
     maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
     pbar = tqdm(maps)
     log.info(f'Starting Inference run of {len(maps)} maps')
@@ -182,11 +181,6 @@ def main():
         map_img, map_crs, map_transform = io.loadGeoTiff(img_path)
         if map_img is None:
             continue
-        if len(map_img.shape) == 3:
-            if map_img.shape[0] == 1:
-                map_img = map_img[0]
-            elif map_img.shape[0] == 3:
-                map_img = map_img.transpose(1, 2, 0)
 
         # Cutout Legend
         map_lgds = {}
@@ -194,12 +188,13 @@ def main():
             # cut legend from map
             label = legend['label']
             points = legend['points']
-            map_lgds[label] = map_img[int(points[0][1]):int(points[1][1]), int(points[0][0]):int(points[1][0])]
+            map_lgds[label] = map_img[points[0][1]:points[1][1], points[0][0]:points[1][0]]
 
         map_images = []
         map_images.append(map_img)
         map_legends = []
         map_legends.append(map_lgds)
+
         # Run Model
         start_time = time.time()
         results = [infer.inference(model, map_img, legend_dict[map_name], batch_size=128)]

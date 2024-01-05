@@ -29,7 +29,7 @@ def loadGeoTiff(filepath):
     if img is None:
         log.warning('Could not load {}. Skipping file'.format(filepath))
         return None
-    return img, crs, transform
+    return img.transpose(1, 2, 0), crs, transform
 
 # Load a USGS formated json file (For truth jsons)
 def loadUSGSJson(filepath, polyDataOnly=False):

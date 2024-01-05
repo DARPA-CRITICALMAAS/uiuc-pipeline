@@ -40,7 +40,8 @@ def inference(model, image, legends, batch_size=16, patch_size=256, patch_overla
         log.info('Inferencing legend: {}'.format(lgd['label']))
         lgd_stime = time()
         pts = lgd['points']
-        legend_img = image[pts[0,1]:pts[1,1], pts[0,0]:pts[1,0]]
+        log.warn(f'points {pts}')
+        legend_img = image[pts[0][1]:pts[1][1], pts[0][0]:pts[1][0]]
 
         # Resize the legend patch and normalize to [0,1]
         norm_legend_img = cv2.resize(legend_img, (patch_size, patch_size)) / 255.0
@@ -72,8 +73,12 @@ def inference(model, image, legends, batch_size=16, patch_size=256, patch_overla
         gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 
         lgd_time = time() - lgd_stime
-        log.info("Execution time for {} legend: {} seconds. {} patches per second".format(lgd['label'], lgd_time, (rows*cols)/lgd_time))
-    
+        log.info("Execution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(lgd['label'], lgd_time, (rows*cols)/lgd_time))
+        
+        # Debug
+        log.warning('Breaking early for debugging : Inference.py line 79')
+        break
+
     map_time = time() - map_stime
     log.info(f"Execution time for map: {map_time} seconds")
     return predictions
