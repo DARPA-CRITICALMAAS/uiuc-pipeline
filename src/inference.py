@@ -11,9 +11,9 @@ import rasterio
 from keras.models import load_model
 from .unet_util import dice_coef, dice_coef_loss, multiplication, multiplication2
 
-log = logging.getLogger('DARPA_CMASS_PIPELINE')
+log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
-@nvtx.annotate(color="green", domain='DARPA_CMASS_PIPELINE')
+@nvtx.annotate(color="green", domain='DARPA_CMAAS_PIPELINE')
 def inference(model, image, legends, batch_size=16, patch_size=256, patch_overlap=0):
     map_stime = time()
     # Get the size of the map

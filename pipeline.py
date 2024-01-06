@@ -11,7 +11,7 @@ import src.io as io
 import src.utils as utils
 import src.inference as infer
 
-log = logging.getLogger('DARPA_CMASS_PIPELINE')
+LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 
 def parse_command_line():
     def parse_directory(path : str) -> str:
@@ -67,7 +67,7 @@ def parse_command_line():
 
 def main():
     # Start logger
-    utils.start_logger('logs/Latest.log', logging.INFO)
+    log = utils.start_logger(LOGGER_NAME, 'logs/Latest.log', logging.INFO, console=True)
 
     args = parse_command_line()
 
@@ -91,7 +91,7 @@ def main():
         os.makedirs(args.output)
     if args.feedback is not None and not os.path.exists(args.feedback):
         os.makedirs(args.feedback)
-    
+
     # Import local packages
     try:
         le = importlib.import_module('legend-extraction.src.extraction', package='legend_extraction')
@@ -109,11 +109,12 @@ def main():
         exit(1)
 
     legend_dict = {}
+    layout_dict = {}
     maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
     pbar = tqdm(maps)
     log.info(f'Loading legends for {len(maps)} maps')
     le_start_time = time.time()
-    p = multiprocessing.Pool()
+    #p = multiprocessing.Pool()
     for map_name in pbar:
         log.info(f'\tProcessing {map_name}')
         pbar.set_description(f'Processing {map_name}')
@@ -127,6 +128,7 @@ def main():
                 features = io.loadUSGSJson(legend_filepath, polyDataOnly=True)
 
         # If there was no pre-existing legend data generate it
+        legend_layout = None
         if features is None:
             log.info(f'\tNo legend data found, generating instead')
             # Load img
@@ -136,7 +138,6 @@ def main():
                 continue
 
             # Check for legend region mask
-            legend_layout = None
             if args.legend_layout:
                 legend_layout_path = os.path.join(args.legend_layout, map_name + '.json')
                 if os.path.exists(legend_layout_path):
@@ -156,6 +157,7 @@ def main():
                 io.saveUSGSJson(legend_feedback_filepath, features)
 
         legend_dict[map_name] = features
+        layout_dict[map_name] = legend_layout
     log.info('Legend extraction execution time : {:.2f} secs'.format(time.time() - le_start_time))
 
     # Load model
@@ -182,13 +184,15 @@ def main():
         if map_img is None:
             continue
 
-        # Cutout Legend
+        # Cutout Legends
         map_lgds = {}
         for legend in legend_dict[map_name]['shapes']:
             # cut legend from map
             label = legend['label']
             points = legend['points']
             map_lgds[label] = map_img[points[0][1]:points[1][1], points[0][0]:points[1][0]]
+
+        # Cutout Map portion of image
 
         map_images = []
         map_images.append(map_img)

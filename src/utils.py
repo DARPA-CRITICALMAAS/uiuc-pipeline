@@ -1,12 +1,14 @@
 import os
 import sys
-import cv2
 import logging
 
-log = logging.getLogger('DARPA_CMASS_PIPELINE')
-
 # Utility function for logging to file and sysout
-def start_logger(filepath, debuglvl, writemode='a'):
+def start_logger(logger_name, filepath, log_level, console=False, console_log_level=None, writemode='a'):
+    if console_log_level is None:
+        console_log_level = log_level
+    
+    log = logging.getLogger(logger_name)
+
     # Create directory if necessary
     dirname = os.path.dirname(filepath)
     if not os.path.exists(dirname) and dirname != '':
@@ -28,25 +30,16 @@ def start_logger(filepath, debuglvl, writemode='a'):
     # Setup File handler
     file_handler = logging.FileHandler(filepath, mode=writemode)
     file_handler.setFormatter(log_formatter)
-    file_handler.setLevel(debuglvl)
+    file_handler.setLevel(log_level)
+    log.addHandler(file_handler)
 
     # Setup Stream handler (i.e. console)
-    #stream_handler = logging.StreamHandler(stream=sys.stdout)
-    #stream_handler.setFormatter(log_formatter)
-    #stream_handler.setLevel(logging.INFO)
+    if console:
+        stream_handler = logging.StreamHandler(stream=sys.stdout)
+        stream_handler.setFormatter(log_formatter)
+        stream_handler.setLevel(console_log_level)
+        log.addHandler(stream_handler)
 
-    # Add Handlers to logger
-    log.addHandler(file_handler)
-    #log.addHandler(stream_handler)
-    log.setLevel(debuglvl)
+    log.setLevel(min(log_level,console_log_level))
 
-# Utility function for loading images
-def safeLoadImg(filepath):
-    if not os.path.exists(filepath):
-        log.error('Image file "{}" does not exist'.format(filepath))
-        return None
-    img = cv2.imread(filepath)
-    if img is None:
-        log.error('Could not load {} as image.'.format(filepath))
-        return None
-    return img
+    return log

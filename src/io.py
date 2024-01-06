@@ -7,7 +7,7 @@ import rasterio
 import geopandas as gpd
 import multiprocessing
 
-log = logging.getLogger('DARPA_CMASS_PIPELINE')
+log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
 def parallelLoadGeoTiffs(files, processes=1):
     p=multiprocessing.Pool()
