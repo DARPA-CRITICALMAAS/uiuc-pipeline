@@ -14,7 +14,7 @@ from .unet_util import dice_coef, dice_coef_loss, multiplication, multiplication
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
 @nvtx.annotate(color="green", domain='DARPA_CMAAS_PIPELINE')
-def inference(model, image, legends, batch_size=16, patch_size=256, patch_overlap=0):
+def inference(model, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
     map_stime = time()
     # Get the size of the map
     map_width, map_height, _ = image.shape
@@ -36,11 +36,9 @@ def inference(model, image, legends, batch_size=16, patch_size=256, patch_overla
     log.info(f"Map size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
     # Cutout Legend Img
     predictions = {}
-    for lgd in legends['shapes']:
-        log.info('Inferencing legend: {}'.format(lgd['label']))
+    for label, legend_img in legend_images.items():
+        log.info(f'Inferencing legend: {label}')
         lgd_stime = time()
-        pts = lgd['points']
-        legend_img = image[pts[0][1]:pts[1][1], pts[0][0]:pts[1][0]]
 
         # Resize the legend patch and normalize to [0,1]
         norm_legend_img = cv2.resize(legend_img, (patch_size, patch_size)) / 255.0
@@ -68,11 +66,11 @@ def inference(model, image, legends, batch_size=16, patch_size=256, patch_overla
 
         # Convert prediction result to a binary format using a threshold
         prediction_mask = (prediction_image > 0.5).astype(np.uint8)
-        predictions[lgd['label']] = prediction_mask
+        predictions[label] = prediction_mask
         gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 
         lgd_time = time() - lgd_stime
-        log.info("Execution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(lgd['label'], lgd_time, (rows*cols)/lgd_time))
+        log.info("Execution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
 
     map_time = time() - map_stime
     log.info('Execution time for map: {:.2f} seconds'.format(map_time))

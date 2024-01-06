@@ -1,11 +1,10 @@
 import os
-import sys
 import time
 import logging
 import argparse
 import importlib
+import numpy as np
 from tqdm import tqdm
-import multiprocessing
 
 import src.io as io
 import src.utils as utils
@@ -48,7 +47,7 @@ def parse_command_line():
                         type=parse_directory,
                         default=None,
                         help='Optional dir with precomputing legend json data')
-    parser.add_argument('--legend_layout',
+    parser.add_argument('--image_layout',
                         type=parse_directory,
                         default=None,
                         help='Optional dir with uncharged layout segmentation for legend extraction')
@@ -68,7 +67,7 @@ def parse_command_line():
 def main():
     # Start logger
     log = utils.start_logger(LOGGER_NAME, 'logs/Latest.log', logging.INFO, console=True)
-
+    
     args = parse_command_line()
 
     #loadconfig
@@ -81,7 +80,7 @@ def main():
             f'\tModel : {args.model}\n' + 
             f'\tData : {args.data}\n' +
             f'\tLegends : {args.legends}\n' +
-            f'\tLegend_layout : {args.legend_layout}\n' +
+            f'\tLegend_layout : {args.image_layout}\n' +
             f'\tValidation : {args.validation}\n' +
             f'\tOutput : {args.output}\n' +
             f'\tFeedback : {args.feedback}')
@@ -103,52 +102,56 @@ def main():
         #val = importlib.import_module('validation', package='validation')
     except:
         log.exception('Cannot import submodule code\n' +
-                  'May need to do:\n' +
-                  'git submodule init\n' +
-                  'git submodule update')
+                      'May need to do:\n' +
+                      'git submodule init\n' +
+                      'git submodule update')
         exit(1)
 
-    legend_dict = {}
-    layout_dict = {}
+    # Get list of maps from data directory
     maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
-    pbar = tqdm(maps)
+
+    # Load Map Information from jsons
     log.info(f'Loading legends for {len(maps)} maps')
     le_start_time = time.time()
-    #p = multiprocessing.Pool()
+    
+    legend_dict = {}
+    layout_dict = {}
+    pbar = tqdm(maps)
     for map_name in pbar:
         log.info(f'\tProcessing {map_name}')
         pbar.set_description(f'Processing {map_name}')
         pbar.refresh()
 
-        # Check for existing legend
+        image_layout = None
         features = None
+
+        # Check for existing layout file
+        if args.image_layout:
+            image_layout_path = os.path.join(args.image_layout, map_name + '.json')
+            if os.path.exists(image_layout_path):
+                image_layout = io.loadUnchartedJson(image_layout_path)
+        
+        # Check for existing legend
         if args.legends:
             legend_filepath = os.path.join(args.legends, map_name + '.json')
             if os.path.exists(legend_filepath):
                 features = io.loadUSGSJson(legend_filepath, polyDataOnly=True)
 
         # If there was no pre-existing legend data generate it
-        legend_layout = None
         if features is None:
             log.info(f'\tNo legend data found, generating instead')
             # Load img
             img_path = os.path.join(args.data, map_name + '.tif')
-            map_img, map_crs, map_transform = io.loadGeoTiff(img_path)
-            if map_img is None:
+            map_image, map_crs, map_transform = io.loadGeoTiff(img_path)
+            if map_image is None:
                 continue
 
-            # Check for legend region mask
-            if args.legend_layout:
-                legend_layout_path = os.path.join(args.legend_layout, map_name + '.json')
-                if os.path.exists(legend_layout_path):
-                    legend_layout = io.loadUnchartedJson(legend_layout_path)  
-            
             # Extract Legends
-            if legend_layout:
-                feature_data = le.src.extraction.extractLegends(map_img, legendcontour=legend_layout['legend_polygons']['bounds'])
+            if image_layout:
+                feature_data = le.src.extraction.extractLegends(map_image, legendcontour=image_layout['legend_polygons']['bounds'])
             else:
-                feature_data = le.src.extraction.extractLegends(map_img)
-            features = le.src.IO.generateJsonData(feature_data, img_dims=map_img.shape, force_rectangle=True)
+                feature_data = le.src.extraction.extractLegends(map_image)
+            features = le.src.IO.generateJsonData(feature_data, img_dims=map_image.shape, force_rectangle=True)
             
             # Save legend data if feedback is on
             legend_feedback_filepath = os.path.join(args.feedback, map_name, map_name + '.json')
@@ -157,20 +160,15 @@ def main():
                 io.saveUSGSJson(legend_feedback_filepath, features)
 
         legend_dict[map_name] = features
-        layout_dict[map_name] = legend_layout
+        layout_dict[map_name] = image_layout
     log.info('Legend extraction execution time : {:.2f} secs'.format(time.time() - le_start_time))
 
     # Load model
     log.info(f"Loading model {args.model}")
-    #pymodel = importlib.import_module(args.model)
+    model_name = 'primordial-positron'
     model = infer.load_pipeline_model('primordial-positron/inference_model/Unet-attentionUnet.h5')
 
-    # Tmp fix to run primordal-poistron
-    model_name = 'primordial-positron'
-    #sys.path.insert(0, model_name)
-    #pymodel = importlib.import_module('pipeline')
-    
-    maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
+    # Main Inference Loop
     pbar = tqdm(maps)
     log.info(f'Starting Inference run of {len(maps)} maps')
     for map_name in pbar:
@@ -180,36 +178,41 @@ def main():
 
         # Load img
         img_path = os.path.join(args.data, map_name + '.tif')
-        map_img, map_crs, map_transform = io.loadGeoTiff(img_path)
-        if map_img is None:
+        map_image, map_crs, map_transform = io.loadGeoTiff(img_path)
+        if map_image is None:
             continue
 
         # Cutout Legends
-        map_lgds = {}
-        for legend in legend_dict[map_name]['shapes']:
-            # cut legend from map
-            label = legend['label']
-            points = legend['points']
-            map_lgds[label] = map_img[points[0][1]:points[1][1], points[0][0]:points[1][0]]
+        legend_images = {}
+        for lgd in legend_dict[map_name]['shapes']:
+            pts = lgd['points']
+            legend_images[lgd['label']] = map_image[pts[0][1]:pts[1][1], pts[0][0]:pts[1][0]]
 
-        # Cutout Map portion of image
-
-        map_images = []
-        map_images.append(map_img)
-        map_legends = []
-        map_legends.append(map_lgds)
+        # Cutout map portion of image
+        if image_layout is not None:
+            inital_shape = map_image.shape
+            bounding_contour = image_layout['map']['bounds']
+            min_xy = [min(bounding_contour, key=lambda x: (x[0]))[0], min(bounding_contour, key=lambda x: (x[1]))[1]]
+            max_xy = [max(bounding_contour, key=lambda x: (x[0]))[0], max(bounding_contour, key=lambda x: (x[1]))[1]]
+            map_image = map_image[min_xy[0]:max_xy[0],min_xy[1]:max_xy[1]]
 
         # Run Model
         start_time = time.time()
-        results = [infer.inference(model, map_img, legend_dict[map_name], batch_size=128)]
-        #results = pymodel.inference(map_images, map_legends, 'primordial-positron/inference_model/Unet-attentionUnet.h5', **{'featureType': 'Polygon'})
+        results = infer.inference(model, map_image, legend_images, batch_size=128)
         log.info("\tExecution time for {}: {:.2f} seconds".format(model_name, time.time() - start_time))
+
+        # Resize cutout to full map
+        if image_layout is not None:
+            for feature, feature_mask in results.items():
+                feature_image = np.zeros((*inital_shape[:2],1), dtype=np.uint8)
+                feature_image[min_xy[0]:max_xy[0],min_xy[1]:max_xy[1]] = feature_mask
+                results[feature] = feature_image
 
         # Save Results
         os.makedirs(os.path.join(args.output, map_name), exist_ok=True)
         output_geopackage_path = os.path.join(args.output, map_name + '.gpkg')
         log.info(f'Saving results for {map_name}')
-        for feature, feature_mask in results[0].items():
+        for feature, feature_mask in results.items():
             log.info(f'\tSaving feature {feature}')
             output_image_path = os.path.join(args.output, '{}_{}.tif'.format(map_name, feature))
             io.saveGeoTiff(feature_mask, map_crs, map_transform, output_image_path)
@@ -217,9 +220,6 @@ def main():
             #io.saveGeopackage(geodf, output_geopackage_path, layer=feature, filetype='geopackage')
         
     log.info('Done')
-
-    # restore path
-    #sys.path.pop(0)
 
     #if args.validation is not None:
         #log.info('Performing validation')
@@ -236,3 +236,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
