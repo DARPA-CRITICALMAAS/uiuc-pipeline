@@ -57,6 +57,9 @@ def parse_command_line():
                         default=None,
                         help='Optional dir containing true rasters for comparison')
     # Output Data
+    parser.add_argument('--log',
+                        default='logs/Latest.log',
+                        help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
     parser.add_argument('--output',
                         required=True,
                         help='Req: directory to write the outputs of the pipeline to')
@@ -67,10 +70,11 @@ def parse_command_line():
 
 def main():
     main_start_time = time()
-    # Start logger
-    log = utils.start_logger(LOGGER_NAME, 'logs/Latest.log', log_level=logging.DEBUG, console_log_level=logging.WARNING)
 
     args = parse_command_line()
+
+    # Start logger
+    log = utils.start_logger(LOGGER_NAME, args.log, log_level=logging.DEBUG, console_log_level=logging.WARNING)
 
     # TODO
     #loadconfig
