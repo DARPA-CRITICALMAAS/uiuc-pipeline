@@ -82,7 +82,7 @@ def main():
     #    exit(1)
 
     # Log Run parameters
-    log.info('Running pipeline with following parameters:\n' +
+    log.info(f'Running pipeline on {os.uname()[1]} with following parameters:\n' +
             f'\tModel : {args.model}\n' + 
             f'\tData : {args.data}\n' +
             f'\tLegends : {args.legends}\n' +

@@ -16,8 +16,9 @@
 ### By default, stderr and stdout both go to the --output
 ### file, but you can optionally specify a --error file to
 ### keep them separate
-#SBATCH --output=logs/sbatch.o%j
-#SBATCH --error=logs/sbatch.e%j
+#SBATCH --output=logs/slurm/%j.o
+#SBATCH --error=logs/slurm/%j.e
+
+mkdir -p "logs/slurm"
 
 srun ./start_pipeline.sh
-    
