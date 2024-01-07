@@ -1,9 +1,10 @@
 import os
-import time
 import logging
 import argparse
 import importlib
 import numpy as np
+import pandas as pd
+from time import time
 from tqdm import tqdm
 
 import src.io as io
@@ -65,9 +66,9 @@ def parse_command_line():
     return parser.parse_args()
 
 def main():
-    main_start_time = time.time()
+    main_start_time = time()
     # Start logger
-    log = utils.start_logger(LOGGER_NAME, 'logs/Latest.log', log_level=logging.INFO, console_log_level=logging.WARNING)
+    log = utils.start_logger(LOGGER_NAME, 'logs/Latest.log', log_level=logging.DEBUG, console_log_level=logging.WARNING)
 
     args = parse_command_line()
 
@@ -99,8 +100,8 @@ def main():
         le = importlib.import_module('submodules.legend-extraction', package='legend_extraction')
         vec = importlib.import_module('submodules.vectorization.src.polygonize', package='vectorization') 
         vec = importlib.import_module('submodules.vectorization', package='vectorization')
-        #val = importlib.import_module('validation.src.raster_scoring', package='validation')
-        #val = importlib.import_module('validation', package='validation')
+        val = importlib.import_module('submodules.validation.src.grading', package='validation')
+        val = importlib.import_module('submodules.validation', package='validation')
     except:
         log.exception('Cannot import submodule code\n' +
                       'May need to do:\n' +
@@ -113,7 +114,7 @@ def main():
 
     # Load Map Information from jsons
     log.info(f'Loading legends for {len(maps)} maps')
-    le_start_time = time.time()
+    le_start_time = time()
     
     legend_dict = {}
     layout_dict = {}
@@ -162,7 +163,7 @@ def main():
 
         legend_dict[map_name] = features
         layout_dict[map_name] = image_layout
-    log.info('Legend extraction execution time : {:.2f} secs'.format(time.time() - le_start_time))
+    log.info('Legend extraction execution time : {:.2f} secs'.format(time() - le_start_time))
 
     # Load model
     log.info(f"Loading model {args.model}")
@@ -170,6 +171,7 @@ def main():
     model = infer.load_pipeline_model('submodules/models/primordial-positron/inference_model/Unet-attentionUnet.h5')
 
     # Main Inference Loop
+    validation_scores = None
     pbar = tqdm(maps)
     log.info(f'Starting Inference run of {len(maps)} maps')
     for map_name in pbar:
@@ -198,9 +200,9 @@ def main():
             map_image = map_image[min_xy[0]:max_xy[0],min_xy[1]:max_xy[1]]
 
         # Run Model
-        infer_start_time = time.time()
+        infer_start_time = time()
         results = infer.inference(model, map_image, legend_images, batch_size=256)
-        log.info("\tExecution time for {}: {:.2f} seconds".format(model_name, time.time() - infer_start_time))
+        log.info("\tExecution time for {}: {:.2f} seconds".format(model_name, time() - infer_start_time))
 
         # Resize cutout to full map
         if image_layout is not None:
@@ -214,26 +216,51 @@ def main():
         output_geopackage_path = os.path.join(args.output, map_name + '.gpkg')
         log.info(f'Saving results for {map_name}')
         for feature, feature_mask in results.items():
-            log.info(f'\tSaving feature {feature}')
+            log.debug(f'\tSaving feature {feature}')
             output_image_path = os.path.join(args.output, '{}_{}.tif'.format(map_name, feature))
             io.saveGeoTiff(feature_mask, map_crs, map_transform, output_image_path)
             #geodf = vec.src.polygonize.polygonize(feature_mask, map_crs, map_transform, noise_threshold=10)
             #io.saveGeopackage(geodf, output_geopackage_path, layer=feature, filetype='geopackage')
 
-    #if args.validation is not None:
-        #log.info('Performing validation')
-        #dst = args.output
-        #if args.feedback is not None:
-        #    dst = args.feedback
-        #for map in os.listdir(args.output):
-        #    score_df = val.src.gradeRasters(args.validation, dst, args.feedback)
-        #    score_df.to_csv(os.path.join(dst, map, '#' + map + '_results.csv'))
-        #    all_scores_df = pd.concat[all_scores_df, score_df]
-        #all_scores_df.to_csv(os.path.join(dst, '#' + args.data + '_results.csv'))
-
-    log.info(f'Pipeline completed succesfully in {time.time()-main_start_time} seconds')
-
-#def gradeRasters(predictions, truths, output=None, underlay=None) -> pd.Dataframe
+        if args.validation is not None:
+            log.info('Performing validation')
+            score_df = pd.DataFrame(columns = ['Map','Feature','F1 Score', 'IoU Score', 'Recall', 'Precision'])
+            for feature, feature_mask in results.items():
+                # Load true image
+                true_filepath = os.path.join(args.validation, map_name + '_' + feature + '.tif')
+                true_mask, _, _ = io.loadGeoTiff(true_filepath)
+                # Setup feedback image if needed
+                feedback_img = None
+                if args.feedback:
+                    feedback_img = np.zeros((*feature_mask.shape[:2],3), dtype=np.uint8)
+                # Grade image
+                f1_score, iou_score, recall, precision, feedback_img = val.src.grading.gradeRaster(feature_mask, true_mask, debug_image=feedback_img)
+                score_df.loc[len(score_df)] = {'Map' : map_name, 'Feature' : feature, 'F1 Score' : f1_score, 'IoU Score' : iou_score, 'Recall' : recall, 'Precision' : precision}
+                # Save feedback Image
+                if args.feedback:
+                    os.makedirs(os.path.join(args.feedback, map_name), exist_ok=True)
+                    val_feedback_filepath = os.path.join(args.feedback, map_name, 'val_' + map_name + '_' + feature + '.tif')
+                    io.saveGeoTiff(feedback_img, map_crs, map_transform, val_feedback_filepath)
+            # Save Map scores
+            log.info('{} average scores | F1 : {:.2f}, IOU Score : {:.2f}, Recall : {:.2f}, Precision : {:.2f}'.format(map_name, score_df['F1 Score'].mean(), score_df['IoU Score'].mean(), score_df['Recall'].mean(), score_df['Precision'].mean()))
+            if args.feedback:
+                csv_path = os.path.join(args.feedback, map_name, '#' + map_name +  '_scores.csv')
+                score_df.to_csv(csv_path)
+            # Concat all maps scores together to save at end
+            if validation_scores is None:
+                validation_scores = score_df
+            else:
+                validation_scores = pd.concat([validation_scores, score_df])          
+    
+    # Save csv of all scores at the end
+    if args.validation is not None:
+        if args.feedback:
+            csv_path = os.path.join(args.feedback, '#' + os.path.basename(args.data) +  '_scores.csv')
+        else:
+            csv_path = os.path.join(args.output, '#' + os.path.basename(args.data) + '_scores.csv')
+        validation_scores.to_csv(csv_path)
+    
+    log.info(f'Pipeline completed succesfully in {time()-main_start_time} seconds')
 
 if __name__ == '__main__':
     main()

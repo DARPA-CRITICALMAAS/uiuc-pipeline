@@ -20,15 +20,17 @@ def loadGeoTiff(filepath):
     if not os.path.exists(filepath):
         log.warning('Image file "{}" does not exist. Skipping file'.format(filepath))
         return None
-
     with rasterio.open(filepath) as fh:
-        img = fh.read()
+        image = fh.read()
         crs = fh.crs
         transform = fh.transform
-    if img is None:
+    if image is None:
         log.warning('Could not load {}. Skipping file'.format(filepath))
         return None
-    return img.transpose(1, 2, 0), crs, transform
+    if len(image.shape) == 3:
+        image = image.transpose(1,2,0)
+
+    return image, crs, transform
 
 # Load a USGS formated json file (For truth jsons)
 def loadUSGSJson(filepath, polyDataOnly=False):

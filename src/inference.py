@@ -1,12 +1,11 @@
+import gc
 import cv2
 import nvtx
 import logging
 import numpy as np
 import tensorflow as tf
-import gc
 from time import time
 from patchify import patchify, unpatchify
-import rasterio
 
 from keras.models import load_model
 from .unet_util import dice_coef, dice_coef_loss, multiplication, multiplication2

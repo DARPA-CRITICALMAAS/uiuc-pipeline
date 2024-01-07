@@ -2,30 +2,35 @@ import os
 import sys
 import logging
 
+# ANSI Escape Codes
+ANSI_CODES = {
+    'red' : "\x1b[31;20m",
+    'bold_red' : "\x1b[31;1m",
+    'green' : "\x1b[32;20m",
+    'yellow' : "\x1b[33;20m",
+    'bold_yellow' : "\x1b[33;1m",
+    'blue' : "\x1b[34;20m",
+    'magenta' : "\x1b[35;20m",
+    'cyan' : "\x1b[36;20m",
+    'white' : "\x1b[37;20m",
+    'grey' : "\x1b[38;20m",
+    'reset' : "\x1b[0m",
+}
+
 class ColoredConsoleFormatter(logging.Formatter):
-    # ANSI Escape Codes
-    red = "\x1b[31;20m"
-    bold_red = "\x1b[31;1m"
-    green = "\x1b[32;20m"
-    yellow = "\x1b[33;20m"
-    bold_yellow = '\x1b[33;1m'
-    blue = "\x1b[34;20m"
-    grey = "\x1b[38;20m"
-    reset = "\x1b[0m"
-    
     LEVEL_COLORS = {
-        logging.DEBUG: blue,
-        logging.INFO: green,
-        logging.WARNING: yellow,
-        logging.ERROR: red,
-        logging.CRITICAL: bold_red
+        logging.DEBUG: ANSI_CODES['cyan'],
+        logging.INFO: ANSI_CODES['green'],
+        logging.WARNING: ANSI_CODES['yellow'],
+        logging.ERROR: ANSI_CODES['red'],
+        logging.CRITICAL: ANSI_CODES['bold_red']
     }
 
     def format(self, record):
         color = self.LEVEL_COLORS.get(record.levelno)
-        record.levelname = color + record.levelname + self.reset
+        record.levelname = color + record.levelname + ANSI_CODES['reset']
         if record.levelno >= logging.WARNING:
-            record.msg = color + record.msg + self.reset
+            record.msg = color + record.msg + ANSI_CODES['reset']
         return logging.Formatter.format(self, record)
 
 # Utility function for logging to file and sysout
@@ -48,12 +53,12 @@ def start_logger(logger_name, filepath, log_level=logging.INFO, console_log_leve
 
     # Formatter
     lineformat = '%(asctime)s %(levelname)s - %(message)s'
+    #lineformat = '%(asctime)s %(levelname)s %(filename)s:(%(lineno)d) - %(message)s'
     file_formatter = logging.Formatter(lineformat, datefmt='%d/%m/%Y %H:%M:%S')
     if use_color:
         stream_formatter = ColoredConsoleFormatter(lineformat, datefmt='%d/%m/%Y %H:%M:%S')
     else:
         stream_formatter = file_formatter
-    #log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(filename)s:(%(lineno)d) - %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
 
     # Setup File handler
     file_handler = logging.FileHandler(filepath, mode=writemode)
