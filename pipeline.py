@@ -70,8 +70,8 @@ def main():
     
     args = parse_command_line()
 
-    #loadconfig
     # TODO
+    #loadconfig
     #if args.config is None:
     #    exit(1)
 
@@ -93,11 +93,11 @@ def main():
 
     # Import local packages
     try:
-        le = importlib.import_module('legend-extraction.src.extraction', package='legend_extraction')
-        le = importlib.import_module('legend-extraction.src.IO', package='legend_extraction')
-        le = importlib.import_module('legend-extraction', package='legend_extraction')
-        vec = importlib.import_module('vectorization.src.polygonize', package='vectorization') 
-        vec = importlib.import_module('vectorization', package='vectorization')
+        le = importlib.import_module('submodules.legend-extraction.src.extraction', package='legend_extraction')
+        le = importlib.import_module('submodules.legend-extraction.src.IO', package='legend_extraction')
+        le = importlib.import_module('submodules.legend-extraction', package='legend_extraction')
+        vec = importlib.import_module('submodules.vectorization.src.polygonize', package='vectorization') 
+        vec = importlib.import_module('submodules.vectorization', package='vectorization')
         #val = importlib.import_module('validation.src.raster_scoring', package='validation')
         #val = importlib.import_module('validation', package='validation')
     except:
@@ -166,7 +166,7 @@ def main():
     # Load model
     log.info(f"Loading model {args.model}")
     model_name = 'primordial-positron'
-    model = infer.load_pipeline_model('primordial-positron/inference_model/Unet-attentionUnet.h5')
+    model = infer.load_pipeline_model('submodules/models/primordial-positron/inference_model/Unet-attentionUnet.h5')
 
     # Main Inference Loop
     pbar = tqdm(maps)
