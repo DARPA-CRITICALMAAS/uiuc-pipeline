@@ -65,9 +65,10 @@ def parse_command_line():
     return parser.parse_args()
 
 def main():
+    main_start_time = time.time()
     # Start logger
-    log = utils.start_logger(LOGGER_NAME, 'logs/Latest.log', logging.INFO, console=True)
-    
+    log = utils.start_logger(LOGGER_NAME, 'logs/Latest.log', log_level=logging.INFO, console_log_level=logging.WARNING)
+
     args = parse_command_line()
 
     # TODO
@@ -197,9 +198,9 @@ def main():
             map_image = map_image[min_xy[0]:max_xy[0],min_xy[1]:max_xy[1]]
 
         # Run Model
-        start_time = time.time()
-        results = infer.inference(model, map_image, legend_images, batch_size=128)
-        log.info("\tExecution time for {}: {:.2f} seconds".format(model_name, time.time() - start_time))
+        infer_start_time = time.time()
+        results = infer.inference(model, map_image, legend_images, batch_size=256)
+        log.info("\tExecution time for {}: {:.2f} seconds".format(model_name, time.time() - infer_start_time))
 
         # Resize cutout to full map
         if image_layout is not None:
@@ -218,8 +219,6 @@ def main():
             io.saveGeoTiff(feature_mask, map_crs, map_transform, output_image_path)
             #geodf = vec.src.polygonize.polygonize(feature_mask, map_crs, map_transform, noise_threshold=10)
             #io.saveGeopackage(geodf, output_geopackage_path, layer=feature, filetype='geopackage')
-        
-    log.info('Done')
 
     #if args.validation is not None:
         #log.info('Performing validation')
@@ -231,6 +230,8 @@ def main():
         #    score_df.to_csv(os.path.join(dst, map, '#' + map + '_results.csv'))
         #    all_scores_df = pd.concat[all_scores_df, score_df]
         #all_scores_df.to_csv(os.path.join(dst, '#' + args.data + '_results.csv'))
+
+    log.info(f'Pipeline completed succesfully in {time.time()-main_start_time} seconds')
 
 #def gradeRasters(predictions, truths, output=None, underlay=None) -> pd.Dataframe
 
