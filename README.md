@@ -188,9 +188,9 @@ A. Insert a location to report bugs.
 * **--data** : required<br>
     Directory containing the data to perform inference on. The program will run inference on any `.tif` files in this directory.
 * **--legends** : optional<br>
-    Directory containing precomputed legend data USGS json format. If option is provided, the pipeline will use the precomputed legend data instead of generating its own. File names are expected to match their corresponding map file name. E.g. a file named `data/CA_Sage.tif` would have a `legends/CA_Sage.json` file. This can increase pipeline performance by skipping the legend extraction step.
+    Directory containing precomputed legend data in [USGS json format](#usgs-json-format). If option is provided, the pipeline will use the precomputed legend data instead of generating its own. File names are expected to match their corresponding map file name. E.g. a file named `data/CA_Sage.tif` would have a `legends/CA_Sage.json` file. This can increase pipeline performance by skipping the legend extraction step.
 * **--layouts** : optional<br>
-    Directory containing precomputed map layout data Uncharted json format. If option is provided, pipeline will use the layout to assist in legend extraction and inferencing. File names are expected to match their corresponding map file name. E.g. a file named `data/CA_Sage.tif` would have a `layouts/CA_Sage.json` file. This can significantly increase the performance of the pipeline.
+    Directory containing precomputed map layout data in [Uncharted json format](#uncharted-json-format). If option is provided, pipeline will use the layout to assist in legend extraction and inferencing. File names are expected to match their corresponding map file name. E.g. a file named `data/CA_Sage.tif` would have a `layouts/CA_Sage.json` file. This can significantly increase the performance of the pipeline.
 * **--validation** : optional<br>
     Directory containing the true raster segmentations. If option is provided, the pipeline will perform the validation step (Scoring the results of predictions) with this data. File names are expected to match their corresponding map file name and legend. E.g. if there is a legend for map CA_Sage called Mbv_poly, the validation directory would have a `validation/CA_Sage_Mbv_poly.tif` file.
 * **--output** : required<br>
@@ -241,3 +241,22 @@ Release Tags :<br>
 * [quantum-sugar_0.0.2](https://github.com/Dongjiahua/DARPA_torch/releases/download/quantum-sugar_0.0.2/checkpoint.ckpt)
 
 </details>
+
+### Appendix
+
+## USGS Json format 
+The current version of the USGS json format closely follows same format as the one used for the CMA competition, but now the shape_type field indicates whether there are 2 points (rectangle) or 4 points (quad) to describe the bounding box.
+
+![USGS json format diagram](img/USGSJson.png)
+
+Current as of Jan 2024
+
+## Uncharted Json format
+The Uncharted Json format is based on the TA1 schema (i.e., list of PageExtraction schema objects) and has three segmentation classes which each contain a bounding contour:
+  * map -- the main map region
+  * legend_polygons -- legend region for polygon features
+  * legend_points_lines -- legend region for point and/or line features
+
+![Uncharted json format diagram](img/UnchartedJson.png)
+
+Current as of Jan 2024
