@@ -16,8 +16,8 @@
 ### By default, stderr and stdout both go to the --output
 ### file, but you can optionally specify a --error file to
 ### keep them separate
-#SBATCH --output=logs/slurm/%j.o
-#SBATCH --error=logs/slurm/%j.e
+#SBATCH --output=logs/slurm/job_%j.o
+#SBATCH --error=logs/slurm/job_%j.e
 
 mkdir -p "logs/slurm"
 

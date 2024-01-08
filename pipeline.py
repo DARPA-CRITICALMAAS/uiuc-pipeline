@@ -48,7 +48,7 @@ def parse_command_line():
                         type=parse_directory,
                         default=None,
                         help='Optional dir with precomputing legend json data')
-    parser.add_argument('--image_layout',
+    parser.add_argument('--layout',
                         type=parse_directory,
                         default=None,
                         help='Optional dir with uncharged layout segmentation for legend extraction')
@@ -86,7 +86,7 @@ def main():
             f'\tModel : {args.model}\n' + 
             f'\tData : {args.data}\n' +
             f'\tLegends : {args.legends}\n' +
-            f'\tLegend_layout : {args.image_layout}\n' +
+            f'\tLegend_layout : {args.layout}\n' +
             f'\tValidation : {args.validation}\n' +
             f'\tOutput : {args.output}\n' +
             f'\tFeedback : {args.feedback}')
@@ -128,12 +128,12 @@ def main():
         pbar.set_description(f'Processing {map_name}')
         pbar.refresh()
 
-        image_layout = None
+        layout = None
         features = None
 
         # Check for existing layout file
-        if args.image_layout:
-            image_layout_path = os.path.join(args.image_layout, map_name + '.json')
+        if args.layout:
+            image_layout_path = os.path.join(args.layout, map_name + '.json')
             if os.path.exists(image_layout_path):
                 image_layout = io.loadUnchartedJson(image_layout_path)
         

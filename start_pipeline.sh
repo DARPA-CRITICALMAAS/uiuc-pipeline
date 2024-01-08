@@ -7,13 +7,12 @@ source venv/bin/activate
 
 ### Pipeline parameters
 python pipeline.py \
-    -c garbage.yaml \
     --model "primordal-positron" \
-    --log "logs/Job_$SLURM_JOB_ID.log"\
+    --log "logs/job_$SLURM_JOB_ID.log"\
     --data testdata/images/ \
     --output testdata/output/ \
     --legends ../data/validation/usgs_legends/ \
-    --image_layout ../data/validation/uncharted_masks/ \
+    --layout ../data/validation/uncharted_masks/ \
     --validation ../data/validation/usgs_segmentations/
 
 echo "Job terminating successfully"
