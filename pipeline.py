@@ -12,6 +12,8 @@ import src.utils as utils
 import src.inference as infer
 
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
+FILE_LOG_LEVEL = logging.INFO
+STREAM_LOG_LEVEL = logging.WARNING
 
 def parse_command_line():
     def parse_directory(path : str) -> str:
@@ -26,46 +28,73 @@ def parse_command_line():
             raise argparse.ArgumentTypeError(msg)
         return path
     
+    def parse_data(s: str) -> str:
+        # TODO Change the data method to accept a list of files or directories
+        # Inflating the filenames will take place in this step in the future.
+        return s
+    
     def parse_model(s : str) -> str:
         # TODO Impelement a check for if a valid model has been provided.
         # could just keep a list of strings that has to be manually updated when new models are added
         return s
     
+    def parse_gpu(s : str) -> str:
+        # TODO Implement check for if the selected gpu is available / a real gpu number
+        return s
+    
+    def parse_url(s : str) -> str:
+        # TODO Implement a check for if a valid url has been given to ampq?
+        # If you don't want this then just remove the type flag.
+        return s
+    
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-c','--config', 
                         default=os.environ.get('DARPA_CMAAS_PIPELINE_CONFIG', 'default_pipeline_config.yaml'),
-                        help='full path to configuration file')
+                        help='The config file to use for the pipeline. Not implemented yet')
     parser.add_argument('--model',
                         type=parse_model,
                         required=True,
-                        help='Req: The model(s) to process input(s) with.')
+                        help='Req: The release-tag of the model checkpoint that will be used to perform inference. Available release-tags are in the README')
+    #parser.add_argument('--gpu',
+    #                    type=parse_gpu,
+    #                    help='The number of the gpu to use, NOTE this is NOT the number of gpus that will be used')
+    
     # Input Data
-    parser.add_argument('--data', 
+    data_source = parser.add_mutually_exclusive_group(required=True)
+    data_source.add_argument('--amqp',
+                        type=parse_url,
+                        # Someone else can fill out the help for this better when it gets implemented
+                        help='Url to use to connect to a amqp data stream. Mutually exclusive with --data. ### Not Implemented ###')
+    data_source.add_argument('--data', 
                         type=parse_directory,
-                        required=True,
-                        help='Req: dir containing input images to process')
+                        help='Directory containing the data to perform inference on. The program will run inference on any .tif files in this directory. Mutually exclusive with --amqp')
     parser.add_argument('--legends',
                         type=parse_directory,
                         default=None,
-                        help='Optional dir with precomputing legend json data')
+                        help='Optional directory containing precomputed legend data in USGS json format. If option is provided, the pipeline will use the precomputed legend data instead of generating its own.')
     parser.add_argument('--layout',
                         type=parse_directory,
                         default=None,
-                        help='Optional dir with uncharged layout segmentation for legend extraction')
+                        help='Optional directory containing precomputed map layout data in Uncharted json format. If option is provided, pipeline will use the layout to assist in legend extraction and inferencing.')
     parser.add_argument('--validation',
                         type=parse_directory,
                         default=None,
-                        help='Optional dir containing true rasters for comparison')
+                        help='Optional Directory containing the true raster segmentations. If option is provided, the pipeline will perform the validation step (Scoring the results of predictions) with this data.')
     # Output Data
     parser.add_argument('--log',
                         default='logs/Latest.log',
                         help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
     parser.add_argument('--output',
                         required=True,
-                        help='Req: directory to write the outputs of the pipeline to')
+                        help='Directory to write the outputs of inference to')
     parser.add_argument('--feedback',
                         default=None,
-                        help='specifying "feedback" dir enables debugging and sends output to this directory') 
+                        help='Directory to save optional feedback on the pipeline.') 
+    # Flags
+    parser.add_argument('-v', '--verbose',
+                        action='store_true',
+                        help='Flag to change the logging level from INFO to DEBUG')
+    
     return parser.parse_args()
 
 def main():
@@ -74,7 +103,11 @@ def main():
     args = parse_command_line()
 
     # Start logger
-    log = utils.start_logger(LOGGER_NAME, args.log, log_level=logging.DEBUG, console_log_level=logging.INFO)
+    if args.verbose:
+        global FILE_LOG_LEVEL, STREAM_LOG_LEVEL
+        FILE_LOG_LEVEL = logging.DEBUG
+        STREAM_LOG_LEVEL = logging.INFO
+    log = utils.start_logger(LOGGER_NAME, args.log, log_level=FILE_LOG_LEVEL, console_log_level=STREAM_LOG_LEVEL)
 
     # TODO
     #loadconfig
@@ -82,9 +115,15 @@ def main():
     #    exit(1)
 
     # Log Run parameters
-    log.info(f'Running pipeline on {os.uname()[1]} with following parameters:\n' +
+    if not args.data and args.amqp:
+        log_data_mode = 'amqp'
+        log_data_source = f'\tData : {args.amqp}\n'
+    else:
+        log_data_mode = 'local'
+        log_data_source = f'\tData : {args.data}\n'
+    log.info(f'Running pipeline on {os.uname()[1]} in {log_data_mode} mode with following parameters:\n' +
             f'\tModel : {args.model}\n' + 
-            f'\tData : {args.data}\n' +
+            log_data_source +
             f'\tLegends : {args.legends}\n' +
             f'\tLayout : {args.layout}\n' +
             f'\tValidation : {args.validation}\n' +
