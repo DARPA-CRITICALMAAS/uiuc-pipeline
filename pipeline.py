@@ -74,7 +74,7 @@ def main():
     args = parse_command_line()
 
     # Start logger
-    log = utils.start_logger(LOGGER_NAME, args.log, log_level=logging.INFO, console_log_level=logging.WARNING)
+    log = utils.start_logger(LOGGER_NAME, args.log, log_level=logging.DEBUG, console_log_level=logging.INFO)
 
     # TODO
     #loadconfig
@@ -193,8 +193,7 @@ def main():
         legend_images = {}
         for lgd in legend_dict[map_name]['shapes']:
             min_pt, max_pt = utils.boundingBox(lgd['points']) # Need this as points order can be reverse or could have quad
-            legend_images[lgd['label']] = map_image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
-
+            legend_images[lgd['label']] = map_image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0], :]
         # Cutout map portion of image
         if image_layout is not None and 'map' in image_layout:
             inital_shape = map_image.shape
@@ -234,6 +233,7 @@ def main():
                 true_filepath = os.path.join(args.validation, map_name + '_' + feature + '.tif')
                 true_mask = io.loadGeoTiff(true_filepath)
                 if true_mask is None:
+                    score_df[len(score_df)] = {'Map' : map_name, 'Feature' : feature, 'F1 Score' : np.nan, 'IoU Score' : np.nan, 'Recall' : np.nan, 'Precision' : np.nan}
                     continue
                 else:
                     true_mask, _, _ = true_mask

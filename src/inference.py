@@ -16,7 +16,11 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 def inference(model, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
     map_stime = time()
     # Get the size of the map
-    map_width, map_height, _ = image.shape
+    map_width, map_height, map_channels = image.shape
+
+    # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
+    if map_channels == 1: # This is tmp fix!
+        image = np.concatenate([image,image,image], axis=2)
 
     # Generate patches
     # Pad image so we get a size that can be evenly divided into patches.
@@ -33,7 +37,6 @@ def inference(model, image, legend_images, batch_size=16, patch_size=256, patch_
     norm_patches = tf.cast(norm_patches, dtype=tf.float32) 
     
     log.info(f"Map size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
-    # Cutout Legend Img
     predictions = {}
     for label, legend_img in legend_images.items():
         log.info(f'Inferencing legend: {label}')
@@ -41,6 +44,10 @@ def inference(model, image, legend_images, batch_size=16, patch_size=256, patch_
 
         # Resize the legend patch and normalize to [0,1]
         norm_legend_img = cv2.resize(legend_img, (patch_size, patch_size)) / 255.0
+
+        # Reshape maps with 1 channel legends (greyscale) to 3 channels for inference
+        if map_channels == 1: # This is tmp fix!
+            norm_legend_img = np.stack([norm_legend_img,norm_legend_img,norm_legend_img], axis=2)
 
         # Create legend array to merge with patches
         norm_legend_patches = np.array([norm_legend_img for i in range(rows*cols)])
@@ -59,7 +66,8 @@ def inference(model, image, legend_images, batch_size=16, patch_size=256, patch_
                 prediction_patches = tf.concat(axis=0, values=[prediction_patches, prediction])
 
         # Merge patches back into single image and remove padding
-        prediction_patches = prediction_patches.numpy().reshape([rows, cols, 1, patch_size, patch_size, 1])
+        prediction_patches = np.array(prediction_patches) # I have no idea why but sometimes model predict outputs a np array and sometimes a tensor array???
+        prediction_patches = prediction_patches.reshape([rows, cols, 1, patch_size, patch_size, 1])
         prediction_image = unpatchify(prediction_patches, [image.shape[0], image.shape[1], 1])
         prediction_image = prediction_image[:map_width,:map_height,:]
 
@@ -70,7 +78,7 @@ def inference(model, image, legend_images, batch_size=16, patch_size=256, patch_
 
         lgd_time = time() - lgd_stime
         log.info("Execution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
-
+        
     map_time = time() - map_stime
     log.info('Execution time for map: {:.2f} seconds'.format(map_time))
     return predictions
