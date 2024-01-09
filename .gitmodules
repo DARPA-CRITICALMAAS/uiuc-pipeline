@@ -1,15 +1,18 @@
 [submodule "quantum-sugar"]
-	path = quantum-sugar
+	path = submodules/models/quantum-sugar
 	url = https://github.com/Dongjiahua/DARPA_torch
 [submodule "primordial-positron"]
-	path = primordial-positron
+	path = submodules/models/primordial-positron
 	url = https://git.ncsa.illinois.edu/nj7/darpa_proj
 [submodule "golden-muscat"]
-	path = golden-muscat
+	path = submodules/models/golden-muscat
 	url = https://github.com/xiyuez2/Darpa_Unet
 [submodule "legend-extraction"]
-	path = legend-extraction
+	path = submodules/legend-extraction
 	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-legend-extraction.git
 [submodule "vectorization"]
-	path = vectorization
+	path = submodules/vectorization
 	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-vectorization.git
+[submodule "ta1-validation"]
+	path = submodules/validation
+	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-validation.git
