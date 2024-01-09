@@ -76,7 +76,7 @@ def inference(model, image, legend_images, batch_size=16, patch_size=256, patch_
     return predictions
     
 
-def load_pipeline_model(checkpoint):
+def load_primordial_positron_model(checkpoint):
     stime = time()
     if "attention" in checkpoint:
         # Load the attention Unet model with custom objects for attention mechanisms

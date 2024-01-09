@@ -74,7 +74,7 @@ def main():
     args = parse_command_line()
 
     # Start logger
-    log = utils.start_logger(LOGGER_NAME, args.log, log_level=logging.DEBUG, console_log_level=logging.WARNING)
+    log = utils.start_logger(LOGGER_NAME, args.log, log_level=logging.INFO, console_log_level=logging.WARNING)
 
     # TODO
     #loadconfig
@@ -86,7 +86,7 @@ def main():
             f'\tModel : {args.model}\n' + 
             f'\tData : {args.data}\n' +
             f'\tLegends : {args.legends}\n' +
-            f'\tLegend_layout : {args.layout}\n' +
+            f'\tLayout : {args.layout}\n' +
             f'\tValidation : {args.validation}\n' +
             f'\tOutput : {args.output}\n' +
             f'\tFeedback : {args.feedback}')
@@ -172,7 +172,7 @@ def main():
     # Load model
     log.info(f"Loading model {args.model}")
     model_name = 'primordial-positron'
-    model = infer.load_pipeline_model('submodules/models/primordial-positron/inference_model/Unet-attentionUnet.h5')
+    model = infer.load_primordial_positron_model('submodules/models/primordial-positron/inference_model/Unet-attentionUnet.h5')
 
     # Main Inference Loop
     validation_scores = None
@@ -192,16 +192,15 @@ def main():
         # Cutout Legends
         legend_images = {}
         for lgd in legend_dict[map_name]['shapes']:
-            pts = lgd['points']
-            legend_images[lgd['label']] = map_image[pts[0][1]:pts[1][1], pts[0][0]:pts[1][0]]
+            min_pt, max_pt = utils.boundingBox(lgd['points']) # Need this as points order can be reverse or could have quad
+            legend_images[lgd['label']] = map_image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
 
         # Cutout map portion of image
-        if image_layout is not None:
+        if image_layout is not None and 'map' in image_layout:
             inital_shape = map_image.shape
-            bounding_contour = image_layout['map']['bounds']
-            min_xy = [min(bounding_contour, key=lambda x: (x[0]))[0], min(bounding_contour, key=lambda x: (x[1]))[1]]
-            max_xy = [max(bounding_contour, key=lambda x: (x[0]))[0], max(bounding_contour, key=lambda x: (x[1]))[1]]
-            map_image = map_image[min_xy[0]:max_xy[0],min_xy[1]:max_xy[1]]
+            map_bounding_contour = image_layout['map']['bounds']
+            min_pt, max_pt = utils.boundingBox(map_bounding_contour)
+            map_image = map_image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
 
         # Run Model
         infer_start_time = time()
@@ -212,7 +211,8 @@ def main():
         if image_layout is not None:
             for feature, feature_mask in results.items():
                 feature_image = np.zeros((*inital_shape[:2],1), dtype=np.uint8)
-                feature_image[min_xy[0]:max_xy[0],min_xy[1]:max_xy[1]] = feature_mask
+                min_pt, max_pt = utils.boundingBox(map_bounding_contour)
+                feature_image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]] = feature_mask
                 results[feature] = feature_image
 
         # Save Results
@@ -232,7 +232,11 @@ def main():
             for feature, feature_mask in results.items():
                 # Load true image
                 true_filepath = os.path.join(args.validation, map_name + '_' + feature + '.tif')
-                true_mask, _, _ = io.loadGeoTiff(true_filepath)
+                true_mask = io.loadGeoTiff(true_filepath)
+                if true_mask is None:
+                    continue
+                else:
+                    true_mask, _, _ = true_mask
                 # Setup feedback image if needed
                 feedback_img = None
                 if args.feedback:
@@ -248,6 +252,7 @@ def main():
             # Save Map scores
             log.info('{} average scores | F1 : {:.2f}, IOU Score : {:.2f}, Recall : {:.2f}, Precision : {:.2f}'.format(map_name, score_df['F1 Score'].mean(), score_df['IoU Score'].mean(), score_df['Recall'].mean(), score_df['Precision'].mean()))
             if args.feedback:
+                os.makedirs(os.path.join(args.feedback, map_name), exist_ok=True)
                 csv_path = os.path.join(args.feedback, map_name, '#' + map_name +  '_scores.csv')
                 score_df.to_csv(csv_path)
             # Concat all maps scores together to save at end

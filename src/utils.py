@@ -76,3 +76,8 @@ def start_logger(logger_name, filepath, log_level=logging.INFO, console_log_leve
     log.setLevel(min(log_level,console_log_level))
 
     return log
+
+def boundingBox(array):
+    min_xy = [min(array, key=lambda x: (x[0]))[0], min(array, key=lambda x: (x[1]))[1]]
+    max_xy = [max(array, key=lambda x: (x[0]))[0], max(array, key=lambda x: (x[1]))[1]]
+    return [min_xy, max_xy]
