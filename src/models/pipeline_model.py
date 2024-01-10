@@ -37,7 +37,7 @@ class pipeline_tensorflow_model(pipeline_model):
 
     #@nvtx.annotate(color="green", domain='DARPA_CMAAS_PIPELINE')
     def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
-        map_stime = time()
+        
         # Get the size of the map
         map_width, map_height, map_channels = image.shape
 
@@ -103,7 +103,5 @@ class pipeline_tensorflow_model(pipeline_model):
             lgd_time = time() - lgd_stime
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
             
-        map_time = time() - map_stime
-        log.debug('\tExecution time for map: {:.2f} seconds'.format(map_time))
         return predictions
 
