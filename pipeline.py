@@ -9,11 +9,17 @@ from tqdm import tqdm
 
 import src.io as io
 import src.utils as utils
-import src.inference as infer
+from src.models.primordial_positron_model import primordial_positron_model
+from src.models.customer_backpack_model import customer_backpack_model
 
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.INFO
 STREAM_LOG_LEVEL = logging.WARNING
+
+AVAILABLE_MODELS = {
+    'primordial_positron' : primordial_positron_model,
+    'customer_backpack' : customer_backpack_model
+}
 
 def parse_command_line():
     def parse_directory(path : str) -> str:
@@ -33,10 +39,14 @@ def parse_command_line():
         # Inflating the filenames will take place in this step in the future.
         return s
     
-    def parse_model(s : str) -> str:
-        # TODO Impelement a check for if a valid model has been provided.
-        # could just keep a list of strings that has to be manually updated when new models are added
-        return s
+    def parse_model(model_name : str) -> str:
+        # Check if model is valid
+        if model_name not in AVAILABLE_MODELS:
+            msg = f'Invalid model "{model_name}" specified.\nAvailable Models are :'
+            for m in AVAILABLE_MODELS:
+                msg += '\n\t* {}'.format(m)
+            raise argparse.ArgumentTypeError(msg)
+        return model_name
     
     def parse_gpu(s : str) -> str:
         # TODO Implement check for if the selected gpu is available / a real gpu number
@@ -50,13 +60,12 @@ def parse_command_line():
     parser = argparse.ArgumentParser(description='', add_help=False)
     # Required Arguments
     required_args = parser.add_argument_group('required arguments', 'These are the arguments the pipeline requires to run, --amqp and --data are used to specify what data source to use and are mutually exclusive.')
-    data_source_group = required_args.add_argument_group('data source', '')
-    data_source_me = required_args.add_mutually_exclusive_group(required=True)
-    data_source_me.add_argument('--amqp',
+    data_source = required_args.add_mutually_exclusive_group(required=True)
+    data_source.add_argument('--amqp',
                         type=parse_url,
                         # Someone else can fill out the help for this better when it gets implemented
                         help='Url to use to connect to a amqp data stream. Mutually exclusive with --data. ### Not Implemented Yet ###')
-    data_source_me.add_argument('--data', 
+    data_source.add_argument('--data', 
                         type=parse_directory,
                         help='Directory containing the data to perform inference on. The program will run inference on any .tif files in this directory. Mutually exclusive with --amqp')
     required_args.add_argument('--model',
@@ -217,9 +226,10 @@ def main():
 
     # Load model
     log.info(f"Loading model {args.model}")
-    model_name = 'primordial-positron'
-    model = infer.load_primordial_positron_model('submodules/models/primordial-positron/inference_model/Unet-attentionUnet.h5')
-
+    model_stime=time()
+    model = AVAILABLE_MODELS[args.model]()
+    model.load_model()
+    log.info('Model loaded in {:.2f} seconds'.format(time()-model_stime))
     # Main Inference Loop
     validation_scores = None
     pbar = tqdm(maps)
@@ -249,8 +259,8 @@ def main():
 
         # Run Model
         infer_start_time = time()
-        results = infer.inference(model, map_image, legend_images, batch_size=256)
-        log.info("\tExecution time for {}: {:.2f} seconds".format(model_name, time() - infer_start_time))
+        results = model.inference(map_image, legend_images, batch_size=256)
+        log.info("Execution time for {}: {:.2f} seconds".format(model.name, time() - infer_start_time))
 
         # Resize cutout to full map
         if image_layout is not None:
@@ -275,6 +285,7 @@ def main():
             log.info('Performing validation')
             score_df = pd.DataFrame(columns = ['Map','Feature','F1 Score', 'IoU Score', 'Recall', 'Precision'])
             for feature, feature_mask in results.items():
+                log.debug(f'\tValidating feature {feature}')
                 # Load true image
                 true_filepath = os.path.join(args.validation, map_name + '_' + feature + '.tif')
                 true_mask = io.loadGeoTiff(true_filepath)
