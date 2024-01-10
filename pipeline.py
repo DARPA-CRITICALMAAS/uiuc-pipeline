@@ -56,6 +56,11 @@ def parse_command_line():
         # TODO Implement a check for if a valid url has been given to ampq?
         # If you don't want this then just remove the type flag.
         return s
+
+    available_models_msg ='Available Models are : ['
+    for m in AVAILABLE_MODELS:
+        available_models_msg += '{}, '.format(m)
+    available_models_msg = available_models_msg[:-2] + ']'
     
     parser = argparse.ArgumentParser(description='', add_help=False)
     # Required Arguments
@@ -67,11 +72,11 @@ def parse_command_line():
                         help='Url to use to connect to a amqp data stream. Mutually exclusive with --data. ### Not Implemented Yet ###')
     data_source.add_argument('--data', 
                         type=parse_directory,
-                        help='Directory containing the data to perform inference on. The program will run inference on any .tif files in this directory. Mutually exclusive with --amqp')
+                        help='Directory containing the data to perform inference on. The program will run inference on any .tif files in this directory. Mutually exclusive with --amqp')            
     required_args.add_argument('--model',
                         type=parse_model,
                         required=True,
-                        help='The release-tag of the model checkpoint that will be used to perform inference. Available release-tags are in the README')
+                        help=f'The release-tag of the model checkpoint that will be used to perform inference. {available_models_msg}')
     required_args.add_argument('--output',
                         required=True,
                         help='Directory to write the outputs of inference to')
