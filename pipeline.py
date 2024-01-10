@@ -47,53 +47,60 @@ def parse_command_line():
         # If you don't want this then just remove the type flag.
         return s
     
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-c','--config', 
-                        default=os.environ.get('DARPA_CMAAS_PIPELINE_CONFIG', 'default_pipeline_config.yaml'),
-                        help='The config file to use for the pipeline. Not implemented yet')
-    parser.add_argument('--model',
-                        type=parse_model,
-                        required=True,
-                        help='Req: The release-tag of the model checkpoint that will be used to perform inference. Available release-tags are in the README')
-    #parser.add_argument('--gpu',
-    #                    type=parse_gpu,
-    #                    help='The number of the gpu to use, NOTE this is NOT the number of gpus that will be used')
-    
-    # Input Data
-    data_source = parser.add_mutually_exclusive_group(required=True)
-    data_source.add_argument('--amqp',
+    parser = argparse.ArgumentParser(description='', add_help=False)
+    # Required Arguments
+    required_args = parser.add_argument_group('required arguments', 'These are the arguments the pipeline requires to run, --amqp and --data are used to specify what data source to use and are mutually exclusive.')
+    data_source_group = required_args.add_argument_group('data source', '')
+    data_source_me = required_args.add_mutually_exclusive_group(required=True)
+    data_source_me.add_argument('--amqp',
                         type=parse_url,
                         # Someone else can fill out the help for this better when it gets implemented
-                        help='Url to use to connect to a amqp data stream. Mutually exclusive with --data. ### Not Implemented ###')
-    data_source.add_argument('--data', 
+                        help='Url to use to connect to a amqp data stream. Mutually exclusive with --data. ### Not Implemented Yet ###')
+    data_source_me.add_argument('--data', 
                         type=parse_directory,
                         help='Directory containing the data to perform inference on. The program will run inference on any .tif files in this directory. Mutually exclusive with --amqp')
-    parser.add_argument('--legends',
+    required_args.add_argument('--model',
+                        type=parse_model,
+                        required=True,
+                        help='The release-tag of the model checkpoint that will be used to perform inference. Available release-tags are in the README')
+    required_args.add_argument('--output',
+                        required=True,
+                        help='Directory to write the outputs of inference to')
+    #required_args.add_argument('-c','--config', 
+    #                    default=os.environ.get('DARPA_CMAAS_PIPELINE_CONFIG', 'default_pipeline_config.yaml'),
+    #                    help='The config file to use for the pipeline. Not implemented yet')
+    
+    # Optional Arguments
+    optional_args = parser.add_argument_group('optional arguments', '')
+    optional_args.add_argument('--legends',
                         type=parse_directory,
                         default=None,
                         help='Optional directory containing precomputed legend data in USGS json format. If option is provided, the pipeline will use the precomputed legend data instead of generating its own.')
-    parser.add_argument('--layout',
+    optional_args.add_argument('--layout',
                         type=parse_directory,
                         default=None,
                         help='Optional directory containing precomputed map layout data in Uncharted json format. If option is provided, pipeline will use the layout to assist in legend extraction and inferencing.')
-    parser.add_argument('--validation',
+    optional_args.add_argument('--validation',
                         type=parse_directory,
                         default=None,
-                        help='Optional Directory containing the true raster segmentations. If option is provided, the pipeline will perform the validation step (Scoring the results of predictions) with this data.')
-    # Output Data
-    parser.add_argument('--log',
-                        default='logs/Latest.log',
-                        help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
-    parser.add_argument('--output',
-                        required=True,
-                        help='Directory to write the outputs of inference to')
-    parser.add_argument('--feedback',
+                        help='Optional Directory containing the true raster segmentations. If option is provided, the pipeline will perform the validation step (Scoring the results of predictions) with this data.')    
+    optional_args.add_argument('--feedback',
                         default=None,
                         help='Directory to save optional feedback on the pipeline.') 
+    optional_args.add_argument('--log',
+                        default='logs/Latest.log',
+                        help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
+    #parser.add_argument('--gpu',
+    #                    type=parse_gpu,
+    #                    help='The number of the gpu to use, mostly for use with amqp NOTE this is NOT the number of gpus that will be used but rather which one to use')
     # Flags
-    parser.add_argument('-v', '--verbose',
-                        action='store_true',
-                        help='Flag to change the logging level from INFO to DEBUG')
+    flag_group = parser.add_argument_group('Flags', '')
+    flag_group.add_argument('-h', '--help',
+                            action='help', 
+                            help='show this message and exit')
+    flag_group.add_argument('-v', '--verbose',
+                            action='store_true',
+                            help='Flag to change the logging level from INFO to DEBUG')
     
     return parser.parse_args()
 
@@ -129,6 +136,8 @@ def main():
             f'\tValidation : {args.validation}\n' +
             f'\tOutput : {args.output}\n' +
             f'\tFeedback : {args.feedback}')
+
+    return
 
     # Create output directories if needed
     if args.output is not None and not os.path.exists(args.output):
