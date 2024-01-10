@@ -241,6 +241,7 @@ def main():
             min_pt, max_pt = utils.boundingBox(lgd['points']) # Need this as points order can be reverse or could have quad
             legend_images[lgd['label']] = map_image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0], :]
         # Cutout map portion of image
+        image_layout = layout_dict[map_name]
         if image_layout is not None and 'map' in image_layout:
             inital_shape = map_image.shape
             map_bounding_contour = image_layout['map']['bounds']
