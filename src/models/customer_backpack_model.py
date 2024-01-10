@@ -1,11 +1,11 @@
 import logging
 from keras.models import load_model
 
-from .pipeline_model import pipeline_model
+from .pipeline_model import pipeline_tensorflow_model
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
-class customer_backpack_model(pipeline_model):
+class customer_backpack_model(pipeline_tensorflow_model):
     def __init__(self):
         self.name = 'customer backpack'
         self.checkpoint = 'submodules/models/customer_backpack/inference_model/UNET_seresnet50.h5'

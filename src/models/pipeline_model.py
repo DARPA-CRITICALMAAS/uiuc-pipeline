@@ -13,11 +13,27 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
 class pipeline_model(object):
     def __init__(self):
-        self.name = 'Base Pipeline Model'
+        self.name = 'base pipeline model'
         self.model = None
 
     def load_model(self):
         raise NotImplementedError
+    
+    def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
+        raise NotImplementedError
+
+class pipeline_pytorch_model(pipeline_model):
+    def __init__(self):
+        super().__init__()
+        self.name = 'base pipeline pytorch model'
+
+    def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
+        raise NotImplementedError
+
+class pipeline_tensorflow_model(pipeline_model):
+    def __init__(self):
+        super().__init__()
+        self.name = 'base pipeline tensorflow model'
 
     #@nvtx.annotate(color="green", domain='DARPA_CMAAS_PIPELINE')
     def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
