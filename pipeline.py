@@ -137,8 +137,6 @@ def main():
             f'\tOutput : {args.output}\n' +
             f'\tFeedback : {args.feedback}')
 
-    return
-
     # Create output directories if needed
     if args.output is not None and not os.path.exists(args.output):
         os.makedirs(args.output)
