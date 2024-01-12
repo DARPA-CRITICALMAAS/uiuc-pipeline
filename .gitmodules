@@ -16,3 +16,6 @@
 [submodule "ta1-validation"]
 	path = submodules/validation
 	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-validation.git
+[submodule "darpa_proj"]
+	path = submodules/models/customer_backpack
+	url = git@git.ncsa.illinois.edu:nj7/darpa_proj.git

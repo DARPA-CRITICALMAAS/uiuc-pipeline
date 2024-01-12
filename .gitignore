@@ -8,6 +8,8 @@
 # data
 input
 output
+results
+testdata
 
 # configuration file
 config.yaml
