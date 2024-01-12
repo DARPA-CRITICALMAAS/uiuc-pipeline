@@ -174,7 +174,7 @@ git submodule update
 
 Q. I'm having a problem with the pipeline that I couldn't find help for.
 
-A. Use the built in Issues tab to submit an issue describing your problem.
+A. Use the issues tab underneath the Plan tab to submit an issue describing your problem.
 
 ## Documentation
 
