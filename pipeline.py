@@ -1,27 +1,30 @@
+# Modules required to start up, Rest are lazy imported in main to reduce start up time.
 import os
 import logging
 import argparse
-import importlib
-import numpy as np
-import pandas as pd
 from time import time
-from tqdm import tqdm
-
-le, vec, val = [None] * 3 # Submodule libraries loaded through importlib
-import src.io as io
 import src.utils as utils
-from src.models.primordial_positron_model import primordial_positron_model
-from src.models.customer_backpack_model import customer_backpack_model
 
-log = None
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.INFO
 STREAM_LOG_LEVEL = logging.WARNING
 
-AVAILABLE_MODELS = {
-    'primordial_positron' : primordial_positron_model,
-    'customer_backpack' : customer_backpack_model
-}
+AVAILABLE_MODELS = [
+    'primordial_positron',
+    'customer_backpack'
+]
+
+# Lazy load only the model we are going to use
+def load_pipeline_model(model_name):
+    if 'primordial_positron':
+        from src.models.primordial_positron_model import primordial_positron_model
+        model = primordial_positron_model()
+    if 'customer_backpack':
+        from src.models.customer_backpack_model import customer_backpack_model
+        model = customer_backpack_model()
+
+    model.load_model()
+    return model 
 
 def parse_command_line():
     def parse_directory(path : str) -> str:
@@ -73,7 +76,7 @@ def parse_command_line():
     required_args.add_argument('--model',
                         type=parse_model,
                         required=True,
-                        help=f'The release-tag of the model checkpoint that will be used to perform inference. Available Models are : {AVAILABLE_MODELS.keys()}')
+                        help=f'The release-tag of the model checkpoint that will be used to perform inference. Available Models are : {AVAILABLE_MODELS}')
     required_args.add_argument('--output',
                         required=True,
                         help='Directory to write the outputs of inference to')
@@ -150,13 +153,13 @@ def main():
             f'\tOutput : {args.output}\n' +
             f'\tFeedback : {args.feedback}')
 
-    # Create output directories if needed
-    if args.output is not None and not os.path.exists(args.output):
-        os.makedirs(args.output)
-    if args.feedback is not None and not os.path.exists(args.feedback):
-        os.makedirs(args.feedback)
-
-    # Import local packages
+    # Import packages
+    global np, pd, io, tqdm
+    import src.io as io
+    import numpy as np
+    import pandas as pd
+    from tqdm import tqdm
+    import importlib
     try:
         global le, vec, val
         le = importlib.import_module('submodules.legend-extraction.src.extraction', package='legend_extraction')
@@ -172,6 +175,12 @@ def main():
                       'git submodule init\n' +
                       'git submodule update')
         exit(1)
+
+    # Create output directories if needed
+    if args.output is not None and not os.path.exists(args.output):
+        os.makedirs(args.output)
+    if args.feedback is not None and not os.path.exists(args.feedback):
+        os.makedirs(args.feedback)
 
     if args.data and not args.amqp:
         run_local_mode(args)
@@ -243,8 +252,7 @@ def run_local_mode(args):
     # Load model
     log.info(f"Loading model {args.model}")
     model_stime=time()
-    model = AVAILABLE_MODELS[args.model]()
-    model.load_model()
+    model = load_pipeline_model(args.model)
     log.info('Model loaded in {:.2f} seconds'.format(time()-model_stime))
 
     log.info(f'Starting Inference run of {len(maps)} maps')
