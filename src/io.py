@@ -66,7 +66,7 @@ def loadUnchartedJson(filepath):
         
     return formated_json
 
-def saveGeoTiff(prediction, crs, transform, filename):
+def saveGeoTiff(filename, prediction, crs, transform, ):
     """
     Save the prediction results to a specified filename.
 

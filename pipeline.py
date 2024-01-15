@@ -262,7 +262,7 @@ def run_local_mode(args):
             continue
         
         map_stime = time()
-        results = process_map(model, map_image, legends=legend_dict[map_name], layout=layout_dict[map_name], feedback=args.feedback)
+        results = process_map(model, map_image, map_name, legends=legend_dict[map_name], layout=layout_dict[map_name], feedback=args.feedback)
         map_time = time() - map_stime
         log.info(f'Map processing time for {map_name} : {map_time:.2f} seconds')
         
@@ -283,7 +283,7 @@ def run_local_mode(args):
                 os.makedirs(os.path.join(args.feedback, map_name), exist_ok=True)
                 for feature, feedback_img in val_feedback.items():
                     val_feedback_filepath = os.path.join(args.feedback, map_name, 'val_' + map_name + '_' + feature + '.tif')
-                    io.saveGeoTiff(feedback_img, map_crs, map_transform, val_feedback_filepath)
+                    io.saveGeoTiff(val_feedback_filepath, feedback_img, map_crs, map_transform)
 
             # Concat all maps scores together to save at end
             if dataset_score_df is None:
@@ -299,13 +299,15 @@ def run_local_mode(args):
             csv_path = os.path.join(args.output, '#' + os.path.basename(args.data) + '_scores.csv')
         dataset_score_df.to_csv(csv_path)
 
-def process_map(model, image, legends=None, layout=None, feedback=False):
+def process_map(model, image, map_name, legends=None, layout=None, feedback=None):
     # Cutout Legends
     legend_images = {}
     for lgd in legends['shapes']:
         min_pt, max_pt = utils.boundingBox(lgd['points']) # Need this as points order can be reverse or could have quad
         legend_images[lgd['label']] = image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0], :]
-
+        if feedback:
+            legend_save_path = os.path.join(feedback, map_name, 'lgd_' + map_name + '_' + lgd['label'] + '.tif')
+            io.saveGeoTiff(legend_save_path, legend_images[lgd['label']], None, None)
     # Cutout map portion of image
     if layout is not None and 'map' in layout:
         inital_shape = image.shape
@@ -335,7 +337,7 @@ def save_inference_results(results, outputDir, map_name, map_crs, map_transform)
     for feature, feature_mask in results.items():
         log.debug(f'\tSaving feature {feature}')
         output_image_path = os.path.join(outputDir, '{}_{}.tif'.format(map_name, feature))
-        io.saveGeoTiff(feature_mask, map_crs, map_transform, output_image_path)
+        io.saveGeoTiff(output_image_path, feature_mask, map_crs, map_transform)
         #geodf = vec.src.polygonize.polygonize(feature_mask, map_crs, map_transform, noise_threshold=10)
         #io.saveGeopackage(geodf, output_geopackage_path, layer=feature, filetype='geopackage')
     save_time = time()-stime
