@@ -8,19 +8,20 @@ import src.utils as utils
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.INFO
 STREAM_LOG_LEVEL = logging.WARNING
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
 
 AVAILABLE_MODELS = [
     'primordial_positron',
-    'customer_backpack'
+    'customer_backpack',
 ]
 
 # Lazy load only the model we are going to use
 def load_pipeline_model(model_name):
-    if 'primordial_positron':
+    model = None
+    if model_name == 'primordial_positron':
         from src.models.primordial_positron_model import primordial_positron_model
         model = primordial_positron_model()
-    if 'customer_backpack':
+    if model_name == 'customer_backpack':
         from src.models.customer_backpack_model import customer_backpack_model
         model = customer_backpack_model()
 

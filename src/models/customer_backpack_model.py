@@ -2,6 +2,7 @@ import logging
 from keras.models import load_model
 
 from .pipeline_model import pipeline_tensorflow_model
+from submodules.models.customer_backpack.unet_util import dice_coef_loss, dice_coef
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
@@ -17,17 +18,3 @@ class customer_backpack_model(pipeline_tensorflow_model):
 
         return self.model
     
-
-### customer backpack utils ###
-# Load all the dependencies
-from keras import backend as K
-# Use dice coefficient function as the loss function 
-def dice_coef(y_true, y_pred):
-    y_true_f = K.flatten(y_true)
-    y_pred_f = K.flatten(y_pred)
-    intersection = K.sum(y_true_f * y_pred_f)
-    return (2.0 * intersection + 1.0) / (K.sum(y_true_f) + K.sum(y_pred_f) + 1.0)
-
-# calculate loss value
-def dice_coef_loss(y_true, y_pred):
-    return -dice_coef(y_true, y_pred)

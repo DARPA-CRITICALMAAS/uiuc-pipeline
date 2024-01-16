@@ -1,11 +1,11 @@
 [submodule "quantum-sugar"]
-	path = submodules/models/quantum-sugar
+	path = submodules/models/quantum_sugar
 	url = https://github.com/Dongjiahua/DARPA_torch
 [submodule "primordial-positron"]
-	path = submodules/models/primordial-positron
+	path = submodules/models/primordial_positron
 	url = https://git.ncsa.illinois.edu/nj7/darpa_proj
 [submodule "golden-muscat"]
-	path = submodules/models/golden-muscat
+	path = submodules/models/golden_muscat
 	url = https://github.com/xiyuez2/Darpa_Unet
 [submodule "legend-extraction"]
 	path = submodules/legend-extraction
