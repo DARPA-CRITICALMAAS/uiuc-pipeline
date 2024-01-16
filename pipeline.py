@@ -8,6 +8,7 @@ import src.utils as utils
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.INFO
 STREAM_LOG_LEVEL = logging.WARNING
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level
 
 AVAILABLE_MODELS = [
     'primordial_positron',
@@ -154,6 +155,8 @@ def main():
             f'\tFeedback : {args.feedback}')
 
     # Import packages
+    log.info(f'Importing packages')
+    p_time = time()
     global np, pd, io, tqdm
     import src.io as io
     import numpy as np
@@ -175,6 +178,7 @@ def main():
                       'git submodule init\n' +
                       'git submodule update')
         exit(1)
+    log.info(f'Time to load packages {time() - p_time}')
 
     # Create output directories if needed
     if args.output is not None and not os.path.exists(args.output):
