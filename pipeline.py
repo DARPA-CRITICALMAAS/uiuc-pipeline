@@ -13,6 +13,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
 AVAILABLE_MODELS = [
     'primordial_positron',
     'customer_backpack',
+    #'golden_muscat'
+    'quantum_sugar'
 ]
 
 # Lazy load only the model we are going to use
@@ -24,6 +26,12 @@ def load_pipeline_model(model_name):
     if model_name == 'customer_backpack':
         from src.models.customer_backpack_model import customer_backpack_model
         model = customer_backpack_model()
+    # if model_name == 'golden_muscat':
+    #     from src.models.golden_muscat_model import golden_muscat_model
+    #     model = golden_muscat_model()
+    if model_name == 'quantum_sugar':
+        from src.models.quantum_sugar_model import quantum_sugar_model
+        model = quantum_sugar_model()
 
     model.load_model()
     return model 
