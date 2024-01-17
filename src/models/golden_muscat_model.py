@@ -7,7 +7,6 @@ from submodules.models.golden_muscat.models import SegmentationModel
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
 class golden_muscat_model(pipeline_pytorch_model):
-    
     def __init__(self):
         self.name = 'golden muscat'
         self.checkpoint = 'submodules/models/golden_muscat/inference_model/UNET_seresnet50.h5'

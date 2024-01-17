@@ -41,6 +41,7 @@ class pipeline_pytorch_model(pipeline_model):
                                         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                        std=[0.229, 0.224, 0.225])])
 
+    # @override
     def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
         # Make sure model is set to inference mode
         #self.model.cuda()
