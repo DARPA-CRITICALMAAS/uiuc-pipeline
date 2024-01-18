@@ -1,7 +1,7 @@
 import logging
 from keras.models import load_model
 
-from .pipeline_model import pipeline_tensorflow_model
+from .pipeline_tensorflow_model import pipeline_tensorflow_model
 from submodules.models.customer_backpack.unet_util import dice_coef_loss, dice_coef
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')

@@ -1,7 +1,7 @@
 import logging
 from keras.models import load_model
 
-from .pipeline_model import pipeline_tensorflow_model
+from .pipeline_tensorflow_model import pipeline_tensorflow_model
 from submodules.models.primordial_positron.unet_util import multiplication, multiplication2, dice_coef, dice_coef_loss
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')

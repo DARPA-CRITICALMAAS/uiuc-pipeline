@@ -8,7 +8,7 @@
 	path = submodules/models/golden_muscat
 	url = https://github.com/xiyuez2/Darpa_Unet
 [submodule "legend-extraction"]
-	path = submodules/legend-extraction
+	path = submodules/legend_extraction
 	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-legend-extraction.git
 [submodule "vectorization"]
 	path = submodules/vectorization
@@ -19,3 +19,6 @@
 [submodule "darpa_proj"]
 	path = submodules/models/customer_backpack
 	url = git@git.ncsa.illinois.edu:nj7/darpa_proj.git
+[submodule "submodules/models/rigid_wasabi"]
+	path = submodules/models/rigid_wasabi
+	url = https://github.com/xiyuez2/Darpa_Unet.git
