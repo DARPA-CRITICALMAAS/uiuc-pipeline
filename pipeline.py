@@ -13,8 +13,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
 AVAILABLE_MODELS = [
     'primordial_positron',
     'customer_backpack',
-    #'golden_muscat'
-    'quantum_sugar'
+    'golden_muscat',
+    'quantum_sugar',
+    'rigid_wasabi',
+    'flat_iceberg'
 ]
 
 # Lazy load only the model we are going to use
@@ -26,13 +28,18 @@ def load_pipeline_model(model_name):
     if model_name == 'customer_backpack':
         from src.models.customer_backpack_model import customer_backpack_model
         model = customer_backpack_model()
-    # if model_name == 'golden_muscat':
-    #     from src.models.golden_muscat_model import golden_muscat_model
-    #     model = golden_muscat_model()
+    if model_name == 'golden_muscat':
+        from src.models.golden_muscat_model import golden_muscat_model
+        model = golden_muscat_model()
     if model_name == 'quantum_sugar':
         from src.models.quantum_sugar_model import quantum_sugar_model
         model = quantum_sugar_model()
-
+    if model_name == 'rigid_wasabi':
+        from src.models.rigid_wasabi_model import rigid_wasabi_model
+        model = rigid_wasabi_model()
+    if model_name == 'flat_iceberg':
+        from src.models.flat_iceberg_model import flat_iceberg_model
+        model = flat_iceberg_model()
     model.load_model()
     return model 
 
@@ -171,23 +178,19 @@ def main():
     import numpy as np
     import pandas as pd
     from tqdm import tqdm
-    import importlib
     try:
-        global le, vec, val
-        le = importlib.import_module('submodules.legend-extraction.src.extraction', package='legend_extraction')
-        le = importlib.import_module('submodules.legend-extraction.src.IO', package='legend_extraction')
-        le = importlib.import_module('submodules.legend-extraction', package='legend_extraction')
-        vec = importlib.import_module('submodules.vectorization.src.polygonize', package='vectorization') 
-        vec = importlib.import_module('submodules.vectorization', package='vectorization')
-        val = importlib.import_module('submodules.validation.src.grading', package='validation')
-        val = importlib.import_module('submodules.validation', package='validation')
+        global extractLegends, generateJsonData, polygonize, gradeRaster
+        from submodules.legend_extraction.src.extraction import extractLegends
+        from submodules.legend_extraction.src.IO import generateJsonData
+        from submodules.vectorization.src.polygonize import polygonize
+        from submodules.validation.src.grading import gradeRaster
     except:
         log.exception('Cannot import submodule code\n' +
                       'May need to do:\n' +
                       'git submodule init\n' +
                       'git submodule update')
         exit(1)
-    log.info(f'Time to load packages {time() - p_time}')
+    log.info(f'Time to load packages {time() - p_time:.2f} seconds')
 
     # Create output directories if needed
     if args.output is not None and not os.path.exists(args.output):
@@ -247,10 +250,10 @@ def run_local_mode(args):
 
             # Extract Legends
             if layout:
-                feature_data = le.src.extraction.extractLegends(map_image, legendcontour=layout['legend_polygons']['bounds'])
+                feature_data = extractLegends(map_image, legendcontour=layout['legend_polygons']['bounds'])
             else:
-                feature_data = le.src.extraction.extractLegends(map_image)
-            features = le.src.IO.generateJsonData(feature_data, img_dims=map_image.shape, force_rectangle=True)
+                feature_data = extractLegends(map_image)
+            features = generateJsonData(feature_data, img_dims=map_image.shape, force_rectangle=True)
             
             # Save legend data if feedback is on
             legend_feedback_filepath = os.path.join(args.feedback, map_name, map_name + '.json')
@@ -359,7 +362,7 @@ def save_inference_results(results, outputDir, map_name, map_crs, map_transform)
         log.debug(f'\tSaving feature {feature}')
         output_image_path = os.path.join(outputDir, '{}_{}.tif'.format(map_name, feature))
         io.saveGeoTiff(output_image_path, feature_mask, map_crs, map_transform)
-        #geodf = vec.src.polygonize.polygonize(feature_mask, map_crs, map_transform, noise_threshold=10)
+        #geodf = polygonize(feature_mask, map_crs, map_transform, noise_threshold=10)
         #io.saveGeopackage(geodf, output_geopackage_path, layer=feature, filetype='geopackage')
     save_time = time()-stime
     log.info(f'Time to save {len(results)} masks : {save_time:.2f} seconds')
@@ -382,7 +385,7 @@ def perform_validation(predict_dict, truth_dict, map_name, map_crs, map_transfor
             feedback_img = np.zeros((*feature_mask.shape[:2],3), dtype=np.uint8)
         
         # Grade image
-        f1_score, iou_score, recall, precision, feedback_img = val.src.grading.gradeRaster(feature_mask, truth_dict[feature], debug_image=feedback_img)
+        f1_score, iou_score, recall, precision, feedback_img = gradeRaster(feature_mask, truth_dict[feature], debug_image=feedback_img)
         score_df.loc[len(score_df)] = {'Map' : map_name, 'Feature' : feature, 'F1 Score' : f1_score, 'IoU Score' : iou_score, 'Recall' : recall, 'Precision' : precision}
         
         val_dict[feature] = feedback_img    

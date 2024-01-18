@@ -2,14 +2,14 @@ import logging
 from types import SimpleNamespace
 
 from .pipeline_pytorch_model import pipeline_pytorch_model
-from submodules.models.golden_muscat.models import SegmentationModel
+from submodules.models.rigid_wasabi.models import SegmentationModel
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
-class golden_muscat_model(pipeline_pytorch_model):
+class rigid_wasabi_model(pipeline_pytorch_model):
     def __init__(self):
-        self.name = 'golden muscat'
-        self.checkpoint = 'src/models/checkpoints/jaccard.ckpt'
+        self.name = 'rigid wasabi'
+        self.checkpoint = 'src/models/checkpoints/SWIN_jaccard.ckpt'
 
         self.args = SimpleNamespace(model='Unet')
 
@@ -19,4 +19,3 @@ class golden_muscat_model(pipeline_pytorch_model):
         self.model.eval()
 
         return self.model
-    

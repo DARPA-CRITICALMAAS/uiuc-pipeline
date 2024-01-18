@@ -10,26 +10,21 @@ from torchvision import transforms
 from time import time
 from patchify import patchify, unpatchify
 from submodules.models.flat_iceberg.inference_model import OneshotYOLO
+
+from .pipeline_pytorch_model import pipeline_pytorch_model
+
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
-
-
-
-class pipeline_model(object):
-    def __init__(self):
-        self.name = 'base pipeline model'
-        self.model = None
-
-    def load_model(self):
-        raise NotImplementedError
     
-    def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
-        raise NotImplementedError
-
-class pipeline_pytorch_model(pipeline_model):
+class flat_iceberg_model(pipeline_pytorch_model):
     def __init__(self):
         super().__init__()
-        self.name = 'base pipeline pytorch model'
-
+        self.name = 'flat iceberg model'
+    
+    # @override
+    def load_model(self):
+        self.model = OneshotYOLO()
+        self.model.load('/projects/bbym/shared/models/flat-iceberg/best.pt')
+        self.model.eval()
 
     # @override
     def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
@@ -97,13 +92,3 @@ class pipeline_pytorch_model(pipeline_model):
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
             
         return predictions
-    
-class flat_iceberg_model(pipeline_pytorch_model):
-    def __init__(self):
-        super().__init__()
-        self.name = 'flat iceberg model'
-    
-    def load_model(self):
-        self.model = OneshotYOLO()
-        self.model.load('/projects/bbym/shared/models/flat-iceberg/best.pt')
-        self.model.eval()

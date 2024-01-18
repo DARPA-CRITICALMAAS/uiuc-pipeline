@@ -26,7 +26,7 @@ class pipeline_pytorch_model(pipeline_model):
     def transform():
         transform = transforms.Compose([transforms.ToTensor(),
                                         transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                       std=[0.229, 0.224, 0.225])])
+                                                            std=[0.229, 0.224, 0.225])])
 
     # @override
     def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
@@ -54,8 +54,6 @@ class pipeline_pytorch_model(pipeline_model):
         # Flatten row col dims and normalize map patches to [0,1]
         norm_patches = patches.reshape(-1, patch_size, patch_size, 3) / 255.0
         norm_patches = self.transform(norm_patches)
-        #norm_patches = tf.cast(norm_patches, dtype=tf.float32) 
-        
 
         log.debug(f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
         predictions = {}
@@ -76,7 +74,6 @@ class pipeline_pytorch_model(pipeline_model):
 
             # Concatenate the map and legend patches along the third axis (channels) and normalize to [-1,1]
             norm_data = torch.cat([norm_patches, norm_legend_patches], dim=3)
-            #norm_data = tf.concat(axis=3, values=[norm_patches, norm_legend_patches])
 
             # Perform Inference in batches
             prediction_patches = None

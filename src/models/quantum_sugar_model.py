@@ -1,7 +1,7 @@
 import logging
 from types import SimpleNamespace
 
-from .pipeline_model import pipeline_pytorch_model
+from .pipeline_pytorch_model import pipeline_pytorch_model
 from submodules.models.quantum_sugar.model import DARPA_DET
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
