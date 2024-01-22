@@ -19,11 +19,12 @@ class flat_iceberg_model(pipeline_pytorch_model):
     def __init__(self):
         super().__init__()
         self.name = 'flat iceberg model'
+        self.checkpoint = '/projects/bbym/shared/models/flat-iceberg/best.pt'
     
     # @override
     def load_model(self):
         self.model = OneshotYOLO()
-        self.model.load('/projects/bbym/shared/models/flat-iceberg/best.pt')
+        self.model.load_state_dict(torch.load(self.checkpoint))
         self.model.eval()
 
     # @override
@@ -49,7 +50,6 @@ class flat_iceberg_model(pipeline_pytorch_model):
         
         rows = patches.shape[0]
         cols = patches.shape[1]
-        #NOTICE: Leave the transformation to the model since it may differ for different method
 
         log.debug(f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
         predictions = {}

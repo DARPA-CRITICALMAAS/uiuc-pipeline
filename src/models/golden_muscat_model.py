@@ -1,4 +1,5 @@
 import logging
+import torch
 from types import SimpleNamespace
 
 from .pipeline_pytorch_model import pipeline_pytorch_model
@@ -11,6 +12,7 @@ class golden_muscat_model(pipeline_pytorch_model):
         self.name = 'golden muscat'
         self.checkpoint = 'src/models/checkpoints/jaccard.ckpt'
 
+        #self.args = self.parse_args()
         self.args = SimpleNamespace(model='Unet')
 
     #@override

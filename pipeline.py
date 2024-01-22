@@ -44,6 +44,7 @@ def load_pipeline_model(model_name):
     return model 
 
 def parse_command_line():
+    from typing import List
     def parse_directory(path : str) -> str:
         """Command line argument parser for directory path. Checks that the path exists and is a valid directory"""
         # Check if it exists
@@ -56,10 +57,29 @@ def parse_command_line():
             raise argparse.ArgumentTypeError(msg)
         return path
     
-    def parse_data(s: str) -> str:
-        # TODO Change the data method to accept a list of files or directories
-        # Inflating the filenames will take place in this step in the future.
-        return s
+    def parse_data(path: str) -> List[str]:
+        """Command line argument parser for data path. Accepts a single file or directory name or a list of files as an input. Will return the list of valid files"""
+        # Check if it exists
+        if not os.path.exists(path):
+            msg = f'Invalid path "{path}" specified : Path does not exist'
+            #log.warning(msg)
+            return None
+            #raise argparse.ArgumentTypeError(msg+'\n')
+        # Check if its a directory
+        if os.path.isdir(path):
+            data_files = [os.path.join(path, f) for f in os.listdir(path) if f.endswith('.tif')]
+            #if len(data_files) == 0:
+                #log.warning(f'Invalid path "{path}" specified : Directory does not contain any .tif files')
+        if os.path.isfile(path):
+            data_files = [path]
+        return data_files
+    
+    def post_parse_data(data):
+        data_files = [file for sublist in data if sublist is not None for file in sublist]
+        if len(data_files) == 0:
+            msg = f'No valid files where given to --data argument. --data should be given a path or paths to file(s) and/or directory(s) containing the data to perform inference on. program will only run on .tif files'
+            raise argparse.ArgumentTypeError(msg)
+        return data_files
     
     def parse_model(model_name : str) -> str:
         # Check if model is valid
@@ -88,8 +108,9 @@ def parse_command_line():
                         # Someone else can fill out the help for this better when it gets implemented
                         help='Url to use to connect to a amqp data stream. Mutually exclusive with --data. ### Not Implemented Yet ###')
     data_source.add_argument('--data', 
-                        type=parse_directory,
-                        help='Directory containing the data to perform inference on. The program will run inference on any .tif files in this directory. Mutually exclusive with --amqp')            
+                        type=parse_data,
+                        nargs='+',
+                        help='Path to file(s) and/or directory(s) containing the data to perform inference on. The program will run inference on any .tif files. Mutually exclusive with --amqp')            
     required_args.add_argument('--model',
                         type=parse_model,
                         required=True,
@@ -133,7 +154,9 @@ def parse_command_line():
                             action='store_true',
                             help='Flag to change the logging level from INFO to DEBUG')
     
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.data = post_parse_data(args.data)
+    return args
 
 def main():
     main_start_time = time()
@@ -210,16 +233,14 @@ def run_amqp_mode(args):
     raise NotImplementedError
 
 def run_local_mode(args):
-    # Get list of maps from data directory
-    maps = [os.path.splitext(f)[0] for f in os.listdir(args.data) if f.endswith('.tif')]
-
     # Pre-load legend and layout jsons
-    log.info(f'Loading legends for {len(maps)} maps')
+    log.info(f'Loading legends for {len(args.data)} maps')
     le_start_time = time()
     legend_dict = {}
     layout_dict = {}
-    pbar = tqdm(maps)
-    for map_name in pbar:
+    pbar = tqdm(args.data)
+    for img_path in pbar:
+        map_name = os.path.basename(os.path.splitext(img_path)[0])
         log.info(f'\tProcessing {map_name}')
         pbar.set_description(f'Processing {map_name}')
         pbar.refresh()
@@ -243,7 +264,6 @@ def run_local_mode(args):
         if features is None:
             log.info(f'\tNo legend data found, generating instead')
             # Load img
-            img_path = os.path.join(args.data, map_name + '.tif')
             map_image, map_crs, map_transform = io.loadGeoTiff(img_path)
             if map_image is None:
                 continue
@@ -271,16 +291,16 @@ def run_local_mode(args):
     model = load_pipeline_model(args.model)
     log.info('Model loaded in {:.2f} seconds'.format(time()-model_stime))
 
-    log.info(f'Starting Inference run of {len(maps)} maps')
+    log.info(f'Starting Inference run of {len(args.data)} maps')
     dataset_score_df = pd.DataFrame()
-    pbar = tqdm(maps)
-    for map_name in pbar:
+    pbar = tqdm(args.data)
+    for img_path in pbar:
+        map_name = os.path.basename(os.path.splitext(img_path)[0])
         log.info(f'Performing inference on {map_name}')
         pbar.set_description(f'Performing inference on {map_name}')
         pbar.refresh()
 
         # Load img
-        img_path = os.path.join(args.data, map_name + '.tif')
         map_image, map_crs, map_transform = io.loadGeoTiff(img_path)
         if map_image is None: # TODO Switch loadGeoTiff to throwing errors
             continue
@@ -318,9 +338,9 @@ def run_local_mode(args):
     # Save csv of all scores at the end
     if args.validation is not None:
         if args.feedback:
-            csv_path = os.path.join(args.feedback, '#' + os.path.basename(args.data) +  '_scores.csv')
+            csv_path = os.path.join(args.feedback, '#full_dataset_scores.csv')
         else:
-            csv_path = os.path.join(args.output, '#' + os.path.basename(args.data) + '_scores.csv')
+            csv_path = os.path.join(args.output, '#full_dataset_scores.csv')
         dataset_score_df.to_csv(csv_path)
 
 def process_map(model, image, map_name, legends=None, layout=None, feedback=None):
@@ -330,6 +350,7 @@ def process_map(model, image, map_name, legends=None, layout=None, feedback=None
         min_pt, max_pt = utils.boundingBox(lgd['points']) # Need this as points order can be reverse or could have quad
         legend_images[lgd['label']] = image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0], :]
         if feedback:
+            os.makedirs(os.path.join(feedback, map_name), exist_ok=True)
             legend_save_path = os.path.join(feedback, map_name, 'lgd_' + map_name + '_' + lgd['label'] + '.tif')
             io.saveGeoTiff(legend_save_path, legend_images[lgd['label']], None, None)
     # Cutout map portion of image
