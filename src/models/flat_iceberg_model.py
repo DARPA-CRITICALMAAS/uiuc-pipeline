@@ -9,7 +9,7 @@ from torchvision import transforms
 
 from time import time
 from patchify import patchify, unpatchify
-from submodules.models.flat_iceberg.inference_model import OneshotYOLO
+from submodules.models.flat_iceberg.inference import OneshotYOLO
 
 from .pipeline_pytorch_model import pipeline_pytorch_model
 
@@ -24,7 +24,7 @@ class flat_iceberg_model(pipeline_pytorch_model):
     # @override
     def load_model(self):
         self.model = OneshotYOLO()
-        self.model.load_state_dict(torch.load(self.checkpoint))
+        self.model.load(self.checkpoint)
         self.model.eval()
 
     # @override
@@ -46,11 +46,12 @@ class flat_iceberg_model(pipeline_pytorch_model):
         bottom_pad = patch_size - (map_height % patch_size)
         image = np.pad(image, ((0, right_pad), (0, bottom_pad), (0,0)), mode='constant', constant_values=0)
         patches = patchify(image, (patch_size, patch_size, 3), step=patch_size-patch_overlap)
-        patches = patches.reshape(-1, patch_size, patch_size, 3) 
-        
+
         rows = patches.shape[0]
         cols = patches.shape[1]
 
+        patches = patches.reshape(-1, patch_size, patch_size, 3) 
+        
         log.debug(f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
         predictions = {}
         for label, legend_img in legend_images.items():
@@ -70,15 +71,19 @@ class flat_iceberg_model(pipeline_pytorch_model):
             prediction_patches = []
             with torch.no_grad():
                 for i in range(0, len(norm_legend_patches), batch_size):
+                    #log.warning(f'input map {patches[i:i+batch_size].shape}')
+                    #log.warning(f'input leg {norm_legend_patches[i:i+batch_size].shape}')
                     prediction = self.model(patches[i:i+batch_size], norm_legend_patches[i:i+batch_size])
-                
-                    if prediction_patches is None:
-                        prediction_patches = prediction
-                    else:
-                        prediction_patches+=(prediction)
-
+                    
+                    #log.warning(f'prediction len : {len(prediction)}')
+                    #log.warning(f'prediction shape :{prediction[0].shape}')
+                    prediction_patches+=prediction
+            # log.warning(f"lenth of pred {len(prediction_patches)}")
             # Merge patches back into single image and remove padding
-            prediction_patches = np.array(prediction_patches) # I have no idea why but sometimes model predict outputs a np array and sometimes a tensor array???
+            prediction_patches = np.stack(prediction_patches, axis=0)
+            #log.error(f'stack shape{prediction_patches.shape}')
+
+            # prediction_patches = np.array(prediction_patches) # I have no idea why but sometimes model predict outputs a np array and sometimes a tensor array???
             prediction_patches = prediction_patches.reshape([rows, cols, 1, patch_size, patch_size, 1])
             prediction_image = unpatchify(prediction_patches, [image.shape[0], image.shape[1], 1])
             prediction_image = prediction_image[:map_width,:map_height,:]
