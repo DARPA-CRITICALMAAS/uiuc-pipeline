@@ -16,7 +16,7 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 class golden_muscat_model(pipeline_pytorch_model):
     def __init__(self):
         self.name = 'golden muscat'
-        self.checkpoint = 'src/models/checkpoints/jaccard.ckpt'
+        self.checkpoint = '/projects/bbym/shared/models/golden_muscat/jaccard.ckpt'
 
         self.args = SimpleNamespace(model='Unet', edge=False)
         self.device = torch.device("cuda")
