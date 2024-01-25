@@ -14,9 +14,7 @@ AVAILABLE_MODELS = [
     'primordial_positron',
     'customer_backpack',
     'golden_muscat',
-    'quantum_sugar',
     'rigid_wasabi',
-    'flat_iceberg'
 ]
 
 # Lazy load only the model we are going to use
@@ -31,15 +29,9 @@ def load_pipeline_model(model_name):
     if model_name == 'golden_muscat':
         from src.models.golden_muscat_model import golden_muscat_model
         model = golden_muscat_model()
-    if model_name == 'quantum_sugar':
-        from src.models.quantum_sugar_model import quantum_sugar_model
-        model = quantum_sugar_model()
     if model_name == 'rigid_wasabi':
         from src.models.rigid_wasabi_model import rigid_wasabi_model
         model = rigid_wasabi_model()
-    if model_name == 'flat_iceberg':
-        from src.models.flat_iceberg_model import flat_iceberg_model
-        model = flat_iceberg_model()
     model.load_model()
     return model 
 
