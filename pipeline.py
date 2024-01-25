@@ -10,6 +10,9 @@ FILE_LOG_LEVEL = logging.INFO
 STREAM_LOG_LEVEL = logging.WARNING
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
 
+
+lgd_mode = 'single_file'
+
 AVAILABLE_MODELS = [
     'primordial_positron',
     'customer_backpack',
@@ -188,11 +191,14 @@ def main():
     # Import packages
     log.info(f'Importing packages')
     p_time = time()
-    global np, pd, io, tqdm
+    global np, pd, io, tqdm, plt, ceil, floor
     import src.io as io
     import numpy as np
     import pandas as pd
     from tqdm import tqdm
+    from matplotlib import pyplot as plt
+    from math import ceil, floor
+
     try:
         global extractLegends, generateJsonData, polygonize, gradeRaster
         from submodules.legend_extraction.src.extraction import extractLegends
@@ -342,9 +348,26 @@ def process_map(model, image, map_name, legends=None, layout=None, feedback=None
         min_pt, max_pt = utils.boundingBox(lgd['points']) # Need this as points order can be reverse or could have quad
         legend_images[lgd['label']] = image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0], :]
         if feedback:
-            os.makedirs(os.path.join(feedback, map_name), exist_ok=True)
-            legend_save_path = os.path.join(feedback, map_name, 'lgd_' + map_name + '_' + lgd['label'] + '.tif')
-            io.saveGeoTiff(legend_save_path, legend_images[lgd['label']], None, None)
+            if lgd_mode == 'individual':
+                os.makedirs(os.path.join(feedback, map_name), exist_ok=True)
+                legend_save_path = os.path.join(feedback, map_name, 'lgd_' + map_name + '_' + lgd['label'] + '.tif')
+                io.saveGeoTiff(legend_save_path, legend_images[lgd['label']], None, None)
+    if feedback:
+        if lgd_mode == 'single_file':
+            cols = 4
+            rows = ceil(len(legend_images)/cols)
+            log.debug(f'Legend image {len(legend_images)} items in : {cols} Cols, {rows} Rows')
+            fig, ax = plt.subplots(rows, cols, figsize=(16,16))
+            np.array(list())
+            for r,c in np.ndindex(ax.shape):
+                ax[r][c].axis('off')
+            for i, label in enumerate(legend_images):
+                row, col = floor(i/cols), i%cols
+                ax[row][col].set_title(label)
+                ax[row][col].imshow(legend_images[label])
+            legend_save_path = os.path.join(feedback, map_name, map_name + '_labels'  + '.png')
+            fig.savefig(legend_save_path)
+    exit()
     # Cutout map portion of image
     if layout is not None and 'map' in layout:
         inital_shape = image.shape
