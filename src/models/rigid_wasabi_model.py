@@ -10,16 +10,16 @@ from torchvision import transforms
 
 from src.patching import unpatch_img
 from .pipeline_pytorch_model import pipeline_pytorch_model
-from submodules.models.golden_muscat.models import SegmentationModel
+from submodules.models.rigid_wasabi.models import SegmentationModel
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
-class golden_muscat_model(pipeline_pytorch_model):
+class rigid_wasabi_model(pipeline_pytorch_model):
     def __init__(self):
-        self.name = 'golden muscat'
-        self.checkpoint = '/projects/bbym/shared/models/golden_muscat/jaccard.ckpt'
+        self.name = 'rigid wasabi'
+        self.checkpoint = '/projects/bbym/shared/models/rigid_wasabi/SWIN_jaccard.ckpt'
 
-        self.args = SimpleNamespace(model='Unet', edge=False)
+        self.args = SimpleNamespace(model='swin', superpixel='', edge=False)
         self.device = torch.device("cuda")
         self.patch_overlap = 128
         self.unpatch_mode = 'discard'
@@ -28,6 +28,7 @@ class golden_muscat_model(pipeline_pytorch_model):
     def load_model(self):
         self.model = SegmentationModel.load_from_checkpoint(checkpoint_path=self.checkpoint, args=self.args)
         self.model.eval()
+        self.model.to(self.device)
 
         return self.model
     
@@ -37,10 +38,10 @@ class golden_muscat_model(pipeline_pytorch_model):
         std = torch.tensor([0.229, 0.224, 0.225]).to(self.device)[None, :, None, None].expand(*norm_data.shape)
         norm_data = (norm_data - mean)/std
         return norm_data
-
+    
     # @override
     def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
-        patch_overlap = self.patch_overlap
+        patch_overlap = self.patch_overlap   
         # Pytorch expects image in CHW format
         image = image.transpose(2,0,1)
 
@@ -104,8 +105,7 @@ class golden_muscat_model(pipeline_pytorch_model):
             prediction_patches = np.concatenate(prediction_patches, axis=0)
             prediction_patches = prediction_patches.reshape([1, cols, rows, 1, patch_size, patch_size])
             unpatch_image = unpatch_img(prediction_patches, [1, padded_image.shape[1], padded_image.shape[2]], overlap=patch_overlap, mode=self.unpatch_mode)
-            prediction_image = unpatch_image[:,:map_height,:map_width]
-
+            prediction_image = unpatch_image[:, :map_height, :map_width]
             # Transpose image back to HWC
             prediction_image = prediction_image.transpose(1,2,0)
 
@@ -118,4 +118,3 @@ class golden_muscat_model(pipeline_pytorch_model):
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
             
         return predictions
-    
