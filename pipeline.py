@@ -358,7 +358,7 @@ def process_map(model, image, map_name, legends=None, layout=None, feedback=None
         inital_shape = image.shape
         map_bounding_contour = layout['map']['bounds']
         min_pt, max_pt = utils.boundingBox(map_bounding_contour)
-        image = image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
+        image = image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]].copy()
 
     # Run Model
     infer_start_time = time()

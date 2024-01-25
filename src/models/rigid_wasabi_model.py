@@ -20,10 +20,6 @@ class rigid_wasabi_model(pipeline_pytorch_model):
 
         self.args = SimpleNamespace(model='swin', superpixel='', edge=False)
         self.device = torch.device("cuda")
-        self.data_transform = transforms.Compose([
-                        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                             std=[0.229, 0.224, 0.225])
-        ])
 
     #@override
     def load_model(self):
@@ -32,6 +28,13 @@ class rigid_wasabi_model(pipeline_pytorch_model):
         self.model.to(self.device)
 
         return self.model
+    
+    def my_norm(self, data):
+        norm_data = data / 255.0
+        mean = torch.tensor([0.485, 0.456, 0.406]).to(self.device)[None, :, None, None].expand(*norm_data.shape)
+        std = torch.tensor([0.229, 0.224, 0.225]).to(self.device)[None, :, None, None].expand(*norm_data.shape)
+        norm_data = (norm_data - mean)/std
+        return norm_data
     
     # @override
     def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):   
@@ -58,8 +61,8 @@ class rigid_wasabi_model(pipeline_pytorch_model):
         # Flatten row col dims and normalize map patches to [0,1]
         norm_patches = patches.reshape(-1, 3, patch_size, patch_size)
         norm_patches = torch.Tensor(norm_patches).to(self.device)
-        norm_patches = self.data_transform(norm_patches)
-        
+        norm_patches = self.my_norm(norm_patches)
+
         log.debug(f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
         predictions = {}
         for label, legend_img in legend_images.items():
@@ -80,7 +83,7 @@ class rigid_wasabi_model(pipeline_pytorch_model):
 
             # Create legend array to merge with patches
             legend_patches = torch.stack([legend_tensor for i in range(rows*cols)], dim=0)
-            legend_patches = self.data_transform(legend_patches)
+            legend_patches = self.my_norm(legend_patches)
 
             # Concatenate the map and legend patches along the third axis (channels) and normalize to [-1,1]
             norm_data = torch.cat([norm_patches, legend_patches], dim=3)
