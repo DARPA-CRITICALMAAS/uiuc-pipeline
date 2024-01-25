@@ -185,7 +185,7 @@ A. Use the issues tab underneath the Plan tab to submit an issue describing your
 * **--model** : required<br>
     The release-tag of the model checkpoint that will be used to perform inference. Available release-tags for models are listed [below](#available-models) and can be displayed with --help.
 * **--data** : required<br>
-    Directory containing the data to perform inference on. The program will run inference on any `.tif` files in this directory. Mutually exclusive with --amqp.
+    Path to file(s) and/or directory(s) containing the data to perform inference on. The program will run inference on any `.tif` files. Mutually exclusive with --amqp.
 * **--amqp** : required ## Not Implemented Yet ##<br>
     Url to use to connect to a amqp data stream. Mutually exclusive with --data. 
 * **--output** : required<br>
