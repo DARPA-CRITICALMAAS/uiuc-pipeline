@@ -8,6 +8,7 @@ from patchify import patchify, unpatchify
 import torch
 from torchvision import transforms
 
+from src.patching import unpatch_img
 from .pipeline_pytorch_model import pipeline_pytorch_model
 from submodules.models.golden_muscat.models import SegmentationModel
 
@@ -20,6 +21,8 @@ class golden_muscat_model(pipeline_pytorch_model):
 
         self.args = SimpleNamespace(model='Unet', edge=False)
         self.device = torch.device("cuda")
+        self.patch_overlap = 128
+        self.unpatch_mode = 'discard'
 
     #@override
     def load_model(self):
@@ -36,7 +39,8 @@ class golden_muscat_model(pipeline_pytorch_model):
         return norm_data
 
     # @override
-    def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):   
+    def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
+        patch_overlap = self.patch_overlap
         # Pytorch expects image in CHW format
         image = image.transpose(2,0,1)
 
@@ -92,21 +96,21 @@ class golden_muscat_model(pipeline_pytorch_model):
             with torch.no_grad():
                 for i in range(0, len(norm_data), batch_size):
                     prediction = self.model.model(norm_patches[i:i+batch_size], legend_patches[i:i+batch_size])
-                    prediction = torch.argmax(prediction, dim=1).cpu().numpy()
+                    prediction = torch.argmax(prediction, dim=1).cpu().numpy().astype(np.uint8)
                     
                     prediction_patches.append(prediction)
                     
             # Merge patches back into single image and remove padding
             prediction_patches = np.concatenate(prediction_patches, axis=0)
             prediction_patches = prediction_patches.reshape([1, cols, rows, 1, patch_size, patch_size])
-            prediction_image = unpatchify(prediction_patches, [1, padded_image.shape[1], padded_image.shape[2]])
-            prediction_image = prediction_image[:,:map_height,:map_width]
+            unpatch_image = unpatch_img(prediction_patches, [1, padded_image.shape[1], padded_image.shape[2]], overlap=patch_overlap, mode=self.unpatch_mode)
+            prediction_image = unpatch_image[:,:map_height,:map_width]
 
             # Transpose image back to HWC
             prediction_image = prediction_image.transpose(1,2,0)
 
             # Convert prediction result to a binary format using a threshold
-            prediction_mask = (prediction_image > 0.5).astype(np.uint8)
+            prediction_mask = (prediction_image > 0.5)
             predictions[label] = prediction_mask
             gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 
