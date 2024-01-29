@@ -1,5 +1,6 @@
 # Modules required to start up, Rest are lazy imported in main to reduce start up time.
 import os
+import copy
 import logging
 import argparse
 from time import time
@@ -219,11 +220,18 @@ def main():
     if args.feedback is not None and not os.path.exists(args.feedback):
         os.makedirs(args.feedback)
 
-    if args.data and not args.amqp:
-        run_local_mode(args)
-    else:
-        run_amqp_mode(args)
-
+    global completed_maps
+    completed_maps = []
+    try:
+        if args.data and not args.amqp:
+            run_local_mode(args)
+        else:
+            run_amqp_mode(args)
+    except:
+        log.warning(f'Completed these maps before failure :\n{completed_maps}')
+        log.warning(f'Remaining maps to be processed :\n{remaining_maps}')
+        log.exception('Pipeline encounter unhandled exception. Stopping Pipeline')
+        exit(1)
     log.info(f'Pipeline terminating succesfully. Runtime was {time()-main_start_time} seconds')
 
 def run_amqp_mode(args):
@@ -231,6 +239,9 @@ def run_amqp_mode(args):
     raise NotImplementedError
 
 def run_local_mode(args):
+    global remaining_maps
+    remaining_maps = copy.deepcopy(args.data)
+
     # Pre-load legend and layout jsons
     log.info(f'Loading legends for {len(args.data)} maps')
     le_start_time = time()
@@ -316,7 +327,10 @@ def run_local_mode(args):
             truth_masks =  io.parallelLoadGeoTiffs(validation_filepaths)
             truth_dict = {}
             for feature, true_mask in zip(results, truth_masks):
-                truth_dict[feature], _, _ = true_mask
+                if true_mask is not None:
+                    truth_dict[feature], _, _ = true_mask
+                else:
+                    truth_dict[feature] = None
 
             map_score_df, val_feedback = perform_validation(results, truth_dict, map_name, map_crs=map_crs, map_transform=map_transform, feedback=args.feedback)
 
@@ -333,6 +347,9 @@ def run_local_mode(args):
             else:
                 dataset_score_df = pd.concat([dataset_score_df, map_score_df]) 
         
+        remaining_maps.remove(img_path)
+        completed_maps.append(img_path)
+
     # Save csv of all scores at the end
     if args.validation is not None:
         if args.feedback:
@@ -348,26 +365,27 @@ def process_map(model, image, map_name, legends=None, layout=None, feedback=None
         min_pt, max_pt = utils.boundingBox(lgd['points']) # Need this as points order can be reverse or could have quad
         legend_images[lgd['label']] = image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0], :]
         if feedback:
+            os.makedirs(os.path.join(feedback, map_name), exist_ok=True)
             if lgd_mode == 'individual':
-                os.makedirs(os.path.join(feedback, map_name), exist_ok=True)
                 legend_save_path = os.path.join(feedback, map_name, 'lgd_' + map_name + '_' + lgd['label'] + '.tif')
                 io.saveGeoTiff(legend_save_path, legend_images[lgd['label']], None, None)
-    if feedback:
+    if feedback and len(legend_images) > 0:
+        os.makedirs(os.path.join(feedback, map_name), exist_ok=True)
         if lgd_mode == 'single_file':
             cols = 4
             rows = ceil(len(legend_images)/cols)
-            log.debug(f'Legend image {len(legend_images)} items in : {cols} Cols, {rows} Rows')
+            #log.debug(f'Legend image {len(legend_images)} items in : {cols} Cols, {rows} Rows')
             fig, ax = plt.subplots(rows, cols, figsize=(16,16))
-            np.array(list())
+            ax = ax.reshape(rows, cols) # Force 2d shape if less the 4 items
             for r,c in np.ndindex(ax.shape):
                 ax[r][c].axis('off')
             for i, label in enumerate(legend_images):
-                row, col = floor(i/cols), i%cols
+                row, col  = floor(i/cols), i%cols
                 ax[row][col].set_title(label)
                 ax[row][col].imshow(legend_images[label])
             legend_save_path = os.path.join(feedback, map_name, map_name + '_labels'  + '.png')
             fig.savefig(legend_save_path)
-    exit()
+    
     # Cutout map portion of image
     if layout is not None and 'map' in layout:
         inital_shape = image.shape

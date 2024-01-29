@@ -8,6 +8,7 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
 class primordial_positron_model(pipeline_tensorflow_model):
     def __init__(self):
+        super().__init__()
         self.name = 'primordial positron'
         self.checkpoint = 'submodules/models/primordial_positron/inference_model/Unet-attentionUnet.h5'
 

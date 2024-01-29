@@ -8,6 +8,7 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
 class customer_backpack_model(pipeline_tensorflow_model):
     def __init__(self):
+        super().__init__()
         self.name = 'customer backpack'
         self.checkpoint = 'submodules/models/customer_backpack/inference_model/UNET_seresnet50.h5'
 

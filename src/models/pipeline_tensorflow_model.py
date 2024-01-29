@@ -3,6 +3,7 @@ import cv2
 import logging
 import tensorflow as tf
 
+from src.patching import unpatch_img
 from time import time
 import numpy as np
 from patchify import patchify, unpatchify
@@ -15,10 +16,12 @@ class pipeline_tensorflow_model(pipeline_model):
     def __init__(self):
         super().__init__()
         self.name = 'base pipeline tensorflow model'
+        self.patch_overlap = 64
+        self.unpatch_mode = 'discard'
 
     #@nvtx.annotate(color="green", domain='DARPA_CMAAS_PIPELINE')
     def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
-        
+        patch_overlap = self.patch_overlap
         # Get the size of the map
         map_width, map_height, map_channels = image.shape
 
@@ -30,8 +33,8 @@ class pipeline_tensorflow_model(pipeline_model):
         # Pad image so we get a size that can be evenly divided into patches.
         right_pad = patch_size - (map_width % patch_size)
         bottom_pad = patch_size - (map_height % patch_size)
-        image = np.pad(image, ((0, right_pad), (0, bottom_pad), (0,0)), mode='constant', constant_values=0)
-        patches = patchify(image, (patch_size, patch_size, 3), step=patch_size-patch_overlap)
+        padded_image = np.pad(image, ((0, bottom_pad), (0, right_pad), (0,0)), mode='constant', constant_values=0)
+        patches = patchify(padded_image, (patch_size, patch_size, 3), step=patch_size-patch_overlap)
 
         rows = patches.shape[0]
         cols = patches.shape[1]
@@ -73,8 +76,8 @@ class pipeline_tensorflow_model(pipeline_model):
             # Merge patches back into single image and remove padding
             prediction_patches = np.array(prediction_patches) # I have no idea why but sometimes model predict outputs a np array and sometimes a tensor array???
             prediction_patches = prediction_patches.reshape([rows, cols, 1, patch_size, patch_size, 1])
-            prediction_image = unpatchify(prediction_patches, [image.shape[0], image.shape[1], 1])
-            prediction_image = prediction_image[:map_width,:map_height,:]
+            unpatch_image = unpatch_img(prediction_patches.transpose(2,0,1,5,3,4), [1, padded_image.shape[0], padded_image.shape[1]], overlap=patch_overlap, mode=self.unpatch_mode).transpose(1,2,0)
+            prediction_image = unpatch_image[:map_width,:map_height,:]
 
             # Convert prediction result to a binary format using a threshold
             prediction_mask = (prediction_image > 0.5).astype(np.uint8)
