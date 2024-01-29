@@ -215,6 +215,32 @@ Pipeline config will likely contain model-specific config options. Some planned 
 * Batch_size?
 
 ### Available Models
+#### Point Models
+<details>
+<summary> <b>Quantum-Sugar</b> </summary>
+
+Git Repository : https://github.com/Dongjiahua/DARPA_torch <br>
+Lead Developer : [![Git profile image](https://wsrv.nl/?url=https://avatars.githubusercontent.com/u/48640121?v=4&w=28&h=28&mask=circle) Dong Jiahua](https://github.com/Dongjiahua)<br>
+Description :<br>
+
+Release Tags :<br>
+* quantum_sugar
+
+</details>
+
+<details>
+<summary> <b>Flat-Iceberg</b> </summary>
+
+Git Repository : https://github.com/Dongjiahua/DARPA_torch <br>
+Lead Developer : [![Git profile image](https://wsrv.nl/?url=https://avatars.githubusercontent.com/u/48640121?v=4&w=28&h=28&mask=circle) Dong Jiahua](https://github.com/Dongjiahua)<br>
+Description :<br>
+
+Release Tags :<br>
+* flat_iceberg
+
+</details>
+
+#### Polygon Models
 <details>
 <summary> <b>Primordial-Positron</b> </summary>
 
