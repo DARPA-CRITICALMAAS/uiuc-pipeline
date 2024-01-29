@@ -24,4 +24,4 @@
 	url = https://github.com/xiyuez2/Darpa_Unet.git
 [submodule "submodules/models/flat_iceberg"]
 	path = submodules/models/flat_iceberg
-	url = https://github.com/Dongjiahua/DARPA_torch.git
+	url = git@github.com:Dongjiahua/DARPA_torch.git

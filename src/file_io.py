@@ -32,15 +32,22 @@ def loadGeoTiff(filepath):
 
     return image, crs, transform
 
-# Load a USGS formated json file (For truth jsons)
-def loadUSGSJson(filepath, polyDataOnly=False):
-    if not os.path.exists(filepath):
-        return None
+def loadLegendJson(filepath : str, feature_type : str='all') -> dict:
+    """Loads a legend json file. Json is expected to be in USGS format. Converts shape point data to int. Supports
+       filtering by feature type. Returns a dictionary"""
+    # Check that feature_type is valid
+    valid_ftype = ['point','polygon','all']
+    if feature_type not in valid_ftype:
+        msg = f'Invalid feature type "{feature_type}" specified.\nAvailable feature types are : {valid_ftype}'
+        raise TypeError(msg)
     
     with open(filepath, 'r') as fh:
         json_data = json.load(fh)
 
-    if polyDataOnly:
+    # Filter by feature type
+    if feature_type == 'point':
+        json_data['shapes'] = [s for s in json_data['shapes'] if s['label'].split('_')[-1] == 'pt']
+    if feature_type == 'polygon':
         json_data['shapes'] = [s for s in json_data['shapes'] if s['label'].split('_')[-1] == 'poly']
 
     # Convert pix coords to int
@@ -49,12 +56,9 @@ def loadUSGSJson(filepath, polyDataOnly=False):
 
     return json_data
 
-# Load a Uncharted formated json file (For legend area mask)
-def loadUnchartedJson(filepath):
-    if not os.path.exists(filepath):
-        log.warning('Json mask file "{}" does not exist. Skipping file'.format(filepath))
-        return None
-    
+def loadLayoutJson(filepath : str) -> dict:
+    """Loads a layout json file. Json is expected to be in uncharted format. Converts bounding point data to int.
+       Returns a dictionary"""
     with open(filepath, 'r') as fh:
         json_data = json.load(fh)
 
@@ -85,7 +89,8 @@ def saveGeoTiff(filename, prediction, crs, transform, ):
                   height=image.shape[1], width=image.shape[2], count=image.shape[0], dtype=image.dtype,
                   crs=crs, transform=transform).write(image)
 
-def saveUSGSJson(filepath, features):
+def saveLegendJson(filepath : str, features : dict) -> None:
+    """Save legend data to a json file. Features is expected to conform to the USGS format."""
     for s in features['shapes']:
         s['points'] = s['points'].tolist()
     with open(filepath, 'w') as fh:
