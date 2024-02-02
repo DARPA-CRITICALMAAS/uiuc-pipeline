@@ -11,11 +11,11 @@ FILE_LOG_LEVEL = logging.INFO
 STREAM_LOG_LEVEL = logging.WARNING
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
 
-
 lgd_mode = 'single_file'
 
 AVAILABLE_MODELS = [
-    'primordial_positron',
+    'primordial_positron_3',
+    'primordial_positron_4',
     'customer_backpack',
     'golden_muscat',
     'rigid_wasabi',
@@ -24,9 +24,12 @@ AVAILABLE_MODELS = [
 # Lazy load only the model we are going to use
 def load_pipeline_model(model_name):
     model = None
-    if model_name == 'primordial_positron':
-        from src.models.primordial_positron_model import primordial_positron_model
-        model = primordial_positron_model()
+    if model_name == 'primordial_positron_3':
+        from src.models.primordial_positron_model import primordial_positron_model_3
+        model = primordial_positron_model_3()
+    if model_name == 'primordial_positron_4':
+        from src.models.primordial_positron_model import primordial_positron_model_4
+        model = primordial_positron_model_4()
     if model_name == 'customer_backpack':
         from src.models.customer_backpack_model import customer_backpack_model
         model = customer_backpack_model()
@@ -201,11 +204,11 @@ def main():
     from math import ceil, floor
 
     try:
-        global extractLegends, generateJsonData, polygonize, gradeRaster
+        global extractLegends, generateJsonData, polygonize, grade_poly_raster
         from submodules.legend_extraction.src.extraction import extractLegends
         from submodules.legend_extraction.src.IO import generateJsonData
         from submodules.vectorization.src.polygonize import polygonize
-        from submodules.validation.src.grading import gradeRaster
+        from submodules.validation.src.grading import grade_poly_raster
     except:
         log.exception('Cannot import submodule code\n' +
                       'May need to do:\n' +
@@ -439,7 +442,7 @@ def perform_validation(predict_dict, truth_dict, map_name, map_crs, map_transfor
             feedback_img = np.zeros((*feature_mask.shape[:2],3), dtype=np.uint8)
         
         # Grade image
-        f1_score, iou_score, recall, precision, feedback_img = gradeRaster(feature_mask, truth_dict[feature], debug_image=feedback_img)
+        f1_score, iou_score, recall, precision, feedback_img = grade_poly_raster(feature_mask, truth_dict[feature], feedback_image=feedback_img)
         score_df.loc[len(score_df)] = {'Map' : map_name, 'Feature' : feature, 'F1 Score' : f1_score, 'IoU Score' : iou_score, 'Recall' : recall, 'Precision' : precision}
         
         val_dict[feature] = feedback_img    
