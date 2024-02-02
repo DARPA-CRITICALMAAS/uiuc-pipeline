@@ -11,6 +11,7 @@ from time import time
 from patchify import patchify, unpatchify
 from submodules.models.flat_iceberg.inference import OneshotYOLO
 
+from src.patching import unpatch_img
 from .pipeline_pytorch_model import pipeline_pytorch_model
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
@@ -20,6 +21,8 @@ class flat_iceberg_model(pipeline_pytorch_model):
         super().__init__()
         self.name = 'flat iceberg'
         self.checkpoint = '/projects/bbym/shared/models/flat-iceberg/best.pt'
+        self.patch_overlap = 32
+        self.unpatch_mode = 'discard'
     
     # @override
     def load_model(self):
@@ -29,6 +32,7 @@ class flat_iceberg_model(pipeline_pytorch_model):
 
     # @override
     def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
+        patch_overlap = self.patch_overlap
         # Make sure model is set to inference mode
         #self.model.cuda()
         self.model.eval() 
@@ -81,14 +85,15 @@ class flat_iceberg_model(pipeline_pytorch_model):
             prediction_patches = np.stack(prediction_patches, axis=0)
             # prediction_patches = np.array(prediction_patches) # I have no idea why but sometimes model predict outputs a np array and sometimes a tensor array???
             prediction_patches = prediction_patches.reshape([rows, cols, 1, patch_size, patch_size, 1])
-            prediction_image = unpatchify(prediction_patches, [image.shape[0], image.shape[1], 1])
-            prediction_image = prediction_image[:map_width,:map_height,:]
+            unpatch_image = unpatch_img(prediction_patches.transpose(2,0,1,5,3,4), [1, image.shape[0], image.shape[1]], overlap=patch_overlap, mode=self.unpatch_mode)
+            #prediction_image = unpatchify(prediction_patches, [image.shape[0], image.shape[1], 1])
+            prediction_image = unpatch_image[:,:map_width,:map_height]
             #saveGeoTiff("testdata/debug/sample.tif", prediction_image.astype(np.uint8) * 255, None, None)
 
             # Convert prediction result to a binary format using a threshold
             #prediction_mask = (prediction_image > 0.5).astype(np.uint8)
             #predictions[label] = prediction_mask
-            predictions[label] = prediction_image
+            predictions[label] = prediction_image.transpose(1,2,0)
             
             gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 

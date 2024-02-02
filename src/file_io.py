@@ -5,10 +5,12 @@ import numpy as np
 import rasterio
 import geopandas as gpd
 import multiprocessing
+from typing import List
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
-def parallelLoadGeoTiffs(files, processes=1):
+def parallelLoadGeoTiffs(files : List, processes : int=1): # -> list[tuple(image, crs, transfrom)]:
+    """Load a list of filenames in parallel with N processes. Returns a list of images"""
     p=multiprocessing.Pool()
     images = p.map(loadGeoTiff, files)
     p.close()
@@ -16,24 +18,23 @@ def parallelLoadGeoTiffs(files, processes=1):
 
     return images
 
-def loadGeoTiff(filepath):
-    if not os.path.exists(filepath):
-        log.warning('Image file "{}" does not exist. Skipping file'.format(filepath))
-        return None
+def loadGeoTiff(filepath : str): # -> tuple(image, crs, transform):
+    """Load a GeoTiff file. Raises exception if image is not loaded properly. Returns a tuple of the image, crs and transform """
     with rasterio.open(filepath) as fh:
         image = fh.read()
         crs = fh.crs
         transform = fh.transform
     if image is None:
-        log.warning('Could not load {}. Skipping file'.format(filepath))
-        return None
+        msg = f'Unknown issue caused "{filepath}" to fail while loading'
+        raise Exception(msg)
+    
     if len(image.shape) == 3:
         image = image.transpose(1,2,0)
 
     return image, crs, transform
 
 def loadLegendJson(filepath : str, feature_type : str='all') -> dict:
-    """Loads a legend json file. Json is expected to be in USGS format. Converts shape point data to int. Supports
+    """Load a legend json file. Json is expected to be in USGS format. Converts shape point data to int. Supports
        filtering by feature type. Returns a dictionary"""
     # Check that feature_type is valid
     valid_ftype = ['point','polygon','all']
