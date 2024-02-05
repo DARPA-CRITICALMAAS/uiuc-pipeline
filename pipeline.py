@@ -535,7 +535,8 @@ def perform_validation(predict_dict, truth_dict, map_image, legend_dict, map_nam
             results = grade_poly_raster(feature_mask, truth_dict[feature], feedback_image=feedback_image)
             
             # w_f1_score, w_precision, w_recall, iou_score, feedback_image
-            weighted_results = usgs_grade_poly_raster(feature_mask, truth_dict[feature], map_image, legend, feedback_image=feedback_image, difficult_weight=0.7)
+            weighted_results = (np.nan,np.nan,np.nan,np.nan, None)
+            #weighted_results = usgs_grade_poly_raster(feature_mask, truth_dict[feature], map_image, legend, feedback_image=None, difficult_weight=0.7)
             results_df.loc[len(results_df)] = {'Map' : map_name,
                                                'Feature' : feature, 
                                                'F1 Score' : results[0],
