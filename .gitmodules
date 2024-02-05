@@ -22,6 +22,3 @@
 [submodule "submodules/models/rigid_wasabi"]
 	path = submodules/models/rigid_wasabi
 	url = https://github.com/xiyuez2/Darpa_Unet.git
-[submodule "submodules/models/flat_iceberg"]
-	path = submodules/models/flat_iceberg
-	url = git@github.com:Dongjiahua/DARPA_torch.git
