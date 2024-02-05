@@ -519,7 +519,7 @@ def perform_validation(predict_dict, truth_dict, map_image, legend_dict, map_nam
                                                'Feature' : feature, 
                                                'F1 Score' : pt_results[0],
                                                'Precision' : pt_results[1],
-                                            'Recall' : pt_results[2],
+                                               'Recall' : pt_results[2],
                                                'Mean matched distance (pts)' : pt_results[3],
                                                'Matched (pts)' : pt_results[4],
                                                'Missing (pts)' : pt_results[5],
