@@ -13,7 +13,7 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
   # module load python/3.9.13 cuda/11.7.0 
 
   git clone git@git.ncsa.illinois.edu:criticalmaas/pipeline.git
-  cd pipeline
+  cd pipeline_inference
   python3 -m venv venv
   source ./venv/bin/activate
   pip install -r requirements.txt
