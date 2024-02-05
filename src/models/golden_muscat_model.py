@@ -110,12 +110,21 @@ class golden_muscat_model(pipeline_pytorch_model):
             prediction_image = prediction_image.transpose(1,2,0)
 
             # Convert prediction result to a binary format using a threshold
-            prediction_mask = (prediction_image > 0.5)
-            predictions[label] = prediction_mask
+            # prediction_mask = (prediction_image > 0.5)
+            predictions[label] = prediction_image
+            
             gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 
             lgd_time = time() - lgd_stime
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
-            
+        
+        prediction_array = np.stack([predictions[k] for k in predictions], axis=2)
+        preds_max = np.array([np.max(prediction_array, axis=2)]*len(prediction_array.shape[2])) - 0.00001
+        prediction_array = (prediction_array > preds_max) & (preds_max > 0.5)
+
+        # for k in predictions:
+        #     predictions[k]
+        # predictions[label]
+
         return predictions
     
