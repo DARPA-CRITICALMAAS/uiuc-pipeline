@@ -34,6 +34,7 @@ shapely
 # Validation
 #numpy
 pandas>=2.1.3
+joblib
 
 ### OLD ####
 # mlflow
