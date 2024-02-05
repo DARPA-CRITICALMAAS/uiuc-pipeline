@@ -25,7 +25,7 @@ class primordial_positron_model_4(pipeline_tensorflow_model):
     def __init__(self):
         super().__init__()
         self.name = 'primordial positron 4'
-        self.checkpoint = 'submodules/models/primordial_positron/inference_model/Unet-attentionUnet_h5_image.h5'
+        self.checkpoint = '/projects/bbym/shared/models/primodial-positron/Unet-attentionUnet.h5'
 
     #@override
     def load_model(self):
