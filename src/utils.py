@@ -72,9 +72,10 @@ def start_logger(logger_name, filepath, log_level=logging.INFO, console_log_leve
         stream_handler.setFormatter(stream_formatter)
         stream_handler.setLevel(console_log_level)
         log.addHandler(stream_handler)
-
-    log.setLevel(min(log_level,console_log_level))
-
+        log.setLevel(min(log_level,console_log_level))
+    else:
+        log.setLevel(log_level)
+    
     return log
 
 def boundingBox(array):
