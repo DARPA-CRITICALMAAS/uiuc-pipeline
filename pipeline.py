@@ -538,7 +538,7 @@ def perform_validation(predict_dict, truth_dict, map_image, legend_dict, map_nam
             weighted_results = (np.nan,np.nan,np.nan,np.nan, None)
             #weighted_results = usgs_grade_poly_raster(feature_mask, truth_dict[feature], map_image, legend, feedback_image=None, difficult_weight=0.7)
             results_df.loc[len(results_df)] = {'Map' : map_name,
-                                               'Feature' : feature, 
+                                               'Feature' : feature,
                                                'F1 Score' : results[0],
                                                'Precision' : results[1],
                                                'Recall' : results[2],
@@ -549,7 +549,7 @@ def perform_validation(predict_dict, truth_dict, map_image, legend_dict, map_nam
                                                'Mean matched distance (pts)' : np.nan,
                                                'Matched (pts)' : np.nan,
                                                'Missing (pts)' : np.nan,
-                                               'Unmatched (pts)' : np.nan 
+                                               'Unmatched (pts)' : np.nan
                                                }
         
         val_image_dict[feature] = feedback_image
