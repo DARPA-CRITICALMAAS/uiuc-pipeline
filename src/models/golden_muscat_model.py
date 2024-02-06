@@ -118,23 +118,32 @@ class golden_muscat_model(pipeline_pytorch_model):
             lgd_time = time() - lgd_stime
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
         
-        if len(predictions.keys()) == 0:
-            return predictions
-        prediction_array = np.stack([predictions[k].astype(np.float32) for k in predictions], axis=2)
-        pre_keys = predictions.keys()
-        # del predictions
-        preds_max = np.max(prediction_array, axis=2) - 0.00001
-        # preds_max = preds_max.transpose(1,2,0,3)
-        for i in range(prediction_array.shape[2]):
-            prediction_array[:,:,i] = (prediction_array[:,:,i] > preds_max) & (preds_max > 0.5)
-        prediction_array = (prediction_array > preds_max) & (preds_max > 0.5)
-        predictions = {}
-        for i, k in enumerate(pre_keys):
-            predictions[k] = prediction_array[:,:,i]
+        
+        # prediction_array = np.stack([predictions[k].astype(np.float32) for k in predictions], axis=2)
+        # pre_keys = predictions.keys()
+        # # del predictions
+        # preds_max = np.max(prediction_array, axis=2) - 0.00001
+        # # preds_max = preds_max.transpose(1,2,0,3)
+        # for i in range(prediction_array.shape[2]):
+        #     prediction_array[:,:,i] = (prediction_array[:,:,i] > preds_max) & (preds_max > 0.5)
+        # prediction_array = (prediction_array > preds_max) & (preds_max > 0.5)
+        # predictions = {}
+        # for i, k in enumerate(pre_keys):
+        #     predictions[k] = prediction_array[:,:,i]
         # del prediction_array
         # for k in predictions:
         #     predictions[k]
         # predictions[label]
+        if len(predictions.keys()) == 0:
+            return predictions
+        
+        cur_max = np.zeros(predictions[list(predictions.keys())[0]].shape)
+        for k in predictions:
+            cur_max = np.maximum(cur_max, predictions[k])
+        cur_max = cur_max - 0.00001
+        
+        for k in predictions:
+            predictions[k] = (predictions[k] > cur_max) & (cur_max > 0.5)
 
         return predictions
     
