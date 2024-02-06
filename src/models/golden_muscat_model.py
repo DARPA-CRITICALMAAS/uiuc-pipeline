@@ -118,6 +118,8 @@ class golden_muscat_model(pipeline_pytorch_model):
             lgd_time = time() - lgd_stime
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
         
+        if len(predictions.keys()) == 0:
+            return predictions
         prediction_array = np.stack([predictions[k].astype(np.float32) for k in predictions], axis=2)
         pre_keys = predictions.keys()
         # del predictions
