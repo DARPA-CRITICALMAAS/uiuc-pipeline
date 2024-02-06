@@ -117,11 +117,23 @@ class rigid_wasabi_model(pipeline_pytorch_model):
             lgd_time = time() - lgd_stime
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
             
-            prediction_array = np.stack([predictions[k] for k in predictions], axis=2)
-            preds_max = np.array([np.max(prediction_array, axis=2)]*prediction_array.shape[2]) - 0.00001
-            preds_max = preds_max.transpose(1,2,0,3)
-            prediction_array = (prediction_array > preds_max) & (preds_max > 0.5)
-            for i, k in enumerate(predictions.keys()):
-                predictions[k] = prediction_array[:,:,i]
+            # prediction_array = np.stack([predictions[k] for k in predictions], axis=2)
+            # preds_max = np.array([np.max(prediction_array, axis=2)]*prediction_array.shape[2]) - 0.00001
+            # preds_max = preds_max.transpose(1,2,0,3)
+            # prediction_array = (prediction_array > preds_max) & (preds_max > 0.5)
+            # for i, k in enumerate(predictions.keys()):
+            #     predictions[k] = prediction_array[:,:,i]
+            if len(predictions.keys()) == 0:
+                return predictions
+            
+            cur_max = np.zeros(predictions[list(predictions.keys())[0]].shape)
+            for k in predictions:
+                cur_max = np.maximum(cur_max, predictions[k])
+            cur_max = cur_max
+
+            for k in predictions:
+                predictions[k] = (predictions[k] >= cur_max) & (cur_max > 0.5)
+
+        return predictions
                 
         return predictions

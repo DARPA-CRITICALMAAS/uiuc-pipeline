@@ -19,7 +19,7 @@ class golden_muscat_model(pipeline_pytorch_model):
         self.name = 'golden muscat'
         self.checkpoint = '/projects/bbym/shared/models/golden_muscat/jaccard.ckpt'
 
-        self.args = SimpleNamespace(model='Unet', edge=False)
+        self.args = SimpleNamespace(model='Unet', edge=False,superpixel = '')
         self.device = torch.device("cuda")
         self.patch_overlap = 128
         self.unpatch_mode = 'discard'
@@ -140,10 +140,10 @@ class golden_muscat_model(pipeline_pytorch_model):
         cur_max = np.zeros(predictions[list(predictions.keys())[0]].shape)
         for k in predictions:
             cur_max = np.maximum(cur_max, predictions[k])
-        cur_max = cur_max - 0.00001
-        
+        cur_max = cur_max
+
         for k in predictions:
-            predictions[k] = (predictions[k] > cur_max) & (cur_max > 0.5)
+            predictions[k] = (predictions[k] >= cur_max) & (cur_max > 0.5)
 
         return predictions
     
