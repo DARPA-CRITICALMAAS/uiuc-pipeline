@@ -118,13 +118,18 @@ class golden_muscat_model(pipeline_pytorch_model):
             lgd_time = time() - lgd_stime
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
         
-        prediction_array = np.stack([predictions[k] for k in predictions], axis=2)
-        preds_max = np.array([np.max(prediction_array, axis=2)]*prediction_array.shape[2]) - 0.00001
-        preds_max = preds_max.transpose(1,2,0,3)
+        prediction_array = np.stack([predictions[k].astype(np.float32) for k in predictions], axis=2)
+        pre_keys = predictions.keys()
+        # del predictions
+        preds_max = np.max(prediction_array, axis=2) - 0.00001
+        # preds_max = preds_max.transpose(1,2,0,3)
+        for i in range(prediction_array.shape[2]):
+            prediction_array[:,:,i] = (prediction_array[:,:,i] > preds_max) & (preds_max > 0.5)
         prediction_array = (prediction_array > preds_max) & (preds_max > 0.5)
-        for i, k in enumerate(predictions.keys()):
+        predictions = {}
+        for i, k in enumerate(pre_keys):
             predictions[k] = prediction_array[:,:,i]
-
+        # del prediction_array
         # for k in predictions:
         #     predictions[k]
         # predictions[label]
