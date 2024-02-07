@@ -25,6 +25,9 @@ AVAILABLE_MODELS = [
 from src.models.pipeline_model import pipeline_model
 def load_pipeline_model(model_name : str) -> pipeline_model :
     """Utility function to only import and load the model we are going to use. Returns loaded model"""
+    log.info(f'Loading model {model_name}')
+    model_stime = time()
+
     model = None
     if model_name == 'primordial_positron':
         from src.models.primordial_positron_model import primordial_positron_model
@@ -45,6 +48,8 @@ def load_pipeline_model(model_name : str) -> pipeline_model :
         from src.models.flat_iceberg_model import flat_iceberg_model
         model = flat_iceberg_model()
     model.load_model()
+    
+    log.info(f'Model loaded in {time()-model_stime:.2f} seconds')
     return model 
 
 def parse_command_line():
@@ -248,12 +253,11 @@ def main():
     # Import packages
     log.info(f'Importing packages')
     p_time = time()
-    global np, pd, file_io, tqdm, plt, ceil, floor
-    import src.file_io as file_io
+    global np, pd, io, tqdm, ceil, floor
+    import src.cmass_io as io
     import numpy as np
     import pandas as pd
     from tqdm import tqdm
-    from matplotlib import pyplot as plt
     from math import ceil, floor
 
     try:
