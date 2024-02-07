@@ -107,7 +107,10 @@ def loadCMASSLegend(filepath : Path, feature_type : str='all') -> CMASS_Legend:
 
 def parallelLoadLegends(legend_files, feature_type : str='all', threads : int=32):
     with ThreadPoolExecutor(max_workers=threads) as executor:
-        legends = [executor.submit(loadCMASSLegend, file, feature_type).result() for file in legend_files]
+        legends = {}
+        for file in legend_files:
+            map_name = os.path.basename(os.path.splitext(legend_files)[0])
+            legends[map_name] = executor.submit(loadCMASSLegend, file, feature_type).result()
     return legends
 
 #     // Q: What order does tensorflow expect a batch to be in?
@@ -182,7 +185,10 @@ def loadLayoutJson(filepath : str) -> dict:
 
 def parallelLoadLayouts(layout_files, threads : int=32):
     with ThreadPoolExecutor(max_workers=threads) as executor:
-        layouts = [executor.submit(loadLayoutJson, file).result() for file in layout_files]
+        layouts = {}
+        for file in layout_files:
+            map_name = os.path.basename(os.path.splitext(layout_files)[0])
+            layouts[map_name] = executor.submit(loadLayoutJson, file).result()
     return layouts
 
 def saveGeoTiff(filename, prediction, crs, transform, ):
