@@ -92,6 +92,7 @@ class golden_muscat_model(pipeline_pytorch_model):
                     prediction = self.model.model(map_data.to(self.device), legend_patches[:len(map_data)])
                     # prediction = torch.argmax(prediction, dim=1).cpu().numpy().astype(np.uint8)
                     prediction = torch.softmax(prediction, dim = 1)[:,-1].cpu().numpy().astype(np.float32)
+
                     prediction_patches.append(prediction)
                     
             # unpatch
@@ -116,6 +117,7 @@ class golden_muscat_model(pipeline_pytorch_model):
             cur_max = np.maximum(cur_max, predictions[k])
         # cur_max = cur_max - 0.00001
         for k in predictions:
+
             predictions[k] = ((predictions[k] >= cur_max) & (cur_max > 0.3)).astype(np.uint8)
 
         return predictions
