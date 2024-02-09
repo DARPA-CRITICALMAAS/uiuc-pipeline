@@ -40,16 +40,18 @@ class golden_muscat_model(pipeline_pytorch_model):
 
     # @override
     def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
+        # raise
         patch_overlap = self.patch_overlap
+        
+        
         # Pytorch expects image in CHW format
         image = image.transpose(2,0,1)
 
         # Get the size of the map
         map_channels, map_height, map_width = image.shape
-
         # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
-        if map_channels == 1: # This is tmp fix!
-            image = np.concatenate([image,image,image], axis=2)        
+        if map_channels == 1: # This is tmp fix!    
+            image = np.concatenate([image,image,image], axis=0)
 
         # Generate patches
         # Pad image so we get a size that can be evenly divided into patches.
@@ -74,7 +76,8 @@ class golden_muscat_model(pipeline_pytorch_model):
 
             # Pytorch expects image in CHW format
             legend_img = legend_img.transpose(2,0,1)
-
+            if legend_img.shape[0] == 1: # This is tmp fix!    
+                legend_img = np.concatenate([legend_img,legend_img,legend_img], axis=0)
             # Resize the legend patch
             legend_tensor = torch.Tensor(legend_img)
             resize_legend = transforms.Resize((patch_size, patch_size), antialias=None)
