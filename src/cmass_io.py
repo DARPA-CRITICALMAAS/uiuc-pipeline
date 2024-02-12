@@ -109,7 +109,7 @@ def parallelLoadLegends(legend_files, feature_type : str='all', threads : int=32
     with ThreadPoolExecutor(max_workers=threads) as executor:
         legends = {}
         for file in legend_files:
-            map_name = os.path.basename(os.path.splitext(legend_files)[0])
+            map_name = os.path.basename(os.path.splitext(file)[0])
             legends[map_name] = executor.submit(loadCMASSLegend, file, feature_type).result()
     return legends
 
@@ -187,7 +187,7 @@ def parallelLoadLayouts(layout_files, threads : int=32):
     with ThreadPoolExecutor(max_workers=threads) as executor:
         layouts = {}
         for file in layout_files:
-            map_name = os.path.basename(os.path.splitext(layout_files)[0])
+            map_name = os.path.basename(os.path.splitext(file)[0])
             layouts[map_name] = executor.submit(loadLayoutJson, file).result()
     return layouts
 
@@ -202,10 +202,7 @@ def saveGeoTiff(filename, prediction, crs, transform, ):
     - filename: The name of the file to save the prediction to.
     """
 
-    if prediction.ndim == 3:
-        image = prediction[...].transpose(2, 0, 1)  # rasterio expects bands first
-    else:
-        image = np.array(prediction[...], ndmin=3)
+    image = np.array(prediction[...], ndmin=3)
     rasterio.open(filename, 'w', driver='GTiff', compress='lzw',
                   height=image.shape[1], width=image.shape[2], count=image.shape[0], dtype=image.dtype,
                   crs=crs, transform=transform).write(image)

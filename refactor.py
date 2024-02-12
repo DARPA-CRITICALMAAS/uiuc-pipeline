@@ -26,7 +26,6 @@ def load_pipeline_model(model_name : str) -> pipeline_model :
     log.info(f'Loading model {model_name}')
     model_stime = time()
 
-    model = None
     if model_name == 'primordial_positron':
         from src.models.primordial_positron_model import primordial_positron_model
         model = primordial_positron_model()
@@ -248,9 +247,9 @@ def main():
     log.handlers[1].setLevel(STREAM_LOG_LEVEL)
 
     # Import other modules
-    global io, single_process_inference
+    global io, single_gpu_inference
     import src.cmass_io as io
-    from src.processing import single_process_inference
+    from src.processing import single_gpu_inference
     global ThreadPoolExecutor
     from concurrent.futures import ThreadPoolExecutor
 
@@ -290,36 +289,32 @@ def run_in_local_mode(args):
         # Start loading model first as it will take the longest
         model_future = executor.submit(load_pipeline_model, args.model)
 
+        legends, layouts = {}, {}
         if args.layout:
             layout_files = [os.path.join(args.layout, f) for f in os.listdir(args.layout) if f.endswith('.json')]
             layouts_future = executor.submit(io.parallelLoadLayouts, layout_files)
         if args.legends:
             legend_files = [os.path.join(args.legends,f) for f in os.listdir(args.legends) if f.endswith('.json')]
-            legends_future = executor.submit(io.parallelLoadLegends, legend_files)
-        
-        loaded_legends = [os.path.basename(os.path.splitext(f)[0]) for f in legend_files]
-        for map in args.data:
-            map_name = os.path.basename(os.path.splitext(map)[0])
-            if map_name not in loaded_legends:
-                log.warning(f'No legend found for {map_name}')
-
-        legends = legends_future.result()
-        log.info("Legends are loaded")
-        layouts = layouts_future.result()
-        log.info("Layouts are loaded")
+            legends_future = executor.submit(io.parallelLoadLegends, legend_files, 'polygon')
+            legends = legends_future.result()
+        if args.layout:
+            layouts = layouts_future.result()
+            log.info("Layouts are loaded")
         
         # TODO    
-        # Check which legends need to be generated
+        # Generate legends for any maps that don't have them
         for file in args.data:
             map_name = os.path.basename(os.path.splitext(file)[0])
             if map_name not in legends:
-                log.info(f'Generating legend for {map_name}')
+                log.warning(f'No legend for {map_name}')
+                #log.info(f'Generating legend for {map_name}')
                 #legends[map_name] = io.generateLegend(file)
+        log.info("Legends are loaded")
 
         model = model_future.result()
         log.info("Model is loaded")
-    return
-    single_process_inference(args.data, legends, layouts, model)
+    
+    single_gpu_inference(args, args.data, legends, layouts, model)
 
 if __name__=='__main__':
     main()

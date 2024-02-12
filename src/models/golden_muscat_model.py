@@ -73,7 +73,7 @@ class golden_muscat_model(pipeline_pytorch_model):
             lgd_stime = time()
 
             # Pytorch expects image in CHW format
-            legend_img = legend_img.transpose(2,0,1)
+            #legend_img = legend_img.transpose(2,0,1)
 
             # Reshape maps with 1 channel legends (greyscale) to 3 channels for inference
             if map_channels == 1: # This is tmp fix!
