@@ -12,7 +12,8 @@ STREAM_LOG_LEVEL = logging.WARNING
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
 
 AVAILABLE_MODELS = [
-    'primordial_positron',
+    'primordial_positron_3',
+    'primordial_positron_4',
     'customer_backpack',
     'golden_muscat',
     'rigid_wasabi',
@@ -20,15 +21,19 @@ AVAILABLE_MODELS = [
     'flat_iceberg'
 ]
 
+# Lazy load only the model we are going to use
 from src.models.pipeline_model import pipeline_model
 def load_pipeline_model(model_name : str) -> pipeline_model :
     """Utility function to only import and load the model we are going to use. Returns loaded model"""
     log.info(f'Loading model {model_name}')
     model_stime = time()
-
-    if model_name == 'primordial_positron':
-        from src.models.primordial_positron_model import primordial_positron_model
-        model = primordial_positron_model()
+    model = None
+    if model_name == 'primordial_positron_3':
+        from src.models.primordial_positron_model import primordial_positron_model_3
+        model = primordial_positron_model_3()
+    if model_name == 'primordial_positron_4':
+        from src.models.primordial_positron_model import primordial_positron_model_4
+        model = primordial_positron_model_4()
     if model_name == 'customer_backpack':
         from src.models.customer_backpack_model import customer_backpack_model
         model = customer_backpack_model()

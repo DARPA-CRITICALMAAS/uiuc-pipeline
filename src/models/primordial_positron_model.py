@@ -7,19 +7,33 @@ from keras.models import load_model
 from src.patching import unpatch_img
 from time import time
 
-
 from .pipeline_tensorflow_model import pipeline_tensorflow_model
 from submodules.models.primordial_positron.unet_util import multiplication, multiplication2, dice_coef, dice_coef_loss
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
-class primordial_positron_model(pipeline_tensorflow_model):
+class primordial_positron_model_3(pipeline_tensorflow_model):
     def __init__(self):
         super().__init__()
         self.unpatch_mode = 'or'
         self.patch_overlap = 30
-        self.name = 'primordial positron'
+        self.name = 'primordial positron 3'
         self.checkpoint = 'submodules/models/primordial_positron/inference_model/Unet-attentionUnet.h5'
+
+    #@override
+    def load_model(self):
+        # Load the attention Unet model with custom objects for attention mechanisms
+        self.model = load_model(self.checkpoint, custom_objects={'multiplication': multiplication,
+                                                            'multiplication2': multiplication2,
+                                                            'dice_coef_loss':dice_coef_loss,
+                                                            'dice_coef':dice_coef})
+        return self.model
+    
+class primordial_positron_model_4(pipeline_tensorflow_model):
+    def __init__(self):
+        super().__init__()
+        self.name = 'primordial positron 4'
+        self.checkpoint = '/projects/bbym/shared/models/primodial-positron/Unet-attentionUnet.h5'
 
     #@override
     def load_model(self):
@@ -45,11 +59,15 @@ class primordial_positron_model(pipeline_tensorflow_model):
         pad_y = (step_size - (image.shape[0] % step_size)) % step_size
         image = np.pad(image, ((0, pad_y), (0, pad_x), (0, 0)), mode='constant') 
 
-        norm_patches = patchify(image, patch_size, step=step_size) / 255.0
+
+        norm_patches = patchify(image, (patch_size,patch_size,3), step=step_size) / 255.0
         
         # keep row and columns for unpatchifying
         rows = norm_patches.shape[0]
         cols = norm_patches.shape[1]
+
+        norm_patches = norm_patches.reshape(-1, patch_size, patch_size, 3)
+        norm_patches = tf.cast(norm_patches, dtype=tf.float32) 
 
         log.debug(f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
 
@@ -82,18 +100,19 @@ class primordial_positron_model(pipeline_tensorflow_model):
                 else:
                     prediction_patches = tf.concat(axis=0, values=[prediction_patches, prediction])
 
-        # Merge patches back into single image and remove padding
-        prediction_patches = np.array(prediction_patches) # I have no idea why but sometimes model predict outputs a np array and sometimes a tensor array???
-        prediction_patches = prediction_patches.reshape([rows, cols, 1, patch_size, patch_size, 1])
-        unpatch_image = unpatch_img(prediction_patches.transpose(2,0,1,5,3,4), [1, image.shape[0], image.shape[1]], overlap=patch_overlap, mode=self.unpatch_mode).transpose(1,2,0)
-        prediction_image = unpatch_image[:map_width,:map_height,:]
+            # Merge patches back into single image and remove padding
+            prediction_patches = np.array(prediction_patches) # I have no idea why but sometimes model predict outputs a np array and sometimes a tensor array???
+            prediction_patches = prediction_patches.reshape([rows, cols, 1, patch_size, patch_size, 1])
+            unpatch_image = unpatch_img(prediction_patches.transpose(2,0,1,5,3,4), [1, image.shape[0], image.shape[1]], overlap=patch_overlap, mode=self.unpatch_mode).transpose(1,2,0)
+            prediction_image = unpatch_image[:map_width,:map_height,:]
 
-        # Convert prediction result to a binary format using a threshold
-        prediction_mask = (prediction_image > 0.5).astype(np.uint8)
-        predictions[label] = prediction_mask
-        gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
+            # Convert prediction result to a binary format using a threshold
+            prediction_mask = (prediction_image > 0.5).astype(np.uint8)
+            predictions[label] = prediction_mask
+            gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 
-        lgd_time = time() - lgd_stime
-        log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
-        
+            lgd_time = time() - lgd_stime
+            log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
+            
         return predictions
+
