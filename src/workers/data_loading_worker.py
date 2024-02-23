@@ -1,5 +1,6 @@
 import os
 import logging
+import traceback
 import multiprocessing
 from time import sleep
 
@@ -48,7 +49,7 @@ def data_loading_worker(input_queue, output_queue, log_queue):
         
         except Exception as e:
             # Note failure and retry up to 3 times
-            log_queue.put(ipq_log_message(pid, ipq_message_type.DATA_LOADING, logging.ERROR, map_name, f'Data loader failed loading {map_name} on try {work_message.retries} with exception {e}'))
+            log_queue.put(ipq_log_message(pid, ipq_message_type.DATA_LOADING, logging.ERROR, map_name, f'Data loader failed loading {map_name} on try {work_message.retries} with exception {e}\n{traceback.format_exc()}'))
             work_message.retries += 1
             if work_message.retries < 3:
                 input_queue.put(work_message)

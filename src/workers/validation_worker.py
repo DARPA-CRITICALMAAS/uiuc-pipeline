@@ -1,5 +1,6 @@
 import os
 import logging
+import traceback
 import multiprocessing
 import numpy as np
 import pandas as pd
@@ -36,7 +37,7 @@ def validation_worker(input_queue, log_queue, true_dir, feedback_dir):
         except Exception as e:
             # Note failure and retry up to 3 times
             log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.ERROR, map_data.name, f'Error occured on validation worker'))
-            log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.ERROR, map_data.name, f'Validation worker failed on {map_data.name} on try {work_message.retries} with exception {e}'))
+            log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.ERROR, map_data.name, f'Validation worker failed on {map_data.name} on try {work_message.retries} with exception {e}\n{traceback.format_exc()}'))
             work_message.retries += 1
             if work_message.retries < 3:
                 input_queue.put(work_message)

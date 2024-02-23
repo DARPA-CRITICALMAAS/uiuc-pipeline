@@ -18,12 +18,15 @@ class rigid_wasabi_model(pipeline_pytorch_model):
     def __init__(self):
         self.name = 'rigid wasabi'
         self.checkpoint = '/projects/bbym/shared/models/rigid_wasabi/SWIN_jaccard.ckpt'
-
         self.args = SimpleNamespace(model='swin', superpixel='', edge=False)
+        
+        # Modifiable parameters
         self.device = torch.device("cuda")
-        self.patch_overlap = 32
+        self.batch_size = 256
+        self.patch_size = 256
+        self.patch_overlap = 64
         self.unpatch_mode = 'discard'
-
+        
     #@override
     def load_model(self):
         self.model = SegmentationModel.load_from_checkpoint(checkpoint_path=self.checkpoint, args=self.args)
@@ -40,28 +43,28 @@ class rigid_wasabi_model(pipeline_pytorch_model):
         return data
     
     # @override
-    def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
-        patch_overlap = self.patch_overlap   
+    def inference(self, image, legend_images):
+        """Image data is in CHW format. legend_images is a dictionary of label to map_unit label images in CHW format."""
 
         # Get the size of the map
         map_channels, map_height, map_width = image.shape
 
         # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
         if map_channels == 1: # This is tmp fix!
-            image = np.concatenate([image,image,image], axis=2)        
+            image = np.concatenate([image,image,image], axis=0)        
 
         # Generate patches
         # Pad image so we get a size that can be evenly divided into patches.
-        right_pad = patch_size - (map_width % patch_size)
-        bottom_pad = patch_size - (map_height % patch_size)
+        right_pad = self.patch_size - (map_width % self.patch_size)
+        bottom_pad = self.patch_size - (map_height % self.patch_size)
         padded_image = np.pad(image, ((0,0), (0, bottom_pad), (0, right_pad)), mode='constant', constant_values=0)
-        map_patches = patchify(padded_image, (3, patch_size, patch_size), step=patch_size-patch_overlap)
+        map_patches = patchify(padded_image, (3, self.patch_size, self.patch_size), step=self.patch_size-self.patch_overlap)
 
         cols = map_patches.shape[1]
         rows = map_patches.shape[2]
 
         # Flatten row col dims and normalize map patches to [0,1]
-        map_patches = map_patches.reshape(-1, 3, patch_size, patch_size)
+        map_patches = map_patches.reshape(-1, 3, self.patch_size, self.patch_size)
         map_patches = torch.Tensor(map_patches).to(self.device)
         map_patches = self.my_norm(map_patches)
 
@@ -73,34 +76,30 @@ class rigid_wasabi_model(pipeline_pytorch_model):
 
             # Reshape maps with 1 channel legends (greyscale) to 3 channels for inference
             if map_channels == 1: # This is tmp fix!
-                legend_img = np.stack([legend_img,legend_img,legend_img], axis=0)
+                legend_img = np.concatenate([legend_img,legend_img,legend_img], axis=0)
 
             # Resize the legend patch
             legend_tensor = torch.Tensor(legend_img).to(self.device)
-            resize_legend = transforms.Resize((patch_size, patch_size), antialias=None)
+            resize_legend = transforms.Resize((self.patch_size, self.patch_size), antialias=None)
             legend_tensor = resize_legend(legend_tensor)
 
             # Create legend array to merge with patches
-            legend_patches = torch.stack([legend_tensor for i in range(rows*cols)], dim=0)
+            legend_patches = torch.stack([legend_tensor for i in range(self.batch_size)], dim=0)
             legend_patches = self.my_norm(legend_patches)
-
-            # Concatenate the map and legend patches along the third axis (channels) and normalize to [-1,1]
-            norm_data = torch.cat([map_patches, legend_patches], dim=3)
 
             # Perform Inference in batches
             prediction_patches = []
             with torch.no_grad():
-                for i in range(0, len(norm_data), batch_size):
-
-                    prediction = self.model.model(norm_patches[i:i+batch_size], legend_patches[i:i+batch_size])
+                for i in range(0, len(map_patches), self.batch_size):
+                    prediction = self.model.model(map_patches[i:i+self.batch_size], legend_patches[:len(map_patches[i:i+self.batch_size])])
                     prediction = torch.argmax(prediction, dim=1).cpu().numpy()
                     
                     prediction_patches.append(prediction)
                     
             # Merge patches back into single image and remove padding
             prediction_patches = np.concatenate(prediction_patches, axis=0)
-            prediction_patches = prediction_patches.reshape([1, cols, rows, 1, patch_size, patch_size])
-            unpatch_image = unpatch_img(prediction_patches, [1, padded_image.shape[1], padded_image.shape[2]], overlap=patch_overlap, mode=self.unpatch_mode)
+            prediction_patches = prediction_patches.reshape([1, cols, rows, 1, self.patch_size, self.patch_size])
+            unpatch_image = unpatch_img(prediction_patches, [1, padded_image.shape[1], padded_image.shape[2]], overlap=self.patch_overlap, mode=self.unpatch_mode)
             prediction_image = unpatch_image[:, :map_height, :map_width]
 
             # Convert prediction result to a binary format using a threshold

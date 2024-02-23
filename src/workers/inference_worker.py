@@ -1,7 +1,9 @@
 import logging
+import traceback
 import multiprocessing
 import numpy as np
 from time import sleep, time
+
 
 import src.utils as utils
 from src.interprocess_communication import ipq_message_type, ipq_log_message, ipq_work_message
@@ -39,7 +41,7 @@ def inference_worker(input_queue, save_queue, validation_queue, log_queue, model
         
         except Exception as e:
             # Note failure and retry up to 3 times
-            log_queue.put(ipq_log_message(pid, ipq_message_type.INFERENCE, logging.ERROR, map_data.name, f'Inference worker failed on {map_data.name} on try {work_message.retries} with exception {e}'))
+            log_queue.put(ipq_log_message(pid, ipq_message_type.INFERENCE, logging.ERROR, map_data.name, f'Inference worker failed on {map_data.name} on try {work_message.retries} with exception {e}\n{traceback.format_exc()}'))
             work_message.retries += 1
             if work_message.retries < 3:
                 input_queue.put(work_message)
@@ -64,7 +66,7 @@ def process_map(map_data, model):
     # Run Model
     infer_start_time = time()
     #results = {list(map_data.legend.features.keys())[0] : np.ones_like(image, dtype=np.uint8)} # Mock prediction
-    results = model.inference(image, legend_images, batch_size=256)
+    results = model.inference(image, legend_images)
     #log.info("Execution time for {}: {:.2f} seconds".format(model.name, time() - infer_start_time))
 
     # Resize cutout to full map
