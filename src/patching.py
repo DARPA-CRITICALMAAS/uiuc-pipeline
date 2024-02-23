@@ -42,7 +42,7 @@ def unpatch_img(patches, shape, overlap=0, mode='discard'):
                     image[:, y_min:y_max, x_min:x_max] |= patches[0, col, row, :, :, :]
             #image = image[:,h_over:shape[1]+h_over, h_over:shape[2]+h_over]
         if mode == 'discard':
-            image = np.zeros(shape, dtype=np.uint8)
+            image = np.zeros(shape, dtype=np.float32)
             
             for col in range(0,cols):
                 for row in range(0,rows):

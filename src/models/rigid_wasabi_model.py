@@ -91,8 +91,9 @@ class rigid_wasabi_model(pipeline_pytorch_model):
             prediction_patches = []
             with torch.no_grad():
                 for i in range(0, len(norm_data), batch_size):
-                    prediction = self.model.model(map_patches[i:i+batch_size], legend_patches[i:i+batch_size])
-                    prediction = torch.argmax(prediction, dim=1).cpu().numpy().astype(np.uint8)
+
+                    prediction = self.model.model(norm_patches[i:i+batch_size], legend_patches[i:i+batch_size])
+                    prediction = torch.argmax(prediction, dim=1).cpu().numpy()
                     
                     prediction_patches.append(prediction)
                     
@@ -125,8 +126,6 @@ class rigid_wasabi_model(pipeline_pytorch_model):
             cur_max = cur_max
 
             for k in predictions:
-                predictions[k] = (predictions[k] >= cur_max) & (cur_max > 0.5)
+                predictions[k] = ((predictions[k] >= cur_max) & (cur_max > 0.5)).astype(np.uint8)
 
-        return predictions
-                
         return predictions
