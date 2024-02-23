@@ -1,17 +1,15 @@
-# Modules required to start up, Rest are lazy imported in main to reduce start up time.
 import os
 import copy
 import logging
 import argparse
+
 from time import time
 import src.utils as utils
 
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
-FILE_LOG_LEVEL = logging.INFO
+FILE_LOG_LEVEL = logging.DEBUG
 STREAM_LOG_LEVEL = logging.WARNING
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
-
-lgd_mode = 'single_file'
 
 AVAILABLE_MODELS = [
     'primordial_positron',
@@ -28,7 +26,6 @@ def load_pipeline_model(model_name : str) -> pipeline_model :
     log.info(f'Loading model {model_name}')
     model_stime = time()
 
-    model = None
     if model_name == 'primordial_positron':
         from src.models.primordial_positron_model import primordial_positron_model
         model = primordial_positron_model()
@@ -212,9 +209,13 @@ def parse_command_line():
     return args
 
 def main():
-    main_start_time = time()
-
+    main_time = time()
     args = parse_command_line()
+
+    # TODO
+    #loadconfig
+    #if args.config is None:
+    #    exit(1)
 
     # Start logger
     if args.verbose:
@@ -223,11 +224,6 @@ def main():
         STREAM_LOG_LEVEL = logging.INFO
     global log
     log = utils.start_logger(LOGGER_NAME, args.log, log_level=FILE_LOG_LEVEL, console_log_level=STREAM_LOG_LEVEL)
-
-    # TODO
-    #loadconfig
-    #if args.config is None:
-    #    exit(1)
 
     # Log Run parameters
     if args.data and not args.amqp:
@@ -250,29 +246,12 @@ def main():
             f'\tFeedback     : {args.feedback}')
     log.handlers[1].setLevel(STREAM_LOG_LEVEL)
 
-    # Import packages
-    log.info(f'Importing packages')
-    p_time = time()
-    global np, pd, io, tqdm, ceil, floor
+    # Import other modules
+    global io, pipeline_manager
     import src.cmass_io as io
-    import numpy as np
-    import pandas as pd
-    from tqdm import tqdm
-    from math import ceil, floor
-
-    try:
-        global extractLegends, generateJsonData, polygonize, grade_poly_raster, usgs_grade_poly_raster, usgs_grade_pt_raster
-        from submodules.legend_extraction.src.extraction import extractLegends
-        from submodules.legend_extraction.src.IO import generateJsonData
-        from submodules.vectorization.src.polygonize import polygonize
-        from submodules.validation.src.grading import grade_poly_raster, usgs_grade_poly_raster, usgs_grade_pt_raster
-    except:
-        log.exception('Cannot import submodule code\n' +
-                      'May need to do:\n' +
-                      'git submodule init\n' +
-                      'git submodule update')
-        exit(1)
-    log.info(f'Time to load packages {time() - p_time:.2f} seconds')
+    from src.pipeline_manager import pipeline_manager
+    global ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor
 
     # Create output directories if needed
     if args.output is not None and not os.path.exists(args.output):
@@ -280,303 +259,64 @@ def main():
     if args.feedback is not None and not os.path.exists(args.feedback):
         os.makedirs(args.feedback)
 
-    global completed_maps
-    completed_maps = []
     try:
+        global completed_maps, remaining_maps
+        completed_maps = []
+        remaining_maps = []
         if args.data and not args.amqp:
-            run_local_mode(args)
+            run_in_local_mode(args)
         else:
-            run_amqp_mode(args)
+            run_in_amqp_mode(args)
     except:
         log.warning(f'Completed these maps before failure :\n{completed_maps}')
         log.warning(f'Remaining maps to be processed :\n{remaining_maps}')
         log.exception('Pipeline encounter unhandled exception. Stopping Pipeline')
         exit(1)
 
-    log.info(f'Pipeline terminating succesfully. Runtime was {time()-main_start_time} seconds')
+    log.info(f'Pipeline terminating succesfully. Runtime was {time()-main_time} seconds')
 
-def run_amqp_mode(args):
-    log.error('AMQP mode is not implemented yet.')
+def run_in_amqp_mode(args):
+    # TODO
+    # Implement AMQP mode
     raise NotImplementedError
 
-def run_local_mode(args):
+def run_in_local_mode(args):
     global remaining_maps
     remaining_maps = copy.deepcopy(args.data)
 
-    # Pre-load legend and layout jsons
-    log.info(f'Loading legends for {len(args.data)} maps')
-    le_start_time = time()
-    legend_dict = {}
-    layout_dict = {}
-    pbar = tqdm(args.data)
-    for img_path in pbar:
-        map_name = os.path.basename(os.path.splitext(img_path)[0])
-        log.info(f'\tProcessing {map_name}')
-        pbar.set_description(f'Processing {map_name}')
-        pbar.refresh()
+    # Pipeline Initalization
+    with ThreadPoolExecutor() as executor:
+        # Start loading model first as it will take the longest
+        model_future = executor.submit(load_pipeline_model, args.model)
 
-        layout = None
-        features = None
-
-        # Check for existing layout file
+        legends, layouts = {}, {}
         if args.layout:
-            image_layout_path = os.path.join(args.layout, map_name + '.json')
-            if os.path.exists(image_layout_path):
-                layout = file_io.loadLayoutJson(image_layout_path)
-        
-        # Check for existing legend
+            layout_files = [os.path.join(args.layout, f) for f in os.listdir(args.layout) if f.endswith('.json')]
+            layouts_future = executor.submit(io.parallelLoadLayouts, layout_files)
         if args.legends:
-            legend_filepath = os.path.join(args.legends, map_name + '.json')
-            if os.path.exists(legend_filepath):
-                features = file_io.loadLegendJson(legend_filepath, feature_type=args.feature_type)
-
-        # If there was no pre-existing legend data generate it
-        if features is None:
-            log.info(f'\tNo legend data found, generating instead')
-            # Load img
-            map_image, map_crs, map_transform = file_io.loadGeoTiff(img_path)
-            if map_image is None:
-                continue
-
-            # Extract Legends
-            if layout:
-                feature_data = extractLegends(map_image, legendcontour=layout['legend_polygons']['bounds'])
-            else:
-                feature_data = extractLegends(map_image)
-            features = generateJsonData(feature_data, img_dims=map_image.shape, force_rectangle=True)
-            
-            # Save legend data if feedback is on
-            legend_feedback_filepath = os.path.join(args.feedback, map_name, map_name + '.json')
-            if args.feedback is not None:
-                os.makedirs(os.path.join(args.feedback, map_name), exist_ok=True)
-                file_io.saveLegendJson(legend_feedback_filepath, features)
-
-        legend_dict[map_name] = features
-        layout_dict[map_name] = layout
-    log.info('Legend extraction execution time : {:.2f} secs'.format(time() - le_start_time))
-
-    # Load model
-    log.info(f"Loading model {args.model}")
-    model_stime=time()
-    model = load_pipeline_model(args.model)
-    log.info('Model loaded in {:.2f} seconds'.format(time()-model_stime))
-
-    log.info(f'Starting Inference run of {len(args.data)} maps')
-    dataset_score_df = pd.DataFrame()
-    pbar = tqdm(args.data)
-    for img_path in pbar:
-        map_name = os.path.basename(os.path.splitext(img_path)[0])
-        log.info(f'Performing inference on {map_name}')
-        pbar.set_description(f'Performing inference on {map_name}')
-        pbar.refresh()
-
-        # Load img
-        map_image, map_crs, map_transform = file_io.loadGeoTiff(img_path)
-        if map_image is None: # TODO Switch loadGeoTiff to throwing errors
-            continue
+            legend_files = [os.path.join(args.legends,f) for f in os.listdir(args.legends) if f.endswith('.json')]
+            legends_future = executor.submit(io.parallelLoadLegends, legend_files, 'polygon')
+            legends = legends_future.result()
+        if args.layout:
+            layouts = layouts_future.result()
+            log.info("Layouts are loaded")
         
-        map_stime = time()
-        results = process_map(model, map_image, map_name, legends=legend_dict[map_name], layout=layout_dict[map_name], feedback=args.feedback)
-        map_time = time() - map_stime
-        log.info(f'Map processing time for {map_name} : {map_time:.2f} seconds')
-        
-        save_inference_results(results, args.output, map_name, map_crs, map_transform)
+        # TODO    
+        # Generate legends for any maps that don't have them
+        for file in args.data:
+            map_name = os.path.basename(os.path.splitext(file)[0])
+            if map_name not in legends:
+                log.warning(f'No legend for {map_name}')
+                #log.info(f'Generating legend for {map_name}')
+                #legends[map_name] = io.generateLegend(file)
+        log.info("Legends are loaded")
 
-        if args.validation:
-            # Load validation data
-            validation_filepaths = [os.path.join(args.validation, map_name + '_' + feature + '.tif') for feature in results]
-            valid_paths = []
-            for f in validation_filepaths:
-                if not os.path.exists(f):
-                    log.warning(f'True segmentation {f} does not exist. skipping')
-                else:
-                    valid_paths.append(f)
-            truth_masks =  file_io.parallelLoadGeoTiffs(valid_paths)
-            truth_dict = {}
-            for feature, true_mask in zip(results, truth_masks):
-                if true_mask is not None:
-                    truth_dict[feature], _, _ = true_mask
-                else:
-                    truth_dict[feature] = None
-
-            map_score_df, val_feedback = perform_validation(results, truth_dict, map_image, legend_dict[map_name], map_name, map_crs=map_crs, map_transform=map_transform, feedback=args.feedback)
-
-            # Save validation feedback 
-            if args.feedback:
-                os.makedirs(os.path.join(args.feedback, map_name), exist_ok=True)
-                for feature, feedback_img in val_feedback.items():
-                    val_feedback_filepath = os.path.join(args.feedback, map_name, 'val_' + map_name + '_' + feature + '.tif')
-                    file_io.saveGeoTiff(val_feedback_filepath, feedback_img, map_crs, map_transform)
-
-            # Concat all maps scores together to save at end
-            if dataset_score_df is None:
-                dataset_score_df = map_score_df
-            else:
-                dataset_score_df = pd.concat([dataset_score_df, map_score_df]) 
-        
-        remaining_maps.remove(img_path)
-        completed_maps.append(img_path)
-
-    # Save csv of all scores at the end
-    if args.validation is not None:
-        if args.feedback:
-            csv_path = os.path.join(args.feedback, '#full_dataset_scores.csv')
-        else:
-            csv_path = os.path.join(args.output, '#full_dataset_scores.csv')
-        dataset_score_df.to_csv(csv_path)
-
-def process_map(model, image, map_name, legends=None, layout=None, feedback=None):
-    # Cutout Legends
-    legend_images = {}
-    for lgd in legends['shapes']:
-        min_pt, max_pt = utils.boundingBox(lgd['points']) # Need this as points order can be reverse or could have quad
-        legend_images[lgd['label']] = image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0], :]
-        if feedback:
-            os.makedirs(os.path.join(feedback, map_name), exist_ok=True)
-            if lgd_mode == 'individual':
-                legend_save_path = os.path.join(feedback, map_name, 'lgd_' + map_name + '_' + lgd['label'] + '.tif')
-                file_io.saveGeoTiff(legend_save_path, legend_images[lgd['label']], None, None)
-    if feedback and len(legend_images) > 0:
-        os.makedirs(os.path.join(feedback, map_name), exist_ok=True)
-        if lgd_mode == 'single_file':
-            cols = 4
-            rows = ceil(len(legend_images)/cols)
-            #log.debug(f'Legend image {len(legend_images)} items in : {cols} Cols, {rows} Rows')
-            fig, ax = plt.subplots(rows, cols, figsize=(16,16))
-            ax = ax.reshape(rows, cols) # Force 2d shape if less the 4 items
-            for r,c in np.ndindex(ax.shape):
-                ax[r][c].axis('off')
-            for i, label in enumerate(legend_images):
-                row, col  = floor(i/cols), i%cols
-                ax[row][col].set_title(label)
-                ax[row][col].imshow(legend_images[label])
-            legend_save_path = os.path.join(feedback, map_name, map_name + '_labels'  + '.png')
-            fig.savefig(legend_save_path)
+        model = model_future.result()
+        log.info("Model is loaded")
     
-    # Cutout map portion of image
-    if layout is not None and 'map' in layout:
-        inital_shape = image.shape
-        map_bounding_contour = layout['map']['bounds']
-        min_pt, max_pt = utils.boundingBox(map_bounding_contour)
-        image = image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]].copy()
+    pm = pipeline_manager(args, model, legends, layouts)
+    pm.start()
+    pm.console_monitor()
 
-    # Run Model
-    infer_start_time = time()
-    results = model.inference(image, legend_images, batch_size=256)
-    log.info("Execution time for {}: {:.2f} seconds".format(model.name, time() - infer_start_time))
-
-    # Resize cutout to full map
-    if layout is not None and 'map in layout':
-        for feature, feature_mask in results.items():
-            feature_image = np.zeros((*inital_shape[:2],1), dtype=np.uint8)
-            feature_image[min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]] = feature_mask
-            results[feature] = feature_image
-    
-    return results
-
-def save_inference_results(results, outputDir, map_name, map_crs, map_transform):
-    log.info(f'Saving results for {map_name} to {outputDir}')
-    stime = time()
-    os.makedirs(outputDir, exist_ok=True)
-    #output_geopackage_path = os.path.join(outputDir, map_name + '.gpkg')
-    for feature, feature_mask in results.items():
-        log.debug(f'\tSaving feature {feature}')
-        output_image_path = os.path.join(outputDir, '{}_{}.tif'.format(map_name, feature))
-        file_io.saveGeoTiff(output_image_path, feature_mask, map_crs, map_transform)
-        #geodf = polygonize(feature_mask, map_crs, map_transform, noise_threshold=10)
-        #io.saveGeopackage(geodf, output_geopackage_path, layer=feature, filetype='geopackage')
-    save_time = time()-stime
-    log.info(f'Time to save {len(results)} masks : {save_time:.2f} seconds')
-
-def perform_validation(predict_dict, truth_dict, map_image, legend_dict, map_name, map_crs, map_transform, feedback=None):
-    log.info('Performing validation')
-    val_stime = time()
-    val_image_dict = {}
-    results_df = pd.DataFrame(columns = ['Map', 'Feature', 'F1 Score', 'Precision', 'Recall', 'IoU Score (polys)',
-                                         'USGS F1 Score (polys)', 'USGS Precision (polys)', 'USGS Recall (polys)', 
-                                         'Mean matched distance (pts)', 'Matched (pts)', 'Missing (pts)', 
-                                         'Unmatched (pts)'])
-    for feature, feature_mask in predict_dict.items():
-        log.debug(f'\tValidating feature {feature}')
-        legend = [s for s in legend_dict['shapes'] if feature == s['label']][0]
-        feature_type = feature.split('_')[-1]
-        if feature_type not in ['pt','poly']: # If feature type can't be figured out automaticallly use default
-                feature_type = 'poly'
-
-        # Skip features that we don't have a truth mask for
-        if feature not in truth_dict:
-            log.warning(f'No true segementation map found for {feature}. Skipping')
-            results_df[len(results_df)] = {'Map' : map_name, 'Feature' : feature, 'F1 Score' : np.nan,
-                                           'Precision' : np.nan, 'Recall' : np.nan}
-            continue
-
-        # Setup feedback image if needed
-        feedback_image = None
-        if feedback:
-            feedback_image = np.zeros((*feature_mask.shape[:2],3), dtype=np.uint8)
-        
-        # Grade image
-        if feature_type == 'pt':
-            # f_score, precision, recall, matched_pts, mean_matched_distance, missing_pts, unmatched_pts, feedback_image
-            pt_results = usgs_grade_pt_raster(feature_mask, truth_dict[feature], feedback_image=feedback_image)
-            results_df.loc[len(results_df)] = {'Map' : map_name,
-                                               'Feature' : feature, 
-                                               'F1 Score' : pt_results[0],
-                                               'Precision' : pt_results[1],
-                                               'Recall' : pt_results[2],
-                                               'Mean matched distance (pts)' : pt_results[3],
-                                               'Matched (pts)' : pt_results[4],
-                                               'Missing (pts)' : pt_results[5],
-                                               'Unmatched (pts)' : pt_results[6],
-                                               'USGS F1 Score (polys)' : np.nan,
-                                               'USGS Precision (polys)' : np.nan,
-                                               'USGS Recall (polys)' : np.nan,
-                                               'IoU Score (polys)' : np.nan
-                                               }
-            
-        if feature_type == 'poly':
-            # f1_score, precision, recall, iou_score, feedback_image
-            results = grade_poly_raster(feature_mask, truth_dict[feature], feedback_image=feedback_image)
-            
-            # w_f1_score, w_precision, w_recall, iou_score, feedback_image
-            weighted_results = (np.nan,np.nan,np.nan,np.nan, None)
-            #weighted_results = usgs_grade_poly_raster(feature_mask, truth_dict[feature], map_image, legend, feedback_image=None, difficult_weight=0.7)
-            results_df.loc[len(results_df)] = {'Map' : map_name,
-                                               'Feature' : feature,
-                                               'F1 Score' : results[0],
-                                               'Precision' : results[1],
-                                               'Recall' : results[2],
-                                               'IoU Score (polys)' : results[3],
-                                               'USGS F1 Score (polys)' : weighted_results[0],
-                                               'USGS Precision (polys)' : weighted_results[1],
-                                               'USGS Recall (polys)' : weighted_results[2],
-                                               'Mean matched distance (pts)' : np.nan,
-                                               'Matched (pts)' : np.nan,
-                                               'Missing (pts)' : np.nan,
-                                               'Unmatched (pts)' : np.nan
-                                               }
-        
-        val_image_dict[feature] = feedback_image
-    
-    # Average validation results for map
-    f1s, pre, rec, iou = results_df["F1 Score"].mean(), results_df["Precision"].mean(), results_df["Recall"].mean(), results_df["IoU Score (polys)"].mean()
-    uf1, upr, urc = results_df["USGS F1 Score (polys)"].mean(), results_df["USGS Precision (polys)"].mean(), results_df["USGS Recall (polys)"].mean()
-    mpt, fpt, upt, dpt = sum(results_df["Matched (pts)"]), sum(results_df["Missing (pts)"]), sum(results_df["Unmatched (pts)"]), results_df["Mean matched distance (pts)"].mean()
-    log.info(f'{map_name} average scores |\n' +
-             f'F1 : {f1s:.2f}, Precision : {pre:.2f}, Recall : {rec:.2f} IoU : {iou:.2f}\n' +
-             f'USGS F1 Score : {uf1:.2f}, USGS Precision : {upr:.2f}, USGS Recall : {urc:.2f}\n' +
-             f'Matched pts : {mpt}, Missing pts : {fpt}, Unmatched pts : {upt}, Mean matched distance : {dpt:.2f}')
-
-    # Save map score
-    if feedback:
-        os.makedirs(os.path.join(feedback, map_name), exist_ok=True)
-        csv_path = os.path.join(feedback, map_name, '#' + map_name +  '_scores.csv')
-        results_df.to_csv(csv_path)
-
-    val_time = time() - val_stime
-    log.info(f'Time to validate {map_name} : {val_time:.2f} seconds')
-    return results_df, val_image_dict      
-
-if __name__ == '__main__':
+if __name__=='__main__':
     main()
-

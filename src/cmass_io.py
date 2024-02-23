@@ -13,9 +13,98 @@ from concurrent.futures import ThreadPoolExecutor
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
-from src.cmass_types import CMASS_Map, CMASS_Legend, CMASS_Feature
+from src.cmass_types import CMASS_Map, CMASS_Legend, CMASS_Layout, CMASS_Feature, CMASS_georef
 
-def loadCMASSMap(image_path : Path, legend_path : Path=None, layout_path : Path=None) -> CMASS_Map:
+from rasterio.crs import CRS
+from rasterio.transform import from_gcps, GroundControlPoint
+
+def loadCMASSGeoRef(filepath : Path) -> CMASS_georef:
+    georef = CMASS_georef()
+    with open(filepath, 'r') as fh:
+        json_data = json.load(fh)
+    georef.provenance = 'Uncharted Json'
+
+    map_json = json_data[0]["map"]
+
+    # pull out CRS of the map
+    projection = map_json["projection_info"]
+    georef.crs = CRS.from_epsg(int(projection["projection"].split(":")[1]))
+
+    # process each gcp
+    georef.gcps = []
+    for gcp in projection["gcps"]:
+        georef.gcps.append(
+            GroundControlPoint(gcp["px_geom"][1], gcp["px_geom"][0], gcp["map_geom"][0], gcp["map_geom"][1])
+        )
+    georef.transform = from_gcps(georef.gcps)
+    # TODO
+    # get confiendence from json
+
+    return georef
+
+def loadUnchartedLayoutv1(filepath : Path) -> CMASS_Layout:
+    with open(filepath, 'r') as fh:
+        json_data = json.load(fh)
+
+    layout = CMASS_Layout()
+    layout.provenance = 'Uncharted Jsonv1'
+    # Load layout sections and convert pix coords to correct format
+    for section in json_data:
+        if section['name'] == 'map':
+            layout.map = np.array(section['bounds']).astype(int)
+        elif section['name'] == 'legend_polygons':
+            layout.polygon_legend = np.array(section['bounds']).astype(int)
+        elif section['name'] == 'legend_points_lines':
+            layout.line_legend = np.array(section['bounds']).astype(int)
+            layout.point_legend = np.array(section['bounds']).astype(int)
+        else:
+            log.debug(f'Unknown section name "{section["name"]}" found in layout file')
+
+    return layout
+
+def loadUnchartedLayoutv2(filepath : Path) -> CMASS_Layout:
+    layout = CMASS_Layout()
+    layout.provenance = 'Uncharted Jsonv2'
+
+    with open(filepath, 'r') as fh:
+        for line in fh:
+            json_line = json.loads(line)
+            if json_line['model']['field'] == 'map':
+                layout.map = np.array(json_line['bounds']).astype(int)
+            elif json_line['model']['field'] == 'cross_section':
+                layout.cross_section = np.array(json_line['bounds']).astype(int)
+            elif json_line['model']['field'] == 'legend_polygons':
+                layout.polygon_legend = np.array(json_line['bounds']).astype(int)
+            elif json_line['model']['field'] == 'legend_points_lines':
+                layout.line_legend = np.array(json_line['bounds']).astype(int)
+                layout.point_legend = np.array(json_line['bounds']).astype(int)
+            else:
+                log.debug(f'Unknown section name "{json_line["model"]["field"]}" found in layout file')
+
+    return layout
+
+def loadCMASSLayout(filepath : Path) -> CMASS_Layout:
+    """Load a layout json file. Json is expected to be in uncharted format. Converts bounding point data to int.
+       Returns a CMAS_Layout object."""
+    # Check if json is a json lines file
+    with open(filepath, 'r') as fh:
+        lines = 0
+        for line in fh:
+            lines += 1
+        if lines > 1:
+            return loadUnchartedLayoutv2(filepath)
+        else:
+            return loadUnchartedLayoutv1(filepath)
+
+def parallelLoadLayouts(layout_files, threads : int=32):
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        layouts = {}
+        for file in layout_files:
+            map_name = os.path.basename(os.path.splitext(file)[0])
+            layouts[map_name] = executor.submit(loadCMASSLayout, file).result()
+    return layouts
+
+def loadCMASSMap(image_path:Path, legend_path:Path=None, layout_path:Path=None, georef_path:Path=None) -> CMASS_Map:
     """Load a the data for a CMASS map. If legend_path or layout_path are provided they will set their respective
        attributes in the CMASS_Map class. Returns a CMASS_Map object."""
     map_name = os.path.basename(os.path.splitext(image_path)[0])
@@ -26,26 +115,37 @@ def loadCMASSMap(image_path : Path, legend_path : Path=None, layout_path : Path=
         if legend_path is not None:
             lgd_future = executor.submit(loadCMASSLegend, legend_path)
         if layout_path is not None:
-            lay_future = executor.submit(loadLayoutJson, layout_path)
+            lay_future = executor.submit(loadCMASSLayout, layout_path)
+        if georef_path is not None:
+            geo_future = executor.submit(loadCMASSGeoRef, georef_path)
         
+        # Retrieve results
         image, crs, transform = img_future.result()
+        georef = CMASS_georef()
         if legend_path is not None:
             legend = lgd_future.result()
         if layout_path is not None:
             layout = lay_future.result()
+        if georef_path is not None:
+            georef = geo_future.result()
 
-    map_data = CMASS_Map(map_name, image, crs, transform)
+    # Create CMASS_Map object
+    map_data = CMASS_Map(map_name, image)
     if legend_path is not None:
         map_data.legend = legend
     if layout_path is not None:
-        if 'map' in layout:
-            map_data.map_contour = layout['map']['bounds']
-        if 'legend_polygons' in layout:
-            map_data.legend_contour = layout['legend_polygons']['bounds']
+        map_data.layout = layout
+    if crs is not None and transform is not None: # If geotiff already has georefencing data use it instead
+        georef.provenance = 'GeoTiff'
+        georef.gcps = None
+        georef.crs = crs
+        georef.transform = transform
+        georef.confidence = 1.0
+    map_data.georef = georef
 
     return map_data
 
-def parallelLoadCMASSMaps(map_files, legend_path=None, layout_path=None, processes : int=multiprocessing.cpu_count()):
+def parallelLoadCMASSMaps(map_files:List, legend_path:Path=None, layout_path:Path=None, georef_path:Path=None, processes:int=multiprocessing.cpu_count()):
     """Load a list of maps in parallel with N processes. Returns a list of CMASS_Map objects"""
     map_args = []
     for file in map_files:
@@ -60,7 +160,11 @@ def parallelLoadCMASSMaps(map_files, legend_path=None, layout_path=None, process
             lay_file = os.path.join(layout_path, f'{map_name}.json')
             if not os.path.exists(lay_file):
                 lay_file = None
-        map_args.append((file, lgd_file, lay_file))
+        if georef_path is not None:
+            geo_file = os.path.join(georef_path, f'{map_name}.json')
+            if not os.path.exists(geo_file):
+                geo_file = None
+        map_args.append((file, lgd_file, lay_file, geo_file))
 
     with multiprocessing.Pool(processes) as p:
         results = p.starmap(loadCMASSMap, map_args)
@@ -169,27 +273,37 @@ def loadLegendJson(filepath : str, feature_type : str='all') -> dict:
 
     return json_data
 
-def loadLayoutJson(filepath : str) -> dict:
-    """Loads a layout json file. Json is expected to be in uncharted format. Converts bounding point data to int.
-       Returns a dictionary"""
-    with open(filepath, 'r') as fh:
-        json_data = json.load(fh)
+# def new_loadLayoutJson(filepath : str) -> dict:
+#     """Loads a layout json file. Json is expected to be in uncharted format. Converts bounding point data to int.
+#        Returns a dictionary"""
+#     with open(filepath, 'r') as fh:
+#         formatted_json = {}
+#         for line in fh:
+#             raw_json = json.loads(line)
+#             formatted_json[raw_json['model']['field']] = {'bounds' : np.array(raw_json['bounds']).astype(int)}
+#     return formatted_json
 
-    formated_json = {}
-    for section in json_data:
-        # Convert pix coords to correct format
-        section['bounds'] = np.array(section['bounds']).astype(int)
-        formated_json[section['name']] = section
+# def loadLayoutJson(filepath : str) -> dict:
+#     """Loads a layout json file. Json is expected to be in uncharted format. Converts bounding point data to int.
+#        Returns a dictionary"""
+#     with open(filepath, 'r') as fh:
+#         json_data = json.load(fh)
+
+#     formated_json = {}
+#     for section in json_data:
+#         # Convert pix coords to correct format
+#         section['bounds'] = np.array(section['bounds']).astype(int)
+#         formated_json[section['name']] = section
         
-    return formated_json
+#     return formated_json
 
-def parallelLoadLayouts(layout_files, threads : int=32):
-    with ThreadPoolExecutor(max_workers=threads) as executor:
-        layouts = {}
-        for file in layout_files:
-            map_name = os.path.basename(os.path.splitext(file)[0])
-            layouts[map_name] = executor.submit(loadLayoutJson, file).result()
-    return layouts
+# def parallelLoadLayouts(layout_files, threads : int=32):
+#     with ThreadPoolExecutor(max_workers=threads) as executor:
+#         layouts = {}
+#         for file in layout_files:
+#             map_name = os.path.basename(os.path.splitext(file)[0])
+#             layouts[map_name] = executor.submit(loadLayoutJson, file).result()
+#     return layouts
 
 def saveGeoTiff(filename, prediction, crs, transform, ):
     """
@@ -203,9 +317,9 @@ def saveGeoTiff(filename, prediction, crs, transform, ):
     """
 
     image = np.array(prediction[...], ndmin=3)
-    rasterio.open(filename, 'w', driver='GTiff', compress='lzw',
-                  height=image.shape[1], width=image.shape[2], count=image.shape[0], dtype=image.dtype,
-                  crs=crs, transform=transform).write(image)
+    with rasterio.open(filename, 'w', driver='GTiff', compress='lzw', height=image.shape[1], width=image.shape[2],
+                       count=image.shape[0], dtype=image.dtype, crs=crs, transform=transform) as fh:
+        fh.write(image)
 
 def saveLegendJson(filepath : str, features : dict) -> None:
     """Save legend data to a json file. Features is expected to conform to the USGS format."""

@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from rich.progress import Progress
 
 # ANSI Escape Codes
 ANSI_CODES = {
@@ -16,6 +17,13 @@ ANSI_CODES = {
     'grey' : "\x1b[38;20m",
     'reset' : "\x1b[0m",
 }
+class RichHandler(logging.Handler):
+    def __init__(self, progress):
+        super().__init__()
+        self.progress = progress
+
+    def emit(self, record):
+        self.progress.console.print(record.getMessage())
 
 class ColoredConsoleFormatter(logging.Formatter):
     LEVEL_COLORS = {
