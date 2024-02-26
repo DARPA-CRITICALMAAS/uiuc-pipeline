@@ -83,7 +83,6 @@ class pipeline_tensorflow_model(pipeline_model):
             prediction_mask = (prediction_image > 0.5).astype(np.uint8)
             predictions[label] = prediction_mask
             gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
-
             lgd_time = time() - lgd_stime
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
             
