@@ -10,15 +10,15 @@ from torchvision import transforms
 
 from src.patching import unpatch_img
 from .pipeline_pytorch_model import pipeline_pytorch_model
-from submodules.models.golden_muscat.models import SegmentationModel
+from submodules.models.blaring_foundry.models import SegmentationModel
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
-class golden_muscat_model(pipeline_pytorch_model):
+class blaring_foundry_model(pipeline_pytorch_model):
     def __init__(self):
-        self.name = 'golden muscat'
-        self._checkpoint = '/projects/bbym/shared/models/golden_muscat/jaccard.ckpt'
-        self._args = SimpleNamespace(model='Unet', edge=False, superpixel = '')
+        self.name = 'blaring foundry'
+        self._checkpoint = '/projects/bbym/shared/models/blaring_foundry/spixel_unet.ckpt'
+        self._args = SimpleNamespace(model='spUnet', edge=False, sp_sz=2, sp_pretrain=True, sp_ckpt = '/projects/bbym/shared/models/blaring_foundry/spixel_bsd_sz_2.tar')
 
         # Modifiable parameters
         self.device = torch.device("cuda")

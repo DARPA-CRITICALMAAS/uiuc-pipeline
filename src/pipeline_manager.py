@@ -184,7 +184,7 @@ class pipeline_manager():
             # This is how the message is built
             #f'Completed Loading {map_name} with shape {map_data.image.shape} and {len(map_data.legend.features)} map units. Map region = ({height}, {width})'
             shape = message.split('with shape ')[1].split(' and ')[0]
-            map_units = int(message.split('and ')[1].split(' map units')[0])
+            map_units = int(message.split(' and ')[1].split(' map units')[0])
             map_region = message.split('Map region = ')[1]
             return shape, map_units, map_region
 
