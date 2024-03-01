@@ -18,7 +18,8 @@ AVAILABLE_MODELS = [
     'golden_muscat',
     'rigid_wasabi',
     'quantum_sugar',
-    'flat_iceberg'
+    'flat_iceberg',
+    'blaring_foundry'
 ]
 
 # Lazy load only the model we are going to use
@@ -49,6 +50,9 @@ def load_pipeline_model(model_name : str) -> pipeline_model :
     if model_name == 'flat_iceberg':
         from src.models.flat_iceberg_model import flat_iceberg_model
         model = flat_iceberg_model()
+    if model_name == 'blaring_foundry':
+        from src.models.blaring_foundry_model import blaring_foundry_model
+        model = blaring_foundry_model()
     model.load_model()
     
     log.info(f'Model loaded in {time()-model_stime:.2f} seconds')
