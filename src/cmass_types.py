@@ -88,7 +88,8 @@ class CMASS_Map():
         self.legend = legend
         self.layout = layout
         self.metadata = metadata
-        self.feature_masks = None
+        # Segmentation mask
+        self.mask = None
         # Utility field
         self.shape = self.image.shape
     

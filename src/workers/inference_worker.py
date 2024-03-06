@@ -4,6 +4,7 @@ import multiprocessing
 import numpy as np
 from time import sleep, time
 
+log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
 import src.utils as utils
 from src.interprocess_communication import ipq_message_type, ipq_log_message, ipq_work_message
@@ -66,18 +67,13 @@ def process_map(map_data, model):
     # Run Model
     infer_start_time = time()
     #results = {list(map_data.legend.features.keys())[0] : np.ones_like(image, dtype=np.uint8)} # Mock prediction
-    results = model.inference(image, legend_images)
+    result_mask = model.inference(image, legend_images)
     #log.info("Execution time for {}: {:.2f} seconds".format(model.name, time() - infer_start_time))
 
     # Resize cutout to full map
     if map_data.layout is not None and map_data.layout.map is not None:
-        for feature, feature_mask in results.items():
-            feature_image = np.zeros((1, *map_data.image.shape[1:]), dtype=np.uint8)
-            feature_image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]] = feature_mask
-            results[feature] = feature_image
-    
-    # Save mask to map_data
-    for label, feature_mask in results.items():
-        map_data.legend.features[label].mask = feature_mask
+        result_image = np.zeros((1, *map_data.image.shape[1:]), dtype=np.float32)
+        result_image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]] = result_mask
+        map_data.mask = result_image
 
     return map_data

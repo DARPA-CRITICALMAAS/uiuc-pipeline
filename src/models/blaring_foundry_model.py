@@ -117,7 +117,6 @@ class blaring_foundry_model(pipeline_pytorch_model):
             cur_max = np.maximum(cur_max, predictions[k])
         # cur_max = cur_max - 0.00001
         for k in predictions:
-
             predictions[k] = ((predictions[k] >= cur_max) & (cur_max > 0.3)).astype(np.uint8)
 
         return predictions

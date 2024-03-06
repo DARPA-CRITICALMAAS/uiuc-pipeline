@@ -54,12 +54,14 @@ def validate_map(map_data, true_path, log_queue, usgs_scores=False, feedback=Non
                                          'USGS F1 Score (polys)', 'USGS Precision (polys)', 'USGS Recall (polys)', 
                                          'Mean matched distance (pts)', 'Matched (pts)', 'Missing (pts)', 
                                          'Unmatched (pts)'])
+    
+    legend_index = 1
     for label, feature in map_data.legend.features.items():
-        if feature.mask is None:
-            log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.WARNING, map_data.name, f'No mask found for {feature.name}. Skipping validation of feature'))
-            results_df.loc[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.name, 'F1 Score' : np.nan,
-                                                  'Precision' : np.nan, 'Recall' : np.nan}
-            continue
+        #if feature.mask is None:
+        #    log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.WARNING, map_data.name, f'No mask found for {feature.name}. Skipping validation of feature'))
+        #    results_df.loc[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.name, 'F1 Score' : np.nan,
+        #                                          'Precision' : np.nan, 'Recall' : np.nan}
+        #    continue
         true_mask_path = os.path.join(true_path, f'{map_data.name}_{feature.name}.tif')
         # Skip features that don't have a true mask available
         if not os.path.exists(true_mask_path):
@@ -68,16 +70,19 @@ def validate_map(map_data, true_path, log_queue, usgs_scores=False, feedback=Non
                                            'Precision' : np.nan, 'Recall' : np.nan}
             continue
 
+
+        feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
+        feature_mask[map_data.mask == legend_index] = 1
         true_mask, _, _ = io.loadGeoTiff(true_mask_path)
 
         # Create feedback image if needed
         feedback_image = None
         if feedback:
-            feedback_image = np.zeros((3, *feature.mask.shape[1:]), dtype=np.uint8)
+            feedback_image = np.zeros((3, *feature_mask.shape[1:]), dtype=np.uint8)
 
         # Grade image
         if feature.type == 'pt':
-            feature_score = usgs_grade_pt_raster(feature.mask, true_mask, feedback_image=feedback_image)
+            feature_score = usgs_grade_pt_raster(feature_mask, true_mask, feedback_image=feedback_image)
             results_df.loc[len(results_df)] = {'Map' : map_data.name,
                                                'Feature' : feature.name, 
                                                'F1 Score' : feature_score[0],
@@ -94,10 +99,10 @@ def validate_map(map_data, true_path, log_queue, usgs_scores=False, feedback=Non
                                                }
 
         if feature.type == 'poly':
-            feature_score = grade_poly_raster(feature.mask, true_mask, feedback_image=feedback_image)
+            feature_score = grade_poly_raster(feature_mask, true_mask, feedback_image=feedback_image)
             usgs_score = (np.nan, np.nan, np.nan, np.nan, None)
             if usgs_scores:
-                usgs_score = usgs_grade_poly_raster(feature.mask, true_mask, map_data.image, map_data.legend, difficult_weight=0.7)
+                usgs_score = usgs_grade_poly_raster(feature_mask, true_mask, map_data.image, map_data.legend, difficult_weight=0.7)
                 feature_score = {**feature_score, **usgs_score}
             results_df.loc[len(results_df)] = {'Map' : map_data.name,
                                             'Feature' : feature.name, 
@@ -118,6 +123,7 @@ def validate_map(map_data, true_path, log_queue, usgs_scores=False, feedback=Non
         if feedback:
             feedback_path = os.path.join(feedback, f'val_{map_data.name}_{feature.name}.tif')
             io.saveGeoTiff(feedback_path, feedback_image, map_data.georef.crs, map_data.georef.transform)
+        legend_index += 1
 
      # Average validation results for map
     f1s, pre, rec, iou = results_df["F1 Score"].mean(), results_df["Precision"].mean(), results_df["Recall"].mean(), results_df["IoU Score (polys)"].mean()
