@@ -10,12 +10,18 @@ tensorflow[and-cuda]>2.10
 keras>2.10
 pillow>9.0
 scikit-learn>1.0%
+pytorch-lightning
+adamp
+einops
+timm
 
 # Utilitys
 nvtx
 nvitop
 pipdeptree
 tqdm
+rich
+matplotlib
 
 ### Submodule Dependencies
 # Legend-extraction
