@@ -69,7 +69,9 @@ class rigid_wasabi_model(pipeline_pytorch_model):
         map_patches = self.my_norm(map_patches)
 
         log.debug(f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
-        predictions = {}
+        map_prediction = np.zeros((1, map_height, map_width), dtype=np.float32)
+        map_confidence = np.zeros((1, map_height, map_width), dtype=np.float32)
+        legend_index = 1
         for label, legend_img in legend_images.items():
             log.debug(f'\t\tInferencing legend: {label}')
             lgd_stime = time()
@@ -92,8 +94,7 @@ class rigid_wasabi_model(pipeline_pytorch_model):
             with torch.no_grad():
                 for i in range(0, len(map_patches), self.batch_size):
                     prediction = self.model.model(map_patches[i:i+self.batch_size], legend_patches[:len(map_patches[i:i+self.batch_size])])
-                    prediction = torch.argmax(prediction, dim=1).cpu().numpy()
-                    
+                    prediction = torch.argmax(prediction, dim=1).cpu().numpy().astype(np.float32)
                     prediction_patches.append(prediction)
                     
             # Merge patches back into single image and remove padding
@@ -102,29 +103,17 @@ class rigid_wasabi_model(pipeline_pytorch_model):
             unpatch_image = unpatch_img(prediction_patches, [1, padded_image.shape[1], padded_image.shape[2]], overlap=self.patch_overlap, mode=self.unpatch_mode)
             prediction_image = unpatch_image[:, :map_height, :map_width]
 
-            # Convert prediction result to a binary format using a threshold
-            prediction_mask = (prediction_image > 0.5)
-            predictions[label] = prediction_mask
+            # Add legend to prediction mask
+            map_prediction[prediction_image >= map_confidence] = legend_index
+            map_confidence = np.maximum(map_confidence, prediction_image)
+
             gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 
+            legend_index += 1
             lgd_time = time() - lgd_stime
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
             
-            # prediction_array = np.stack([predictions[k] for k in predictions], axis=2)
-            # preds_max = np.array([np.max(prediction_array, axis=2)]*prediction_array.shape[2]) - 0.00001
-            # preds_max = preds_max.transpose(1,2,0,3)
-            # prediction_array = (prediction_array > preds_max) & (preds_max > 0.5)
-            # for i, k in enumerate(predictions.keys()):
-            #     predictions[k] = prediction_array[:,:,i]
-            if len(predictions.keys()) == 0:
-                return predictions
-            
-            cur_max = np.zeros(predictions[list(predictions.keys())[0]].shape)
-            for k in predictions:
-                cur_max = np.maximum(cur_max, predictions[k])
-            cur_max = cur_max
+        # Minimum confidence threshold for a prediction
+        map_prediction[map_confidence < 0.333] = 0
 
-            for k in predictions:
-                predictions[k] = ((predictions[k] >= cur_max) & (cur_max > 0.5)).astype(np.uint8)
-
-        return predictions
+        return map_prediction
