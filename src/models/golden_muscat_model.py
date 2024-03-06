@@ -102,7 +102,7 @@ class golden_muscat_model(pipeline_pytorch_model):
             unpatch_image = unpatch_img(prediction_patches, [1, padded_image.shape[1], padded_image.shape[2]], overlap=self.patch_overlap, mode=self.unpatch_mode)
             prediction_image = unpatch_image[:,:map_height,:map_width]
 
-            # Add legend to prediction 
+            # Add legend to prediction mask
             map_prediction[prediction_image >= map_confidence] = legend_index
             map_confidence = np.maximum(map_confidence, prediction_image)
             
