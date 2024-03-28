@@ -1,0 +1,27 @@
+# some files to ignore
+*~
+*.pyc
+*.old
+.idea
+.DS_Store
+
+# data
+input
+output
+results
+testdata
+
+# configuration file
+config.yaml
+
+# virtual environments
+venv
+
+# Log files
+[Ll]ogs
+
+# HPC output/error jobs
+*.[oe][0-9]*
+
+# git
+.git
