@@ -16,6 +16,8 @@ pytorch_lightning
 adamp
 einops
 timm
+h5image
+ultralytics
 
 # Utilitys
 nvtx
