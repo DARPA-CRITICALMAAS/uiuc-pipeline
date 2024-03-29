@@ -83,9 +83,9 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
 
   ```bash
   # Example call to pipeline.py
-  python pipeline.py --model "primordial-positron" --data mydata/images/ --output mydata/output/
+  python pipeline.py --model "golden_muscat" --data mydata/images/ --output mydata/output/
   ```
-  Running this will have "primordial-positron" run inference on every `.tif` file in the directory specifed by `--data`. The output rasters of this inference will then be saved as `.tif`s to the directory specifed by `--output` along with a geopackage file for each map. The geopackage file contains vector data for each legend item in the map. Output is saved as the pipeline runs so even if the pipeline were to crash in the middle of running, all maps that ran before the crash will have been saved.
+  Running this will have "golden-muscat" run inference on every `.tif` file in the directory specifed by `--data`. The output rasters of this inference will then be saved as `.tif`s to the directory specifed by `--output` along with a geopackage file for each map. The geopackage file contains vector data for each legend item in the map. Output is saved as the pipeline runs so even if the pipeline were to crash in the middle of running, all maps that ran before the crash will have been saved.
 
   By default the pipeline will save logging information to `logs/Latest.log` this can be useful if you have any problems or want to see a detailed view of what the pipeline is doing. You can also change the log file location with `--log`.
 
@@ -240,7 +240,8 @@ Lead Developer : [![Git profile image](https://wsrv.nl/?url=https://git.ncsa.ill
 Description : Attention U-net model<br>
 
 Release Tags :<br>
-* primordial_positron
+* primordial_positron_3
+* primordial_positron_4
 
 </details>
 
@@ -277,6 +278,18 @@ Description : U-net model<br>
 
 Release Tags :<br>
 * rigid_wasabi
+
+</details>
+
+<details>
+<summary> <b>Blaring-Foundry</b> </summary>
+
+Git Repository : https://github.com/xiyuez2/Darpa_Unet_Release <br>
+Lead Developer : [![Git profile image](https://wsrv.nl/?url=https://avatars.githubusercontent.com/u/73417516?v=4&w=28&h=28&mask=circle) ziruiwang409](https://github.com/ziruiwang409)<br>
+Description : Superpixel U-net model<br>
+
+Release Tags :<br>
+* blaring_foundry
 
 </details>
 

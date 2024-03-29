@@ -62,10 +62,14 @@ def data_saving_worker(input_queue, log_queue, output_dir, feedback_dir):
                         plt.close(fig)
 
                 # Save inference results
+                legend_index = 1
+                io.saveGeoTiff('test.tif', map_data.mask, map_data.georef.crs, map_data.georef.transform)
                 for label, feature in map_data.legend.features.items():
-                    if feature.mask is not None:
-                        filepath = os.path.join(output_dir, f'{map_data.name}_{feature.name}.tif')
-                        io.saveGeoTiff(filepath, feature.mask, map_data.georef.crs, map_data.georef.transform)
+                    feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
+                    feature_mask[map_data.mask == legend_index] = 1
+                    filepath = os.path.join(output_dir, f'{map_data.name}_{feature.name}.tif')
+                    io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
+                    legend_index += 1
                 log_queue.put(ipq_log_message(pid, ipq_message_type.DATA_SAVING, logging.DEBUG, map_data.name, f'Completed saving {map_data.name}'))
         except Exception as e:
             # Note failure and retry up to 3 times

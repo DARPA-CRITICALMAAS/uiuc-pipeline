@@ -10,28 +10,27 @@ from torchvision import transforms
 
 from src.patching import unpatch_img
 from .pipeline_pytorch_model import pipeline_pytorch_model
-from submodules.models.rigid_wasabi.models import SegmentationModel
+from submodules.models.blaring_foundry.models import SegmentationModel
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
-class rigid_wasabi_model(pipeline_pytorch_model):
+class blaring_foundry_model(pipeline_pytorch_model):
     def __init__(self):
-        self.name = 'rigid wasabi'
-        self.checkpoint = '/projects/bbym/shared/models/rigid_wasabi/SWIN_jaccard.ckpt'
-        self.args = SimpleNamespace(model='swin', superpixel='', edge=False)
-        
+        self.name = 'blaring foundry'
+        self._checkpoint = '/projects/bbym/shared/models/blaring_foundry/spixel_unet.ckpt'
+        self._args = SimpleNamespace(model='spUnet', edge=False, sp_sz=2, sp_pretrain=True, sp_ckpt = '/projects/bbym/shared/models/blaring_foundry/spixel_bsd_sz_2.tar')
+
         # Modifiable parameters
         self.device = torch.device("cuda")
         self.batch_size = 256
         self.patch_size = 256
         self.patch_overlap = 64
         self.unpatch_mode = 'discard'
-        
+
     #@override
     def load_model(self):
-        self.model = SegmentationModel.load_from_checkpoint(checkpoint_path=self.checkpoint, args=self.args)
+        self.model = SegmentationModel.load_from_checkpoint(checkpoint_path=self._checkpoint, args=self._args)
         self.model.eval()
-        self.model.to(self.device)
 
         return self.model
     
@@ -41,17 +40,17 @@ class rigid_wasabi_model(pipeline_pytorch_model):
         std = torch.tensor([0.229, 0.224, 0.225]).to(self.device)[None, :, None, None].expand(*data.shape)
         data = (data - mean)/std
         return data
-    
+
     # @override
     def inference(self, image, legend_images):
-        """Image data is in CHW format. legend_images is a dictionary of label to map_unit label images in CHW format."""
+        """Image data is in CHW format. legend_images is a dictionary of label to map_unit label images in CHW format."""         
 
         # Get the size of the map
         map_channels, map_height, map_width = image.shape
 
         # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
-        if map_channels == 1: # This is tmp fix!
-            image = np.concatenate([image,image,image], axis=0)        
+        if map_channels == 1: # This is tmp fix!    
+            image = np.concatenate([image,image,image], axis=0)
 
         # Generate patches
         # Pad image so we get a size that can be evenly divided into patches.
@@ -77,7 +76,7 @@ class rigid_wasabi_model(pipeline_pytorch_model):
             lgd_stime = time()
 
             # Reshape maps with 1 channel legends (greyscale) to 3 channels for inference
-            if map_channels == 1: # This is tmp fix!
+            if legend_img.shape[0] == 1: # This is tmp fix!    
                 legend_img = np.concatenate([legend_img,legend_img,legend_img], axis=0)
 
             # Resize the legend patch
@@ -94,26 +93,27 @@ class rigid_wasabi_model(pipeline_pytorch_model):
             with torch.no_grad():
                 for i in range(0, len(map_patches), self.batch_size):
                     prediction = self.model.model(map_patches[i:i+self.batch_size], legend_patches[:len(map_patches[i:i+self.batch_size])])
-                    prediction = torch.argmax(prediction, dim=1).cpu().numpy().astype(np.float32)
+                    prediction = torch.softmax(prediction, dim=1)[:,-1].cpu().numpy().astype(np.float32)
                     prediction_patches.append(prediction)
                     
-            # Merge patches back into single image and remove padding
+            # unpatch
             prediction_patches = np.concatenate(prediction_patches, axis=0)
             prediction_patches = prediction_patches.reshape([1, cols, rows, 1, self.patch_size, self.patch_size])
             unpatch_image = unpatch_img(prediction_patches, [1, padded_image.shape[1], padded_image.shape[2]], overlap=self.patch_overlap, mode=self.unpatch_mode)
-            prediction_image = unpatch_image[:, :map_height, :map_width]
+            prediction_image = unpatch_image[:,:map_height,:map_width]
 
             # Add legend to prediction mask
             map_prediction[prediction_image >= map_confidence] = legend_index
             map_confidence = np.maximum(map_confidence, prediction_image)
-
+            
             gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 
             legend_index += 1
             lgd_time = time() - lgd_stime
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
-            
+        
         # Minimum confidence threshold for a prediction
         map_prediction[map_confidence < 0.333] = 0
 
         return map_prediction
+    

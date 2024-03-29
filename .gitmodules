@@ -25,3 +25,6 @@
 [submodule "submodules/models/flat_iceberg"]
 	path = submodules/models/flat_iceberg
 	url = https://github.com/Dongjiahua/DARPA_torch.git
+[submodule "submodules/models/blaring_foundry"]
+	path = submodules/models/blaring_foundry
+	url = https://github.com/xiyuez2/Darpa_Unet.git

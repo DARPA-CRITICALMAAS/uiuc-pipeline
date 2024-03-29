@@ -68,13 +68,15 @@ class golden_muscat_model(pipeline_pytorch_model):
         map_patches = self.my_norm(map_patches)
 
         log.debug(f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
-        predictions = {}
+        map_prediction = np.zeros((1, map_height, map_width), dtype=np.float32)
+        map_confidence = np.zeros((1, map_height, map_width), dtype=np.float32)
+        legend_index = 1
         for label, legend_img in legend_images.items():
             log.debug(f'\t\tInferencing legend: {label}')
             lgd_stime = time()
 
             # Reshape maps with 1 channel legends (greyscale) to 3 channels for inference
-            if legend_img.shape[0] == 1: # This is tmp fix!    
+            if legend_img.shape[0] == 1:
                 legend_img = np.concatenate([legend_img,legend_img,legend_img], axis=0)
 
             # Resize the legend patch
@@ -91,8 +93,7 @@ class golden_muscat_model(pipeline_pytorch_model):
             with torch.no_grad():
                 for i in range(0, len(map_patches), self.batch_size):
                     prediction = self.model.model(map_patches[i:i+self.batch_size], legend_patches[:len(map_patches[i:i+self.batch_size])])
-                    prediction = torch.softmax(prediction, dim=1)[:,-1].cpu().numpy()#.astype(np.float32)
-
+                    prediction = torch.softmax(prediction, dim=1)[:,-1].cpu().numpy().astype(np.float32)
                     prediction_patches.append(prediction)
                     
             # unpatch
@@ -101,23 +102,18 @@ class golden_muscat_model(pipeline_pytorch_model):
             unpatch_image = unpatch_img(prediction_patches, [1, padded_image.shape[1], padded_image.shape[2]], overlap=self.patch_overlap, mode=self.unpatch_mode)
             prediction_image = unpatch_image[:,:map_height,:map_width]
 
-            predictions[label] = prediction_image
+            # Add legend to prediction mask
+            map_prediction[prediction_image >= map_confidence] = legend_index
+            map_confidence = np.maximum(map_confidence, prediction_image)
             
             gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 
+            legend_index += 1
             lgd_time = time() - lgd_stime
             log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
         
-        if len(predictions.keys()) == 0:
-            return predictions
-        
-        cur_max = np.zeros(predictions[list(predictions.keys())[0]].shape)
-        for k in predictions:
-            cur_max = np.maximum(cur_max, predictions[k])
-        # cur_max = cur_max - 0.00001
-        for k in predictions:
+        # Minimum confidence threshold for a prediction
+        map_prediction[map_confidence < 0.333] = 0
 
-            predictions[k] = ((predictions[k] >= cur_max) & (cur_max > 0.3)).astype(np.uint8)
-
-        return predictions
+        return map_prediction
     
