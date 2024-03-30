@@ -5,7 +5,7 @@ WORKDIR /src
 VOLUME /data, /output, /legends, /layouts, /validation, /feedback, /checkpoints
 
 # setup environment variables
-ENV MODEL="primordial_positron_3" \
+ENV MODEL="golden_muscat" \
     FEATURE_TYPE="polygon" \
     DATA_FOLDER="/data" \
     OUTPUT_FOLDER="/output" \
@@ -19,7 +19,9 @@ ENV MODEL="primordial_positron_3" \
 RUN apt-get update && \
     apt-get -y install python3-gdal libgdal-dev && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /projects/bbym/shared && \
+    ln -s /src/checkpoints /projects/bbym/shared/models
 
 # install requirements
 COPY requirements.txt /app/requirements.txt

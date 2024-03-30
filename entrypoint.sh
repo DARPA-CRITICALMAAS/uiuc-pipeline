@@ -4,7 +4,7 @@ set -e
 cd $(dirname $0)
 
 # default values
-MODEL="${MODEL:-primordial_positron_3}"
+MODEL="${MODEL:-golden_muscat}"
 FEATURE_TYPE="${FEATURE_TYPE:-polygon}"
 DATA_FOLDER="${DATA_FOLDER:-/data}"
 OUTPUT_FOLDER="${OUTPUT_FOLDER:-/output}"
