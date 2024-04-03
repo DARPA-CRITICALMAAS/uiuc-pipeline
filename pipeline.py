@@ -257,6 +257,8 @@ def main():
     from src.pipeline_manager import pipeline_manager
     global ThreadPoolExecutor
     from concurrent.futures import ThreadPoolExecutor
+    global extractLegends
+    from submodules.legend_extraction.src.extraction import extractLegends
 
     # Create output directories if needed
     if args.output is not None and not os.path.exists(args.output):
@@ -306,14 +308,19 @@ def run_in_local_mode(args):
             layouts = layouts_future.result()
             log.info("Layouts are loaded")
         
-        # TODO    
         # Generate legends for any maps that don't have them
         for file in args.data:
-            map_name = os.path.basename(os.path.splitext(file)[0])
+            name_components = os.path.splitext(os.path.basename(file))
+            while name_components[1] != '':
+                name_components = os.path.splitext(name_components[0])
+            map_name = name_components[0]
             if map_name not in legends:
-                log.warning(f'No legend for {map_name}')
-                #log.info(f'Generating legend for {map_name}')
-                #legends[map_name] = io.generateLegend(file)
+                #log.warning(f'No legend found for {map_name}')
+                log.info(f'Generating legend for {map_name}')
+                lgd = extractLegends(io.loadGeoTiff(file)[0].transpose(1,2,0))
+                lgd = convertLegendtoCMASS(lgd)
+                log.warning(lgd)
+                legends[map_name] = lgd
         log.info("Legends are loaded")
 
         model = model_future.result()
@@ -322,6 +329,13 @@ def run_in_local_mode(args):
     pm = pipeline_manager(args, model, legends, layouts)
     pm.start()
     pm.console_monitor()
+
+def convertLegendtoCMASS(legend):
+    from src.cmass_types import CMASS_Legend, CMASS_Feature
+    features = {}
+    for feature in legend:
+        features[feature['label']] = CMASS_Feature(name=feature['label'], contour=feature['points'], contour_type='rectangle')
+    return CMASS_Legend(features=features, origin='UIUC Heuristic Model')
 
 if __name__=='__main__':
     main()
