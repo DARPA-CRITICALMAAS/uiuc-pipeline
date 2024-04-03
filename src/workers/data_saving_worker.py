@@ -63,7 +63,6 @@ def data_saving_worker(input_queue, log_queue, output_dir, feedback_dir):
 
                 # Save inference results
                 legend_index = 1
-                io.saveGeoTiff('test.tif', map_data.mask, map_data.georef.crs, map_data.georef.transform)
                 for label, feature in map_data.legend.features.items():
                     feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
                     feature_mask[map_data.mask == legend_index] = 1
