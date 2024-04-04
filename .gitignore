@@ -10,6 +10,7 @@ input
 output
 results
 testdata
+checkpoints
 
 # configuration file
 config.yaml

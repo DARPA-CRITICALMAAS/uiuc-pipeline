@@ -17,7 +17,7 @@ ENV MODEL="golden_muscat" \
 
 # setup packages needed
 RUN apt-get update && \
-    apt-get -y install python3-gdal libgdal-dev && \
+    apt-get -y install python3-gdal libgdal-dev libgl1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p /projects/bbym/shared && \
