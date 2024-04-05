@@ -61,15 +61,15 @@ def data_saving_worker(input_queue, log_queue, output_dir, feedback_dir):
                         fig.savefig(legend_save_path)
                         plt.close(fig)
 
-                # Save inference results
-                legend_index = 1
-                for label, feature in map_data.legend.features.items():
-                    feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
-                    feature_mask[map_data.mask == legend_index] = 1
-                    filepath = os.path.join(output_dir, f'{map_data.name}_{feature.name}.tif')
-                    io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
-                    legend_index += 1
-                log_queue.put(ipq_log_message(pid, ipq_message_type.DATA_SAVING, logging.DEBUG, map_data.name, f'Completed saving {map_data.name}'))
+            # Save inference results
+            legend_index = 1
+            for label, feature in map_data.legend.features.items():
+                feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
+                feature_mask[map_data.mask == legend_index] = 1
+                filepath = os.path.join(output_dir, f'{map_data.name}_{feature.name}.tif')
+                io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
+                legend_index += 1
+            log_queue.put(ipq_log_message(pid, ipq_message_type.DATA_SAVING, logging.DEBUG, map_data.name, f'Completed saving {map_data.name}'))
         except Exception as e:
             # Note failure and retry up to 3 times
             log_queue.put(ipq_log_message(pid, ipq_message_type.DATA_SAVING, logging.ERROR, map_data.name, f'Error occured on saving worker'))
