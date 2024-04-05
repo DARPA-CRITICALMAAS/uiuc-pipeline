@@ -318,9 +318,7 @@ def run_in_local_mode(args):
                 #log.warning(f'No legend found for {map_name}')
                 log.info(f'Generating legend for {map_name}')
                 lgd = extractLegends(io.loadGeoTiff(file)[0].transpose(1,2,0))
-                lgd = convertLegendtoCMASS(lgd)
-                log.warning(lgd)
-                legends[map_name] = lgd
+                legends[map_name] = convertLegendtoCMASS(lgd)
         log.info("Legends are loaded")
 
         model = model_future.result()
