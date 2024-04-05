@@ -31,7 +31,8 @@ def validation_worker(input_queue, log_queue, true_dir, feedback_dir):
 
             # Perform validation
             log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.DEBUG, map_data.name, f'Started validation on {map_data.name}'))
-            validate_map(map_data, true_dir, log_queue, feedback=feedback_dir)
+            if true_dir is not None:
+                validate_map(map_data, true_dir, log_queue, feedback=feedback_dir)
             log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.DEBUG, map_data.name, f'Completed validation on {map_data.name}'))
         
         except Exception as e:
