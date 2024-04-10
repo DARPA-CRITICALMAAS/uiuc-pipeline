@@ -18,7 +18,8 @@ AVAILABLE_MODELS = [
     'golden_muscat',
     'rigid_wasabi',
     'flat_iceberg',
-    'blaring_foundry'
+    'blaring_foundry',
+    'drab_volcano'
 ]
 
 # Lazy load only the model we are going to use
@@ -49,6 +50,9 @@ def load_pipeline_model(model_name : str) -> pipeline_model :
     if model_name == 'blaring_foundry':
         from src.models.blaring_foundry_model import blaring_foundry_model
         model = blaring_foundry_model()
+    if model_name == 'drab_volcano':
+        from src.models.drab_volcano_model import drab_volcano_model
+        model = drab_volcano_model()
     model.load_model()
     
     log.info(f'Model loaded in {time()-model_stime:.2f} seconds')
@@ -323,7 +327,7 @@ def run_in_local_mode(args):
 
         model = model_future.result()
         log.info("Model is loaded")
-    
+
     pm = pipeline_manager(args, model, legends, layouts)
     pm.start()
     pm.console_monitor()
