@@ -4,7 +4,7 @@ import logging
 import argparse
 
 from time import time
-import src.utils as utils
+from cmaas_utils.logging import start_logger
 
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.DEBUG
@@ -174,7 +174,7 @@ def parse_command_line():
                         default=None,
                         help='Optional directory containing precomputed legend data in USGS json format. If option is \
                               provided, the pipeline will use the precomputed legend data instead of generating its own.')
-    optional_args.add_argument('--layout',
+    optional_args.add_argument('--layouts',
                         type=parse_directory,
                         default=None,
                         help='Optional directory containing precomputed map layout data in Uncharted json format. If \
@@ -228,7 +228,7 @@ def main():
         FILE_LOG_LEVEL = logging.DEBUG
         STREAM_LOG_LEVEL = logging.INFO
     global log
-    log = utils.start_logger(LOGGER_NAME, args.log, log_level=FILE_LOG_LEVEL, console_log_level=STREAM_LOG_LEVEL)
+    log = start_logger(LOGGER_NAME, args.log, log_level=FILE_LOG_LEVEL, console_log_level=STREAM_LOG_LEVEL)
 
     # Log Run parameters
     if args.data and not args.amqp:
@@ -245,36 +245,38 @@ def main():
             f'\tFeature type : {args.feature_type}\n' +
             log_data_source +
             f'\tLegends      : {args.legends}\n' +
-            f'\tLayout       : {args.layout}\n' +
+            f'\tLayout       : {args.layouts}\n' +
             f'\tValidation   : {args.validation}\n' +
             f'\tOutput       : {args.output}\n' +
             f'\tFeedback     : {args.feedback}')
     log.handlers[1].setLevel(STREAM_LOG_LEVEL)
-
-    # Import other modules
-    global io, pipeline_manager
-    import src.cmass_io as io
-    from src.pipeline_manager import pipeline_manager
-    global ThreadPoolExecutor
-    from concurrent.futures import ThreadPoolExecutor
-    global extractLegends
-    from submodules.legend_extraction.src.extraction import extractLegends
-
+    
     # Create output directories if needed
     if args.output is not None and not os.path.exists(args.output):
         os.makedirs(args.output)
     if args.feedback is not None and not os.path.exists(args.feedback):
         os.makedirs(args.feedback)
 
+    # log.info('Building Pipeline')
+    # pipeline = construct_pipeline(args)
+    # pipeline.set_inactivity_timeout(2)
+    # pipeline.start()
+    # pipeline.monitor()
+    # exit(0)
+    remaining_maps = copy.deepcopy(args.data)
+    completed_maps = []
     try:
-        global completed_maps, remaining_maps
-        completed_maps = []
-        remaining_maps = []
         if args.data and not args.amqp:
-            run_in_local_mode(args)
+            pipeline = construct_pipeline(args)
+            pipeline.set_inactivity_timeout(2)
+            pipeline.start()
+            pipeline.monitor()
         else:
             run_in_amqp_mode(args)
     except:
+        for idx in pipeline._monitor.completed_items:
+            completed_maps.append(args.data[idx])
+            remaining_maps.remove(args.data[idx])
         log.warning(f'Completed these maps before failure :\n{completed_maps}')
         log.warning(f'Remaining maps to be processed :\n{remaining_maps}')
         log.exception('Pipeline encounter unhandled exception. Stopping Pipeline')
@@ -282,58 +284,32 @@ def main():
 
     log.info(f'Pipeline terminating succesfully. Runtime was {time()-main_time} seconds')
 
+def construct_pipeline(args):
+    from src.pipeline_manager import pipeline_manager
+    from src.pipeline_communication import parameter_data_stream
+    import src.pipeline_steps as pipeline_steps
+    p = pipeline_manager()
+    #model = load_pipeline_model(args.model)
+    model = 'tmp'
+    # Data Loading and preprocessing
+    p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=2)
+    p.add_step(func=pipeline_steps.gen_layout, args=(p.steps[0].output(),), display='Generating Layout', workers=2)
+    p.add_step(func=pipeline_steps.gen_legend, args=(p.steps[1].output(),), display='Generating Legend', workers=2)
+    # Segmentation Inference
+    #p.add_step(func=pipeline_steps.segmentation_inference, args=(p.steps[2].output(), model), display='Segmenting Map Units', workers=1)
+    # Save Output
+    #p.add_step(func=pipeline_steps.save_output, args=(p.steps[3].output(), args.output, args.feedback), display='Saving Output', workers=2)
+    # Validation
+    #if args.validation: 
+    #    p.add_step(func=pipeline_steps.validation, args=(p.steps[3].output(), args.feedback), display='Validating Output', workers=2)
+
+    return p
+
 def run_in_amqp_mode(args):
     # TODO
     # Implement AMQP mode
     raise NotImplementedError
 
-def run_in_local_mode(args):
-    global remaining_maps
-    remaining_maps = copy.deepcopy(args.data)
-
-    # Pipeline Initalization
-    with ThreadPoolExecutor() as executor:
-        # Start loading model first as it will take the longest
-        model_future = executor.submit(load_pipeline_model, args.model)
-
-        legends, layouts = {}, {}
-        if args.layout:
-            layout_files = [os.path.join(args.layout, f) for f in os.listdir(args.layout) if f.endswith('.json')]
-            layouts_future = executor.submit(io.parallelLoadLayouts, layout_files)
-        if args.legends:
-            legend_files = [os.path.join(args.legends,f) for f in os.listdir(args.legends) if f.endswith('.json')]
-            legends_future = executor.submit(io.parallelLoadLegends, legend_files, 'polygon')
-            legends = legends_future.result()
-        if args.layout:
-            layouts = layouts_future.result()
-            log.info("Layouts are loaded")
-        
-        # Generate legends for any maps that don't have them
-        for file in args.data:
-            name_components = os.path.splitext(os.path.basename(file))
-            while name_components[1] != '':
-                name_components = os.path.splitext(name_components[0])
-            map_name = name_components[0]
-            if map_name not in legends:
-                #log.warning(f'No legend found for {map_name}')
-                log.info(f'Generating legend for {map_name}')
-                lgd = extractLegends(io.loadGeoTiff(file)[0].transpose(1,2,0))
-                legends[map_name] = convertLegendtoCMASS(lgd)
-        log.info("Legends are loaded")
-
-        model = model_future.result()
-        log.info("Model is loaded")
     
-    pm = pipeline_manager(args, model, legends, layouts)
-    pm.start()
-    pm.console_monitor()
-
-def convertLegendtoCMASS(legend):
-    from src.cmass_types import CMASS_Legend, CMASS_Feature
-    features = {}
-    for feature in legend:
-        features[feature['label']] = CMASS_Feature(name=feature['label'], contour=feature['points'], contour_type='rectangle')
-    return CMASS_Legend(features=features, origin='UIUC Heuristic Model')
-
 if __name__=='__main__':
     main()

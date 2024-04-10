@@ -86,6 +86,13 @@ def start_logger(logger_name, filepath, log_level=logging.INFO, console_log_leve
     
     return log
 
+def swap_console_handler(log, handler):
+    orig_handler = log.handlers[1]
+    handler.setLevel(orig_handler.level)
+    handler.setFormatter(orig_handler.formatter)
+    log.handlers[1] = handler
+    return orig_handler
+
 def boundingBox(array):
     min_xy = [min(array, key=lambda x: (x[0]))[0], min(array, key=lambda x: (x[1]))[1]]
     max_xy = [max(array, key=lambda x: (x[0]))[0], max(array, key=lambda x: (x[1]))[1]]
