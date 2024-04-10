@@ -10,7 +10,6 @@ input
 output
 results
 testdata
-checkpoints
 
 # configuration file
 config.yaml
@@ -23,3 +22,6 @@ venv
 
 # HPC output/error jobs
 *.[oe][0-9]*
+
+# git
+.git
