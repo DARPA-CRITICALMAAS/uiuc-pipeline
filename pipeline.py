@@ -7,7 +7,7 @@ import pika
 import json
 import threading
 
-from time import time, sleep
+from time import time
 import src.utils as utils
 
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
