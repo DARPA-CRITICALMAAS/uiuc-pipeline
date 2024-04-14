@@ -14,15 +14,17 @@ from src.workers import data_loading_worker, inference_worker, data_saving_worke
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
+A100_patches_per_sec = 225
+
 class pipeline_manager():
     def __init__(self, args, model, legends, layouts):
         self._running = False
         self._model = model
         self.legends = legends
         self.layouts = layouts
-        self.output_dir = args.output
-        self.feedback_dir = args.feedback
-        self.true_segmentation_dir = args.validation
+        self.output_dir = args['output']
+        self.feedback_dir = args['feedback']
+        self.true_segmentation_dir = args['validation']
 
         # Workers
         self.data_loading_worker_count = 1
@@ -45,7 +47,7 @@ class pipeline_manager():
         self._validation_workers = []
 
         # Initalize Data queue
-        for map_path in args.data:
+        for map_path in args['data']:
             map_name = os.path.basename(os.path.splitext(map_path)[0])
             lay = None
             if map_name in self.layouts:
@@ -78,6 +80,7 @@ class pipeline_manager():
         return self._running 
 
     def file_monitor(self, timeout=1):
+        global A100_patches_per_sec
         # Internal progress bar update function
         def update_sub_task(message, active_workers):
             if message[:7] == 'Started':
@@ -92,14 +95,14 @@ class pipeline_manager():
             if active_workers != 0:
                 last_update = time()
             if time() - last_update > timeout:
-                log.warning('Inference pipeline has stalled. No updates in the last {timeout} seconds')
+                log.info(f'Inference pipeline has stalled. No updates in the last {timeout} seconds')
                 self.stop()
                 break
+
             # Sleep while queue is empty
             if self._logging_queue.empty():
                 sleep(0.1)
                 continue
-
             # Retieve other processes messages and pass to file log
             record = self._logging_queue.get()
             log.log(record.level, record.message)
@@ -111,8 +114,27 @@ class pipeline_manager():
         
             # Update progress bar with status message
             if record.type == ipq_message_type.DATA_LOADING:
+                if record.message.startswith("Completed"):
+                    map_units = int(record.message.split(' and ')[1].split(' map units')[0])
+                    map_region = record.message.split('Map region = ')[1]
+                    shape = map_region.replace('(','').replace(')','').replace(',','').split(' ')
+                    shape = [int(i) for i in shape]
+                    log.info(f"Finished loading {record.map_name} : map_region={map_region} units={map_units}")
                 active_workers = update_sub_task(record.message, active_workers)
             if record.type == ipq_message_type.INFERENCE:
+                if record.message.startswith("Started") and map_units and shape:
+                    patch_size = 256
+                    patch_overlap = 32
+                    cols = shape[0] / (patch_size-patch_overlap)
+                    rows = shape[1] / (patch_size-patch_overlap)
+                    patches = (cols * rows * int(map_units))
+                    est_time = patches / A100_patches_per_sec
+                    log.info(f"Started processing {record.map_name}, estimated time is {est_time:.2f} seconds")
+                    start_time = time()
+                if record.message.startswith("Completed"):
+                    total_time = time() - start_time
+                    A100_patches_per_sec = patches / total_time
+                    log.info(f"Finished processing {record.map_name}, time was {total_time:.2f} seconds = {A100_patches_per_sec:.2f} patches/sec")
                 active_workers = update_sub_task(record.message, active_workers)
             if record.type == ipq_message_type.DATA_SAVING:
                 active_workers = update_sub_task(record.message, active_workers)
