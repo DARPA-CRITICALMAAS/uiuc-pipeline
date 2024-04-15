@@ -129,7 +129,9 @@ def _build_CDR_polygon_feature_collection(map_data: CMASS_Map) -> cdr_schemas.fe
 
 def _build_CDR_polygon_result(map_data: CMASS_Map) -> cdr_schemas.features.polygon_features.PolygonLegendAndFeauturesResult:
     id = 'None'
-    crs = map_data.georef.crs.to_string()
+    crs = 'None'
+    if map_data.georef.crs:
+        crs = map_data.georef.crs.to_string()
     poly_collection = _build_CDR_polygon_feature_collection(map_data)
     tmp = cdr_schemas.features.polygon_features.PolygonLegendAndFeauturesResult(id=id, crs=crs, cdr_projection_id=None, map_unit=None, abbreviation=None, legend_bbox=None, category=None, color=None, description=None, pattern=None, polygon_features=poly_collection)
     return tmp
