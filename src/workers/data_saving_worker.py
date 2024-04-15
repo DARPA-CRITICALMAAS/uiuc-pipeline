@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from time import sleep
 from math import ceil, floor
+import re
 
 import src.cmass_io as io
 import src.utils as utils
@@ -66,7 +67,8 @@ def data_saving_worker(input_queue, log_queue, output_dir, feedback_dir):
             for label, feature in map_data.legend.features.items():
                 feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
                 feature_mask[map_data.mask == legend_index] = 1
-                filepath = os.path.join(output_dir, f'{map_data.name}_{feature.name}.tif')
+                filename = re.sub(r"[/\\?%*:|\"<>\x7F\x00-\x1F]", "-", f'{map_data.name}_{feature.name}.tif')
+                filepath = os.path.join(output_dir, filename)
                 io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
                 legend_index += 1
             log_queue.put(ipq_log_message(pid, ipq_message_type.DATA_SAVING, logging.DEBUG, map_data.name, f'Completed saving {map_data.name}'))

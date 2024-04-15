@@ -75,5 +75,7 @@ def process_map(map_data, model):
         result_image = np.zeros((1, *map_data.image.shape[1:]), dtype=np.float32)
         result_image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]] = result_mask
         map_data.mask = result_image
+    else:
+        map_data.mask = result_mask
 
     return map_data
