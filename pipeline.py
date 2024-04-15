@@ -382,7 +382,7 @@ def run_in_local_mode(args):
             layouts_future = executor.submit(io.parallelLoadLayouts, layout_files)
         if args.legends:
             legend_files = [os.path.join(args.legends,f) for f in os.listdir(args.legends) if f.endswith('.json')]
-            legends_future = executor.submit(io.parallelLoadLegends, legend_files, 'polygon')
+            legends_future = executor.submit(io.parallelLoadLegends, legend_files, args.feature_type)
             legends = legends_future.result()
         if args.layout:
             layouts = layouts_future.result()
