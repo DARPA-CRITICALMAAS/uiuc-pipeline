@@ -317,6 +317,7 @@ def saveGeoTiff(filename, prediction, crs, transform, ):
     """
 
     image = np.array(prediction[...], ndmin=3)
+    filename = filename.replace("/", "-")
     with rasterio.open(filename, 'w', driver='GTiff', compress='lzw', height=image.shape[1], width=image.shape[2],
                        count=image.shape[0], dtype=image.dtype, crs=crs, transform=transform) as fh:
         fh.write(image)
