@@ -6,6 +6,9 @@ rich>13.0
 matplotlib
 pika
 
+h5image
+-e submodules/models/drab_volcano/yolo_src/
+
 # Inference
 opencv_python>4.8
 patchify>0.2
