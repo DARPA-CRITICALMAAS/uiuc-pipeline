@@ -306,6 +306,8 @@ def run_in_amqp_mode(args):
                 data = json.loads(self.body)
                 log.info(f"Started processing cog : {data['cog_id']}")
                 file = os.path.join(args.data, data['filename'])
+                output_folder = os.path.join(args.output, os.path.dirname(data['filename']))
+                os.makedirs(output_folder, exist_ok=True)
                 map_name = os.path.basename(os.path.splitext(file)[0])
 
                 # create legend
@@ -315,7 +317,7 @@ def run_in_amqp_mode(args):
 
                 # process message
                 pm_args = {
-                    "output": args.output,
+                    "output": output_folder,
                     "feedback": args.feedback,
                     "validation": args.validation,
                     "data": [file]
