@@ -1,7 +1,8 @@
 import logging
 import traceback
-import multiprocessing
 import pandas as pd
+import multiprocessing as mp
+#import torch.multiprocessing as mp
 from rich import box
 from rich.live import Live
 from rich.table import Table
@@ -170,7 +171,7 @@ def _start_worker(step, log_stream, management_stream):
     global pipeline_log_stream
     pipeline_log_stream = log_stream
 
-    pid = multiprocessing.current_process().pid
+    pid = mp.current_process().pid
     msg = worker_status_message(pid, None, None, worker_status.WORKER_STARTING, log_level=logging.DEBUG, message=f'Worker Process {pid} - Starting')
     log_stream.put(msg)
     while True:
@@ -228,7 +229,7 @@ class pipeline_manager():
             cls.instance = super(pipeline_manager, cls).__new__(cls)
         return cls.instance
     
-    def __init__(self, max_processes=multiprocessing.cpu_count()):
+    def __init__(self, max_processes=mp.cpu_count()):
         self.steps = []
         self.step_dict = {}
         self.max_processes = max_processes
@@ -236,7 +237,8 @@ class pipeline_manager():
         self._running = False
         self._monitor = console_monitor()
 
-        mpm = multiprocessing.Manager()
+        mp.set_start_method('spawn')
+        mpm = mp.Manager()
         self._log_stream = mpm.Queue()
         self._management_stream = mpm.Queue()
 
@@ -261,9 +263,10 @@ class pipeline_manager():
         return self._running 
 
     def _create_worker(self, step):
-        w = multiprocessing.Process(target=_start_worker, args=(step, self._log_stream, self._management_stream))
+        w = mp.Process(target=_start_worker, args=(step, self._log_stream, self._management_stream))
         w.start()
         self._workers.append(w)
+        log.debug(f'Created worker for step {step.name} with pid {w.pid}')
     
     def start(self):
         if self._running:

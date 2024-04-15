@@ -289,16 +289,16 @@ def construct_pipeline(args):
     from src.pipeline_communication import parameter_data_stream
     import src.pipeline_steps as pipeline_steps
     p = pipeline_manager()
-    #model = load_pipeline_model(args.model)
-    model = 'tmp'
+    model = load_pipeline_model(args.model)
+    #model = 'tmp'
     # Data Loading and preprocessing
-    p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=2)
-    p.add_step(func=pipeline_steps.gen_layout, args=(p.steps[0].output(),), display='Generating Layout', workers=2)
-    p.add_step(func=pipeline_steps.gen_legend, args=(p.steps[1].output(),), display='Generating Legend', workers=2)
+    p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=1)
+    p.add_step(func=pipeline_steps.gen_layout, args=(p.steps[0].output(),), display='Generating Layout', workers=1)
+    p.add_step(func=pipeline_steps.gen_legend, args=(p.steps[1].output(),), display='Generating Legend', workers=1)
     # Segmentation Inference
-    #p.add_step(func=pipeline_steps.segmentation_inference, args=(p.steps[2].output(), model), display='Segmenting Map Units', workers=1)
+    p.add_step(func=pipeline_steps.segmentation_inference, args=(p.steps[2].output(), model), display='Segmenting Map Units', workers=1)
     # Save Output
-    #p.add_step(func=pipeline_steps.save_output, args=(p.steps[3].output(), args.output, args.feedback), display='Saving Output', workers=2)
+    p.add_step(func=pipeline_steps.save_output, args=(p.steps[3].output(), args.output, args.feedback), display='Saving Output', workers=1)
     # Validation
     #if args.validation: 
     #    p.add_step(func=pipeline_steps.validation, args=(p.steps[3].output(), args.feedback), display='Validating Output', workers=2)

@@ -7,6 +7,7 @@ from src.pipeline_manager import pipeline_manager
 def load_data(data_id, image_path, legend_dir=None, layout_dir=None):
     """Wrapper with a custom display for the monitor"""
     map_name = os.path.splitext(os.path.basename(image_path))[0]
+    pipeline_manager.log_to_monitor(data_id, {'Name': map_name})
     legend_path = None
     layout_path = None
     if legend_dir:
@@ -18,7 +19,7 @@ def load_data(data_id, image_path, legend_dir=None, layout_dir=None):
         if not os.path.exists(layout_path):
             layout_path = None
     map_data = io.loadCMAASMapFromFiles(image_path, legend_path, layout_path)
-    pipeline_manager.log_to_monitor(data_id, {'Name': map_data.name, 'Shape': map_data.image.shape})
+    pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
     return map_data
 
 def gen_layout(data_id, map_data):
@@ -51,8 +52,8 @@ def segmentation_inference(data_id, map_data, model):
     # Cutout Legends
     legend_images = {}
     for feature in map_data.legend.features:
-        min_pt, max_pt = boundingBox(feature.contour) # Need this as points order can be reverse or could have quad
-        legend_images[feature.name] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
+        min_pt, max_pt = boundingBox(feature.bbox) # Need this as points order can be reverse or could have quad
+        legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
     
     # Cutout map portion of image
     if map_data.layout is not None and map_data.layout.map is not None:
@@ -68,8 +69,11 @@ def segmentation_inference(data_id, map_data, model):
         result_image = np.zeros((1, *map_data.image.shape[1:]), dtype=np.float32)
         result_image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]] = result_mask
         map_data.mask = result_image
+    else:
+        map_data.mask = result_mask
 
     return map_data
+
 import os
 from math import ceil, floor
 import matplotlib.pyplot as plt
@@ -80,15 +84,15 @@ def save_output(data_id, map_data, output_dir, feedback_dir):
         os.makedirs(os.path.join(feedback_dir, map_data.name), exist_ok=True)
         # Cutout map unit labels
         legend_images = {}
-        for label, feature in map_data.legend.features.items():
-            min_pt, max_pt = boundingBox(feature.contour) # Need this as points order can be reverse or could have quad
-            legend_images[feature.name] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
+        for feature in map_data.legend.features:
+            min_pt, max_pt = boundingBox(feature.bbox) # Need this as points order can be reverse or could have quad
+            legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
 
         # Save preview of legend labels
         if len(legend_images) > 0:
             if legend_feedback_mode == 'individual_images':
-                legend_save_path = os.path.join(feedback_dir, map_data.name, 'lgd_' + map_data.name + '_' + feature.name + '.tif')
-                io.saveGeoTiff(legend_save_path, legend_images[feature.name], None, None)
+                legend_save_path = os.path.join(feedback_dir, map_data.name, 'lgd_' + map_data.name + '_' + feature.label + '.tif')
+                io.saveGeoTiff(legend_save_path, legend_images[feature.label], None, None)
             if legend_feedback_mode == 'single_image':
                 cols = 4
                 rows = ceil(len(legend_images)/cols)
@@ -105,11 +109,16 @@ def save_output(data_id, map_data, output_dir, feedback_dir):
                 plt.close(fig)
 
     # Save inference results
+    # Save CDR schema
+    cdr_schema = io.export_CMAAS_Map_to_cdr_schema(map_data)
+    cdr_filename = os.path.join(output_dir, f'{map_data.name}_cdr.json')
+    io.saveCDRFeatureResults(cdr_filename, cdr_schema)
+    # Save Raster masks
     legend_index = 1
-    for label, feature in map_data.legend.features.items():
+    for feature in map_data.legend.features:
         feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
         feature_mask[map_data.mask == legend_index] = 1
-        filepath = os.path.join(output_dir, f'{map_data.name}_{feature.name}.tif')
+        filepath = os.path.join(output_dir, f'{map_data.name}_{feature.label}.tif')
         io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
         legend_index += 1
     return
