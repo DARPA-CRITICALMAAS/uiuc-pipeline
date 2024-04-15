@@ -172,6 +172,10 @@ def parse_command_line():
     optional_args.add_argument('--idle',
                         type=float,
                         help='Number of seconds to wait for new messages before exiting amqp mode.')
+    optional_args.add_argument('--max_legends',
+                        type=int,
+                        default=300,
+                        help='Maximum number of legends to expect, if more than this number ignore the data.')
     optional_args.add_argument('--legends',
                         type=parse_directory,
                         default=None,
@@ -255,6 +259,7 @@ def main():
             f'\tAMQP         : {args.amqp}\n' +
             f'\tAMQP Idle    : {args.idle}\n' +
             f'\tLegends      : {args.legends}\n' +
+            f'\tMax Legends  : {args.max_legends}\n' +
             f'\tLayout       : {args.layout}\n' +
             f'\tValidation   : {args.validation}\n' +
             f'\tOutput       : {args.output}\n' +
@@ -313,6 +318,8 @@ def run_in_amqp_mode(args):
                 # create legend
                 log.info(f'Generating legend for {map_name}')
                 lgd = extractLegends(io.loadGeoTiff(file)[0].transpose(1,2,0))
+                if len(lgd) > args.max_legends:
+                    raise ValueError(f"Number of legends ({len(lgd)}) is more than the maximum allowed {args.max_legends}")
                 legends = { map_name: convertLegendtoCMASS(lgd) }
 
                 # process message
@@ -324,7 +331,7 @@ def run_in_amqp_mode(args):
                 }
                 pm = pipeline_manager(pm_args, self.model, legends, [])
                 pm.start()
-                pm.file_monitor(2)
+                pm.file_monitor(5)
                 log.info(f"Finished processing cog : {data['cog_id']}")
             except Exception as e:
                 log.exception("Error processing pipeline request.")
@@ -361,8 +368,11 @@ def run_in_amqp_mode(args):
             last_active = time()
             if not worker.is_alive():
                 if worker.exception:
-                    channel.basic_publish(exchange='', routing_key=f"{args.model}.error", body=worker.body, properties=worker.properties)
+                    data = json.loads(worker.body)
+                    data['exception'] = repr(worker.exception)
+                    channel.basic_publish(exchange='', routing_key=f"{args.model}.error", body=json.dumps(data), properties=worker.properties)
                 channel.basic_ack(delivery_tag=worker.method.delivery_tag)
+                worker = None
 
     # stop processing, save money
     log.info(f"No messages received in {args.idle} seconds. Stopping")
