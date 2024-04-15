@@ -91,6 +91,7 @@ class pipeline_manager():
         
         active_workers = 0 
         last_update = time()
+        start_time = None
         while self._running:
             if active_workers != 0:
                 last_update = time()
@@ -131,7 +132,7 @@ class pipeline_manager():
                     est_time = patches / A100_patches_per_sec
                     log.info(f"Started processing {record.map_name}, estimated time is {est_time:.2f} seconds")
                     start_time = time()
-                if record.message.startswith("Completed"):
+                if record.message.startswith("Completed") and start_time:
                     total_time = time() - start_time
                     A100_patches_per_sec = patches / total_time
                     log.info(f"Finished processing {record.map_name}, time was {total_time:.2f} seconds = {A100_patches_per_sec:.2f} patches/sec")
