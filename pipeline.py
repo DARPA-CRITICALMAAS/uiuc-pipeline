@@ -2,6 +2,10 @@ import os
 import copy
 import logging
 import argparse
+import urllib.parse
+import pika
+import json
+import threading
 
 from time import time
 import src.utils as utils
@@ -50,9 +54,9 @@ def load_pipeline_model(model_name : str) -> pipeline_model :
         from src.models.blaring_foundry_model import blaring_foundry_model
         model = blaring_foundry_model()
     model.load_model()
-    
+
     log.info(f'Model loaded in {time()-model_stime:.2f} seconds')
-    return model 
+    return model
 
 def parse_command_line():
     """Runs Command line argument parser for pipeline. Exit program on bad arguments. Returns struct of arguments"""
@@ -69,38 +73,34 @@ def parse_command_line():
             msg = f'Invalid path "{path}" specified : Path is not a directory\n'
             raise argparse.ArgumentTypeError(msg)
         return path
-    
+
     def parse_data(path: str) -> List[str]:
         """Command line argument parser for --data. --data should accept a list of file and/or directory paths as an
-           input. This function is run called on each individual element of that list and checks if the path is valid
-           and if the path is a directory expands it to all the valid files paths inside the dir. Returns a list of 
-           valid files. This is intended to be used in conjunction with the post_parse_data function"""
+           input. This function is run called on each individual element of that list and checks if the path is valid."""
         # Check if it exists
         if not os.path.exists(path):
             msg = f'Invalid path "{path}" specified : Path does not exist'
             #log.warning(msg)
             return None
             #raise argparse.ArgumentTypeError(msg+'\n')
-        # Check if its a directory
-        if os.path.isdir(path):
-            data_files = [os.path.join(path, f) for f in os.listdir(path) if f.endswith('.tif')]
-            #if len(data_files) == 0:
-                #log.warning(f'Invalid path "{path}" specified : Directory does not contain any .tif files')
-        if os.path.isfile(path):
-            data_files = [path]
-        return data_files
-    
+        return path
+
     def post_parse_data(data : List[List[str]]) -> List[str]:
-        """Cleans up the output of parse data from a list of lists to a single list and does validity checks for the 
-           data as a whole. Returns a list of valid files. Raises an argument exception if no valid files were given"""
-        # Check that there is at least 1 valid map to run on
-        data_files = [file for sublist in data if sublist is not None for file in sublist]
+        """Loops over all data arguments and finds all tif files. If the path is a directory expands it to all the valid
+           files paths inside the dir. Returns a list of valid files. Raises an argument exception if no valid files were given"""
+        data_files = []
+        for path in data:
+            # Check if its a directory
+            if os.path.isdir(path):
+                data_files.extend([os.path.join(path, f) for f in os.listdir(path) if f.endswith('.tif')])
+            if os.path.isfile(path) and path.endswith('.tif'):
+                data_files.append(path)
         if len(data_files) == 0:
             msg = f'No valid files where given to --data argument. --data should be given a path or paths to file(s) \
                     and/or directory(s) containing the data to perform inference on. program will only run on .tif files'
             raise argparse.ArgumentTypeError(msg)
         return data_files
-    
+
     def parse_model(model_name : str) -> str:
         """Command line arugment parse for --model. Case insensitive, accepts any valid model name. Returns lowercase
            model name"""
@@ -112,7 +112,7 @@ def parse_command_line():
                 msg += '\n\t* {}'.format(m)
             raise argparse.ArgumentTypeError(msg)
         return model_name
-    
+
     def parse_feature(feature_type : str) -> str:
         """Command line argument parser for --feature_type. Case insensitive, accepts point, pt, polygon, poly, or all.
            Raises an argument exception if argument is one of these list. Returns lowercase feature type"""
@@ -128,33 +128,30 @@ def parse_command_line():
                     Polygon\n\t* All'
             raise argparse.ArgumentTypeError(msg)
         return feature_type
-    
+
     def parse_gpu(s : str) -> str:
         # TODO Implement check for if the selected gpu is available / a real gpu number
         return s
-    
-    def parse_url(s : str) -> str:
+
+    def parse_amqp(s : str) -> str:
         """Command line argument parse for --amqp."""
-        # TODO Implement a check for if a valid url has been given to ampq?
-        # If you don't want this then just remove the type flag.
+        parts = urllib.parse.urlparse(s)
+        if parts.scheme not in ['amqp','amqps']:
+            msg = f'Invalid scheme "{parts.scheme}" specified. Scheme must be either "amqp" or "amqps"'
+            raise argparse.ArgumentTypeError(msg)
         return s
-    
+
     parser = argparse.ArgumentParser(description='', add_help=False)
     # Required Arguments
     required_args = parser.add_argument_group('required arguments', 'These are the arguments the pipeline requires to \
                                                run, --amqp and --data are used to specify what data source to use and \
                                                are mutually exclusive.')
-    data_source = required_args.add_mutually_exclusive_group(required=True)
-    data_source.add_argument('--amqp',
-                        type=parse_url,
-                        # Someone else can fill out the help for this better when it gets implemented
-                        help='Url to use to connect to a amqp data stream. Mutually exclusive with --data. ### Not \
-                              Implemented Yet ###')
-    data_source.add_argument('--data', 
+    required_args.add_argument('--data',
                         type=parse_data,
+                        required=True,
                         nargs='+',
                         help='Path to file(s) and/or directory(s) containing the data to perform inference on. The \
-                              program will run inference on any .tif files. Mutually exclusive with --amqp')            
+                              program will run inference on any .tif files.')
     required_args.add_argument('--model',
                         type=parse_model,
                         required=True,
@@ -163,12 +160,22 @@ def parse_command_line():
     required_args.add_argument('--output',
                         required=True,
                         help='Directory to write the outputs of inference to')
-    #required_args.add_argument('-c','--config', 
+    #required_args.add_argument('-c','--config',
     #                    default=os.environ.get('DARPA_CMAAS_PIPELINE_CONFIG', 'default_pipeline_config.yaml'),
     #                    help='The config file to use for the pipeline. Not implemented yet')
-    
+
     # Optional Arguments
     optional_args = parser.add_argument_group('optional arguments', '')
+    optional_args.add_argument('--amqp',
+                        type=parse_amqp,
+                        help='Url to use to connect to a amqp data stream.')
+    optional_args.add_argument('--idle',
+                        type=float,
+                        help='Number of seconds to wait for new messages before exiting amqp mode.')
+    optional_args.add_argument('--max_legends',
+                        type=int,
+                        default=300,
+                        help='Maximum number of legends to expect, if more than this number ignore the data.')
     optional_args.add_argument('--legends',
                         type=parse_directory,
                         default=None,
@@ -185,7 +192,7 @@ def parse_command_line():
                         default=None,
                         help='Optional directory containing the true raster segmentations. If option is provided, the \
                               pipeline will perform the validation step (Scoring the results of predictions) with this \
-                              data.')    
+                              data.')
     optional_args.add_argument('--feedback',
                         default=None,
                         help='Optional directory to save debugging feedback on the pipeline. This will decrease \
@@ -193,7 +200,7 @@ def parse_command_line():
     optional_args.add_argument('--feature_type',
                         type=parse_feature,
                         default='polygon',
-                        help=f'Type of features to run the pipeline on. Available features are Point, Polygon and All') 
+                        help=f'Type of features to run the pipeline on. Available features are Point, Polygon and All')
     optional_args.add_argument('--log',
                         default='logs/Latest.log',
                         help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
@@ -203,14 +210,21 @@ def parse_command_line():
     # Flags
     flag_group = parser.add_argument_group('Flags', '')
     flag_group.add_argument('-h', '--help',
-                            action='help', 
+                            action='help',
                             help='show this message and exit')
     flag_group.add_argument('-v', '--verbose',
                             action='store_true',
                             help='Flag to change the logging level from INFO to DEBUG')
-    
+
     args = parser.parse_args()
-    args.data = post_parse_data(args.data)
+    if args.amqp:
+        if len(args.data) > 1:
+            raise argparse.ArgumentTypeError("Can only have one data folder for AMQP.")
+        args.data = args.data[0]
+        if not os.path.isdir(args.data):
+            raise argparse.ArgumentTypeError("Data arguments must be a folder for AMQP.")
+    else:
+        args.data = post_parse_data(args.data)
     return args
 
 def main():
@@ -231,20 +245,21 @@ def main():
     log = utils.start_logger(LOGGER_NAME, args.log, log_level=FILE_LOG_LEVEL, console_log_level=STREAM_LOG_LEVEL)
 
     # Log Run parameters
-    if args.data and not args.amqp:
-        log_data_mode = 'local'
-        log_data_source = f'\tData         : {args.data}\n'
-    else:
+    if args.amqp:
         log_data_mode = 'amqp'
-        log_data_source = f'\tData         : {args.amqp}\n'
-    
+    else:
+        log_data_mode = 'local'
+
     # Log info statement to console even if in warning only mode
     log.handlers[1].setLevel(logging.INFO)
     log.info(f'Running pipeline on {os.uname()[1]} in {log_data_mode} mode with following parameters:\n' +
-            f'\tModel        : {args.model}\n' + 
+            f'\tModel        : {args.model}\n' +
             f'\tFeature type : {args.feature_type}\n' +
-            log_data_source +
+            f'\tData         : {args.data}\n' +
+            f'\tAMQP         : {args.amqp}\n' +
+            f'\tAMQP Idle    : {args.idle}\n' +
             f'\tLegends      : {args.legends}\n' +
+            f'\tMax Legends  : {args.max_legends}\n' +
             f'\tLayout       : {args.layout}\n' +
             f'\tValidation   : {args.validation}\n' +
             f'\tOutput       : {args.output}\n' +
@@ -270,10 +285,10 @@ def main():
         global completed_maps, remaining_maps
         completed_maps = []
         remaining_maps = []
-        if args.data and not args.amqp:
-            run_in_local_mode(args)
-        else:
+        if args.amqp:
             run_in_amqp_mode(args)
+        else:
+            run_in_local_mode(args)
     except:
         log.warning(f'Completed these maps before failure :\n{completed_maps}')
         log.warning(f'Remaining maps to be processed :\n{remaining_maps}')
@@ -283,9 +298,84 @@ def main():
     log.info(f'Pipeline terminating succesfully. Runtime was {time()-main_time} seconds')
 
 def run_in_amqp_mode(args):
-    # TODO
-    # Implement AMQP mode
-    raise NotImplementedError
+    class Worker(threading.Thread):
+        def process(self, method, properties, body, model):
+            self.method = method
+            self.properties = properties
+            self.body = body
+            self.model = model
+            self.exception = None
+
+        def run(self):
+            try:
+                data = json.loads(self.body)
+                log.info(f"Started processing cog : {data['cog_id']}")
+                file = os.path.join(args.data, data['filename'])
+                output_folder = os.path.join(args.output, os.path.dirname(data['filename']))
+                os.makedirs(output_folder, exist_ok=True)
+                map_name = os.path.basename(os.path.splitext(file)[0])
+
+                # create legend
+                log.info(f'Generating legend for {map_name}')
+                lgd = extractLegends(io.loadGeoTiff(file)[0].transpose(1,2,0))
+                if len(lgd) > args.max_legends:
+                    raise ValueError(f"Number of legends ({len(lgd)}) is more than the maximum allowed {args.max_legends}")
+                legends = { map_name: convertLegendtoCMASS(lgd) }
+
+                # process message
+                pm_args = {
+                    "output": output_folder,
+                    "feedback": args.feedback,
+                    "validation": args.validation,
+                    "data": [file]
+                }
+                pm = pipeline_manager(pm_args, self.model, legends, [])
+                pm.start()
+                pm.file_monitor(5)
+                log.info(f"Finished processing cog : {data['cog_id']}")
+            except Exception as e:
+                log.exception("Error processing pipeline request.")
+                self.exception = e
+
+    # load the mode
+    model = load_pipeline_model(args.model)
+
+    # connect to rabbitmq
+    parameters = pika.URLParameters(args.amqp)
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+
+    # create queues
+    channel.queue_declare(queue=args.model, durable=True)
+    channel.queue_declare(queue=f"{args.model}.error", durable=True)
+
+    # listen for messages and stop if nothing found after 5 minutes
+    channel.basic_qos(prefetch_count=1)
+
+    # create generator to fetch messages
+    consumer = channel.consume(queue=args.model, inactivity_timeout=1)
+    # loop getting new messages until we are idle for to long
+    last_active = time()
+    worker = None
+    while args.idle == None or last_active > time() - args.idle:
+        method, properties, body = next(consumer)
+        if method:
+            log.info("Received a message")
+            worker = Worker()
+            worker.process(method, properties, body, model)
+            worker.start()
+        if worker:
+            last_active = time()
+            if not worker.is_alive():
+                if worker.exception:
+                    data = json.loads(worker.body)
+                    data['exception'] = repr(worker.exception)
+                    channel.basic_publish(exchange='', routing_key=f"{args.model}.error", body=json.dumps(data), properties=worker.properties)
+                channel.basic_ack(delivery_tag=worker.method.delivery_tag)
+                worker = None
+
+    # stop processing, save money
+    log.info(f"No messages received in {args.idle} seconds. Stopping")
 
 def run_in_local_mode(args):
     global remaining_maps
@@ -302,18 +392,15 @@ def run_in_local_mode(args):
             layouts_future = executor.submit(io.parallelLoadLayouts, layout_files)
         if args.legends:
             legend_files = [os.path.join(args.legends,f) for f in os.listdir(args.legends) if f.endswith('.json')]
-            legends_future = executor.submit(io.parallelLoadLegends, legend_files, 'polygon')
+            legends_future = executor.submit(io.parallelLoadLegends, legend_files, args.feature_type)
             legends = legends_future.result()
         if args.layout:
             layouts = layouts_future.result()
             log.info("Layouts are loaded")
-        
+
         # Generate legends for any maps that don't have them
         for file in args.data:
-            name_components = os.path.splitext(os.path.basename(file))
-            while name_components[1] != '':
-                name_components = os.path.splitext(name_components[0])
-            map_name = name_components[0]
+            map_name = os.path.basename(os.path.splitext(file)[0])
             if map_name not in legends:
                 #log.warning(f'No legend found for {map_name}')
                 log.info(f'Generating legend for {map_name}')
@@ -323,8 +410,8 @@ def run_in_local_mode(args):
 
         model = model_future.result()
         log.info("Model is loaded")
-    
-    pm = pipeline_manager(args, model, legends, layouts)
+
+    pm = pipeline_manager(vars(args), model, legends, layouts)
     pm.start()
     pm.console_monitor()
 

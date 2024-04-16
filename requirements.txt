@@ -4,6 +4,7 @@ rasterio>=1.3.9
 geopandas
 rich>13.0
 matplotlib
+pika
 
 # Inference
 opencv_python>4.8
