@@ -65,6 +65,7 @@ def data_saving_worker(input_queue, log_queue, output_dir, feedback_dir):
 
             # Save inference results
             # Save CDR schema
+            map_data = generate_geometry(map_data)
             cdr_schema = export_CMAAS_Map_to_cdr_schema(map_data)
             with open(os.path.join(output_dir, f'{map_data.name}_cdr.json'), 'w') as fh:
                 fh.write(cdr_schema.model_dump_json())
@@ -89,57 +90,75 @@ def data_saving_worker(input_queue, log_queue, output_dir, feedback_dir):
                 log_queue.put(ipq_log_message(pid, ipq_message_type.DATA_SAVING, logging.ERROR, map_data.name, f'MAP {map_data.name} WAS NOT PROCESSED! Could not save data after 3 tries skipping map'))
     return True
 
-from src.cmass_types import CMASS_Map
-import cdr_schemas.features.polygon_features
-import cdr_schemas.feature_results
+
+
+from cdr_schemas.common import ModelProvenance
+from cdr_schemas.feature_results import FeatureResults
+from cdr_schemas.features.point_features import PointLegendAndFeaturesResult, PointFeatureCollection, PointFeature,  Point, PointProperties
+from cdr_schemas.features.polygon_features import PolygonLegendAndFeaturesResult, PolygonFeatureCollection, PolygonFeature, Polygon, PolygonProperty
+
+from src.cmass_types import CMASS_Map, CMASS_Legend, CMASS_Feature
 from rasterio.features import shapes, sieve 
 from shapely.geometry import shape
+from typing import List
 
-def _build_CDR_polygon_property():
-    tmp = cdr_schemas.features.polygon_features.PolygonProperty(model='Testing', model_version='0.1', confidence=0.9)
-    return tmp
+# region Tmp things to get this to work
+def generate_geometry(map_data, noise_threshold=10):
+    for _, feature in map_data.legend.features.items():
+        # Get mask of feature
+        feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
+        feature_mask[map_data.mask == id] = 1
+        # Remove "noise" from mask by removing pixel groups smaller then the threshold
+        #sieve_img = sieve(feature_mask, noise_threshold, connectivity=4)
+        # Convert mask to vector shapes
+        shape_gen = shapes(feature_mask, connectivity=4)
+        # Only use Filled pixels (1s) for shapes 
+        geometries = [shape(geometry) for geometry, value in shape_gen if value == 1]
+        # Change Shapely geometryies to List(List(List(float)))
+        feature.geometry = [[[*point] for point in geometry.exterior.coords] for geometry in geometries]
+    return map_data
+# endregion Tmp things to get this to work
 
-def _build_CDR_polygon(image, id, noise_threshold=10):
-    # Get mask of feature
-    feature_mask = np.zeros_like(image, dtype=np.uint8)
-    feature_mask[image == id] = 1
-    # Remove "noise" from mask by removing pixel groups smaller then the threshold
-    sieve_img = sieve(feature_mask, noise_threshold, connectivity=4)
-    # Convert mask to vector shapes
-    shape_gen = shapes(feature_mask, connectivity=4)
-    # Only use Filled pixels (1s) for shapes 
-    geometries = [shape(geometry) for geometry, value in shape_gen if value == 1]
-    # Change Shapely geometryies to List(List(List(float)))
+# region CDR Common
+def export_CMAAS_Map_to_cdr_schema(map_data, cog_id:str='', system:str='UIUC', system_version:str='0.1'):
+    polygon_segmentations = []
+    for _, feature in map_data.legend.features.items():
+        polygon_segmentations.append(_build_CDR_poly_feature(feature))
+    return FeatureResults(cog_id=cog_id, system=system, system_version=system_version, polygon_feature_results=polygon_segmentations)
 
-    cdr_geometries = [[[*point] for point in geometry.exterior.coords] for geometry in geometries]
-    tmp = cdr_schemas.features.polygon_features.Polygon(coordinates=cdr_geometries)
-    return tmp
+def saveCDRFeatureResults(filepath, feature_result: FeatureResults):
+    # Save CDR schema
+    with open(filepath, 'w') as fh:
+        fh.write(feature_result.model_dump_json())
+# endregion CDR Common
 
-def _build_CDR_polygon_feature_collection(map_data: CMASS_Map) -> cdr_schemas.features.polygon_features.PolygonFeatureCollection:
-    cdr_features = []
-    id = 1
-    for label, feature in enumerate(map_data.legend.features):
-        cdr_poly = _build_CDR_polygon(map_data.mask, id)
-        cdr_properties = _build_CDR_polygon_property()
-        poly_feature = cdr_schemas.features.polygon_features.PolygonFeature(id=f'{id}', geometry=cdr_poly, properties=cdr_properties)
-        cdr_features.append(poly_feature)
-        id += 1
-    tmp = cdr_schemas.features.polygon_features.PolygonFeatureCollection(features=cdr_features)
-    return tmp   
+# region CDR Polygon
+def _build_CDR_poly_feature(feature : CMASS_Feature) -> PolygonLegendAndFeaturesResult:
+    if feature.geometry is not None:
+        poly_collection = _build_CDR_poly_feature_collection(feature.geometry)
+    else:
+        poly_collection = None
+    poly_feature = PolygonLegendAndFeaturesResult(
+        id="None",
+        legend_provenance=ModelProvenance(model='UIUC', model_version='0.1', confidence=None),
+        label=feature.name,
+        abbreviation=feature.abbreviation,
+        description=feature.description,
+        legend_contour=feature.contour,
+        color=feature.color,
+        pattern=feature.pattern,
+        polygon_features=poly_collection)
+    return poly_feature
 
-def _build_CDR_polygon_result(map_data: CMASS_Map) -> cdr_schemas.features.polygon_features.PolygonLegendAndFeauturesResult:
-    id = 'None'
-    crs = 'None'
-    if map_data.georef.crs:
-        crs = map_data.georef.crs.to_string()
-    poly_collection = _build_CDR_polygon_feature_collection(map_data)
-    tmp = cdr_schemas.features.polygon_features.PolygonLegendAndFeauturesResult(id=id, crs=crs, cdr_projection_id=None, map_unit=None, abbreviation=None, legend_bbox=None, category=None, color=None, description=None, pattern=None, polygon_features=poly_collection)
-    return tmp
+def _build_CDR_poly_feature_collection(geometry) -> PolygonFeatureCollection:
+    poly_features = []
+    for poly in geometry:
+        poly_features.append(PolygonFeature(
+            id='None', 
+            geometry=Polygon(coordinates=[poly]),
+            properties=PolygonProperty(model='golden_muscat', model_version='0.0.3')
+        ))
+    
+    return PolygonFeatureCollection(features=poly_features)
 
-def export_CMAAS_Map_to_cdr_schema(map_data: CMASS_Map):
-    cog_id='NEED FROM EXTERNAL SOURCE'
-    system='NEED FROM EXTERNAL SOURCE'
-    system_version='NEED FROM EXTERNAL SOURCE'
-    polygon_result = [_build_CDR_polygon_result(map_data)]
-    cdr_result = cdr_schemas.feature_results.FeatureResults(cog_id=cog_id, system=system, line_feature_results=None, point_feature_results=None, cog_area_extractions=None, cog_metadata_extractions=None, system_version=system_version, polygon_feature_results=polygon_result)
-    return cdr_result
+# endregion CDR Polygon
