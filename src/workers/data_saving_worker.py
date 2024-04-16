@@ -97,17 +97,18 @@ from cdr_schemas.feature_results import FeatureResults
 from cdr_schemas.features.point_features import PointLegendAndFeaturesResult, PointFeatureCollection, PointFeature,  Point, PointProperties
 from cdr_schemas.features.polygon_features import PolygonLegendAndFeaturesResult, PolygonFeatureCollection, PolygonFeature, Polygon, PolygonProperty
 
-from src.cmass_types import CMASS_Map, CMASS_Legend, CMASS_Feature
+from src.cmass_types import CMASS_Feature
 from rasterio.features import shapes, sieve 
 from shapely.geometry import shape
 from typing import List
 
 # region Tmp things to get this to work
 def generate_geometry(map_data, noise_threshold=10):
+    legend_index = 1
     for _, feature in map_data.legend.features.items():
         # Get mask of feature
         feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
-        feature_mask[map_data.mask == id] = 1
+        feature_mask[map_data.mask == legend_index] = 1
         # Remove "noise" from mask by removing pixel groups smaller then the threshold
         #sieve_img = sieve(feature_mask, noise_threshold, connectivity=4)
         # Convert mask to vector shapes
@@ -116,6 +117,7 @@ def generate_geometry(map_data, noise_threshold=10):
         geometries = [shape(geometry) for geometry, value in shape_gen if value == 1]
         # Change Shapely geometryies to List(List(List(float)))
         feature.geometry = [[[*point] for point in geometry.exterior.coords] for geometry in geometries]
+        legend_index += 1
     return map_data
 # endregion Tmp things to get this to work
 
@@ -141,12 +143,12 @@ def _build_CDR_poly_feature(feature : CMASS_Feature) -> PolygonLegendAndFeatures
     poly_feature = PolygonLegendAndFeaturesResult(
         id="None",
         legend_provenance=ModelProvenance(model='UIUC', model_version='0.1', confidence=None),
-        label=feature.name,
-        abbreviation=feature.abbreviation,
-        description=feature.description,
+        label=feature.name if feature.name else "",
+        abbreviation=feature.abbreviation if feature.abbreviation else "",
+        description=feature.description if feature.description else "",
         legend_contour=feature.contour,
-        color=feature.color,
-        pattern=feature.pattern,
+        color=feature.color if feature.color else "",
+        pattern=feature.pattern if feature.pattern else "",
         polygon_features=poly_collection)
     return poly_feature
 
@@ -158,7 +160,6 @@ def _build_CDR_poly_feature_collection(geometry) -> PolygonFeatureCollection:
             geometry=Polygon(coordinates=[poly]),
             properties=PolygonProperty(model='golden_muscat', model_version='0.0.3')
         ))
-    
     return PolygonFeatureCollection(features=poly_features)
 
 # endregion CDR Polygon
