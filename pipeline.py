@@ -10,6 +10,7 @@ import threading
 from time import time
 import src.utils as utils
 
+QUEUE_PREFIX = "process_"
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.DEBUG
 STREAM_LOG_LEVEL = logging.WARNING
@@ -356,15 +357,15 @@ def run_in_amqp_mode(args):
     channel = connection.channel()
 
     # create queues
-    channel.queue_declare(queue=args.model, durable=True)
-    channel.queue_declare(queue=f"{args.model}.error", durable=True)
+    channel.queue_declare(queue=f"{QUEUE_PREFIX}{args.model}", durable=True)
+    channel.queue_declare(queue=f"{QUEUE_PREFIX}{args.model}.error", durable=True)
     channel.queue_declare(queue="upload", durable=True)
 
     # listen for messages and stop if nothing found after 5 minutes
     channel.basic_qos(prefetch_count=1)
 
     # create generator to fetch messages
-    consumer = channel.consume(queue=args.model, inactivity_timeout=1)
+    consumer = channel.consume(queue=f"{QUEUE_PREFIX}{args.model}", inactivity_timeout=1)
     # loop getting new messages until we are idle for to long
     last_active = time()
     worker = None
@@ -381,7 +382,7 @@ def run_in_amqp_mode(args):
                 data = json.loads(worker.body)
                 if worker.exception:
                     data['exception'] = repr(worker.exception)
-                    channel.basic_publish(exchange='', routing_key=f"{args.model}.error", body=json.dumps(data), properties=worker.properties)
+                    channel.basic_publish(exchange='', routing_key=f"{QUEUE_PREFIX}{args.model}.error", body=json.dumps(data), properties=worker.properties)
                 else:
                     data['cdr_output'] = f"{os.path.splitext(data['filename'])[0]}_cdr.json"
                     channel.basic_publish(exchange='', routing_key=f"upload", body=json.dumps(data), properties=worker.properties)
