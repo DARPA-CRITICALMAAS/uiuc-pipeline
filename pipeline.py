@@ -208,6 +208,10 @@ def parse_command_line():
     optional_args.add_argument('--log',
                         default='logs/Latest.log',
                         help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
+    optional_args.add_argument('--batch_size',
+                        type=int,
+                        default=256,
+                        help='Batch size to use for inference. Defaults to 256')
     #parser.add_argument('--gpu',
     #                    type=parse_gpu,
     #                    help='The number of the gpu to use, mostly for use with amqp NOTE this is NOT the number of gpus that will be used but rather which one to use')
@@ -263,11 +267,12 @@ def main():
             f'\tAMQP         : {args.amqp}\n' +
             f'\tAMQP Idle    : {args.idle}\n' +
             f'\tLegends      : {args.legends}\n' +
-            f'\tMax Legends  : {args.max_legends}\n' +
+            f'\tMax Map Units: {args.max_legends}\n' +
             f'\tLayout       : {args.layout}\n' +
             f'\tValidation   : {args.validation}\n' +
             f'\tOutput       : {args.output}\n' +
-            f'\tFeedback     : {args.feedback}')
+            f'\tFeedback     : {args.feedback}\n' +
+            f'\tBatch Size   : {args.batch_size}')
     log.handlers[1].setLevel(STREAM_LOG_LEVEL)
 
     # Import other modules
@@ -343,6 +348,7 @@ def run_in_amqp_mode(args):
 
     # load the mode
     model = load_pipeline_model(args.model)
+    model.batch_size = args.batch_size
 
     # connect to rabbitmq
     parameters = pika.URLParameters(args.amqp)
@@ -417,6 +423,7 @@ def run_in_local_mode(args):
         log.info("Legends are loaded")
 
         model = model_future.result()
+        model.batch_size = args.batch_size
         log.info("Model is loaded")
 
     pm = pipeline_manager(vars(args), model, legends, layouts)
