@@ -17,7 +17,8 @@ class primordial_positron_model_3(pipeline_tensorflow_model):
         super().__init__()
         self.unpatch_mode = 'or'
         self.patch_overlap = 30
-        self.name = 'primordial positron 3'
+        self.name = 'primordial positron'
+        self.version = '0.0.3'
         self.checkpoint = 'submodules/models/primordial_positron/inference_model/Unet-attentionUnet.h5'
 
     #@override
@@ -32,7 +33,8 @@ class primordial_positron_model_3(pipeline_tensorflow_model):
 class primordial_positron_model_4(pipeline_tensorflow_model):
     def __init__(self):
         super().__init__()
-        self.name = 'primordial positron 4'
+        self.name = 'primordial positron'
+        self.version = '0.0.4'
         self.checkpoint = '/projects/bbym/shared/models/primodial-positron/Unet-attentionUnet.h5'
 
     #@override

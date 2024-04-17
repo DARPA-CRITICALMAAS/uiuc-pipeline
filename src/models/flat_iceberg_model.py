@@ -20,6 +20,7 @@ class flat_iceberg_model(pipeline_pytorch_model):
     def __init__(self):
         super().__init__()
         self.name = 'flat iceberg'
+        self.version = '0.1'
         self.checkpoint = '/projects/bbym/shared/models/flat-iceberg/best.pt'
     
         # Modifiable parameters

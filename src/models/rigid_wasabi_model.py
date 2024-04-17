@@ -17,6 +17,7 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 class rigid_wasabi_model(pipeline_pytorch_model):
     def __init__(self):
         self.name = 'rigid wasabi'
+        self.version = '0.1'
         self.checkpoint = '/projects/bbym/shared/models/rigid_wasabi/SWIN_jaccard.ckpt'
         self.args = SimpleNamespace(model='swin', superpixel='', edge=False)
         

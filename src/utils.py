@@ -93,7 +93,9 @@ def swap_console_handler(log, handler):
     log.handlers[1] = handler
     return orig_handler
 
+import numpy as np
 def boundingBox(array):
+    array = np.array(array).astype(int)
     min_xy = [min(array, key=lambda x: (x[0]))[0], min(array, key=lambda x: (x[1]))[1]]
     max_xy = [max(array, key=lambda x: (x[0]))[0], max(array, key=lambda x: (x[1]))[1]]
     return [min_xy, max_xy]

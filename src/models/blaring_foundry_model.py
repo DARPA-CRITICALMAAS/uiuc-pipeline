@@ -17,6 +17,7 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 class blaring_foundry_model(pipeline_pytorch_model):
     def __init__(self):
         self.name = 'blaring foundry'
+        self.version = '0.1'
         self._checkpoint = '/projects/bbym/shared/models/blaring_foundry/spixel_unet.ckpt'
         self._args = SimpleNamespace(model='spUnet', edge=False, sp_sz=2, sp_pretrain=True, sp_ckpt = '/projects/bbym/shared/models/blaring_foundry/spixel_bsd_sz_2.tar')
 

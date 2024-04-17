@@ -254,6 +254,7 @@ class pipeline_manager():
         self.steps.append(step)
         self.step_dict[display] = sid
         self._monitor.add_step(sid, display)
+        return step
 
     def __getitem__(self, key):
         return self.steps[self.step_dict[key]]

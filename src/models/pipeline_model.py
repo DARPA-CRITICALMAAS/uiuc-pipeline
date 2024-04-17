@@ -5,6 +5,7 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 class pipeline_model(object):
     def __init__(self):
         self.name = 'base pipeline model'
+        self.version = '0.0'
         self.model = None
 
     def load_model(self):

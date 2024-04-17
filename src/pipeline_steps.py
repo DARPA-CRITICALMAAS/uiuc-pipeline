@@ -1,6 +1,8 @@
 import logging
 import numpy as np
 import cmaas_utils.io as io
+import cmaas_utils.cdr as cdr
+from cmaas_utils.types import CMAAS_Map, Provenance
 from src.utils import boundingBox
 from src.pipeline_manager import pipeline_manager
 
@@ -46,13 +48,44 @@ def gen_legend(data_id, map_data):
         map_data.legend = convertLegendtoCMASS(lgd)
 
     pipeline_manager.log_to_monitor(data_id, {'Map Units': len(map_data.legend.features)})
+    pipeline_manager.log(logging.DEBUG, f'{len(map_data.legend.features)} map units for {map_data.name}')
     return map_data
 
-def segmentation_inference(data_id, map_data, model):
+def save_legend(data_id, map_data: CMAAS_Map, feedback_dir: str, legend_feedback_mode: str = 'single_image'):
+    # Create directory for that map
+    os.makedirs(os.path.join(feedback_dir, map_data.name), exist_ok=True)
+
+    # Cutout map unit labels from image
+    legend_images = {}
+    for feature in map_data.legend.features:
+        min_pt, max_pt = boundingBox(feature.bounding_box) # Need this as points order can be reverse or could have quad
+        legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
+
+    # Save preview of legend labels
+    if len(legend_images) > 0:
+        if legend_feedback_mode == 'individual_images':
+            legend_save_path = os.path.join(feedback_dir, map_data.name, 'lgd_' + map_data.name + '_' + feature.label + '.tif')
+            io.saveGeoTiff(legend_save_path, legend_images[feature.label], None, None)
+        if legend_feedback_mode == 'single_image':
+            cols = 4
+            rows = ceil(len(legend_images)/cols)
+            fig, ax = plt.subplots(rows, cols, figsize=(16,16))
+            ax = ax.reshape(rows, cols) # Force 2d shape if less the 4 items
+            for r,c in np.ndindex(ax.shape):
+                ax[r][c].axis('off')
+            for i, label in enumerate(legend_images):
+                row, col  = floor(i/cols), i%cols
+                ax[row][col].set_title(label)
+                ax[row][col].imshow(legend_images[label].transpose(1,2,0))
+            legend_save_path = os.path.join(feedback_dir, map_data.name, map_data.name + '_labels'  + '.png')
+            fig.savefig(legend_save_path)
+            plt.close(fig)
+
+def segmentation_inference(data_id, map_data:CMAAS_Map, model):
     # Cutout Legends
     legend_images = {}
     for feature in map_data.legend.features:
-        min_pt, max_pt = boundingBox(feature.bbox) # Need this as points order can be reverse or could have quad
+        min_pt, max_pt = boundingBox(feature.bounding_box) # Need this as points order can be reverse or could have quad
         legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
     
     # Cutout map portion of image
@@ -68,56 +101,36 @@ def segmentation_inference(data_id, map_data, model):
     if map_data.layout is not None and map_data.layout.map is not None:
         result_image = np.zeros((1, *map_data.image.shape[1:]), dtype=np.float32)
         result_image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]] = result_mask
-        map_data.mask = result_image
+        map_data.poly_segmentation_mask = result_image
     else:
-        map_data.mask = result_mask
+        map_data.poly_segmentation_mask = result_mask
 
+    return map_data
+
+def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
+    model_provenance = Provenance(name=model_name, version=model_version)
+    map_data.generate_geometry_from_masks(model_provenance)
+    total_polys = 0 
+    for feature in map_data.legend.features:
+        total_polys += len(feature.segmentation.geometry)
+    pipeline_manager.log_to_monitor(data_id, {'Polys': total_polys})
+    pipeline_manager.log(logging.DEBUG, f'Generated {total_polys} polygons for {map_data.name}')
     return map_data
 
 import os
 from math import ceil, floor
 import matplotlib.pyplot as plt
-def save_output(data_id, map_data, output_dir, feedback_dir):
-    legend_feedback_mode = 'single_image'
-    # Save Legend preview
-    if feedback_dir:
-        os.makedirs(os.path.join(feedback_dir, map_data.name), exist_ok=True)
-        # Cutout map unit labels
-        legend_images = {}
-        for feature in map_data.legend.features:
-            min_pt, max_pt = boundingBox(feature.bbox) # Need this as points order can be reverse or could have quad
-            legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
-
-        # Save preview of legend labels
-        if len(legend_images) > 0:
-            if legend_feedback_mode == 'individual_images':
-                legend_save_path = os.path.join(feedback_dir, map_data.name, 'lgd_' + map_data.name + '_' + feature.label + '.tif')
-                io.saveGeoTiff(legend_save_path, legend_images[feature.label], None, None)
-            if legend_feedback_mode == 'single_image':
-                cols = 4
-                rows = ceil(len(legend_images)/cols)
-                fig, ax = plt.subplots(rows, cols, figsize=(16,16))
-                ax = ax.reshape(rows, cols) # Force 2d shape if less the 4 items
-                for r,c in np.ndindex(ax.shape):
-                    ax[r][c].axis('off')
-                for i, label in enumerate(legend_images):
-                    row, col  = floor(i/cols), i%cols
-                    ax[row][col].set_title(label)
-                    ax[row][col].imshow(legend_images[label].transpose(1,2,0))
-                legend_save_path = os.path.join(feedback_dir, map_data.name, map_data.name + '_labels'  + '.png')
-                fig.savefig(legend_save_path)
-                plt.close(fig)
-
+def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
     # Save inference results
     # Save CDR schema
-    cdr_schema = io.export_CMAAS_Map_to_cdr_schema(map_data)
+    cdr_schema = cdr.export_CMAAS_Map_to_cdr_schema(map_data)
     cdr_filename = os.path.join(output_dir, f'{map_data.name}_cdr.json')
-    io.saveCDRFeatureResults(cdr_filename, cdr_schema)
+    cdr.saveCDRFeatureResults(cdr_filename, cdr_schema)
     # Save Raster masks
     legend_index = 1
     for feature in map_data.legend.features:
-        feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
-        feature_mask[map_data.mask == legend_index] = 1
+        feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
+        feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
         filepath = os.path.join(output_dir, f'{map_data.name}_{feature.label}.tif')
         io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
         legend_index += 1
@@ -132,7 +145,7 @@ def validation(data_id, map_data, true_mask_dir, feedback_dir):
                                          'Unmatched (pts)'])
     
     legend_index = 1
-    for label, feature in map_data.legend.features.items():
+    for feature in map_data.legend.features:
         #if feature.mask is None:
         #    log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.WARNING, map_data.name, f'No mask found for {feature.name}. Skipping validation of feature'))
         #    results_df.loc[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.name, 'F1 Score' : np.nan,

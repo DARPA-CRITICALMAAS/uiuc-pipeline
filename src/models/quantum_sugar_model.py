@@ -10,6 +10,7 @@ class quantum_sugar_model(pipeline_pytorch_model):
     def __init__(self):
         super().__init__()
         self.name = 'quantum sugar'
+        self.version = '0.1'
         self.checkpoint = '/projects/bbym/shared/models/quantum_sugar/best.pt'
     
     # @override
