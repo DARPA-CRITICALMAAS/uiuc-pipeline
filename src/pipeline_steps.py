@@ -2,7 +2,7 @@ import logging
 import numpy as np
 import cmaas_utils.io as io
 import cmaas_utils.cdr as cdr
-from cmaas_utils.types import CMAAS_Map, Provenance
+from cmaas_utils.types import CMAAS_Map, MapUnitType, Provenance
 from src.utils import boundingBox
 from src.pipeline_manager import pipeline_manager
 
@@ -138,31 +138,34 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
 
 import pandas as pd
 from submodules.validation.src.grading import grade_poly_raster, usgs_grade_poly_raster, usgs_grade_pt_raster   
-def validation(data_id, map_data, true_mask_dir, feedback_dir):
+def validation(data_id, map_data: CMAAS_Map, true_mask_dir, feedback_dir, use_usgs_scores=False):
+    # Build results dataframe
     results_df = pd.DataFrame(columns = ['Map', 'Feature', 'F1 Score', 'Precision', 'Recall', 'IoU Score (polys)',
                                          'USGS F1 Score (polys)', 'USGS Precision (polys)', 'USGS Recall (polys)', 
                                          'Mean matched distance (pts)', 'Matched (pts)', 'Missing (pts)', 
                                          'Unmatched (pts)'])
-    
+
     legend_index = 1
     for feature in map_data.legend.features:
-        #if feature.mask is None:
-        #    log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.WARNING, map_data.name, f'No mask found for {feature.name}. Skipping validation of feature'))
-        #    results_df.loc[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.name, 'F1 Score' : np.nan,
-        #                                          'Precision' : np.nan, 'Recall' : np.nan}
-        #    continue
-        true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{feature.name}.tif')
+        # Get true mask
+        true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{feature.label}_{feature.type}.tif')
         # Skip features that don't have a true mask available
         if not os.path.exists(true_mask_path):
-            log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.WARNING, map_data.name, f'No true segementation map found for {feature.name}. Skipping validation of feature'))
-            results_df[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.name, 'F1 Score' : np.nan,
+            pipeline_manager.log(logging.WARNING, f'Can\'t validate feature {feature.label}. No true segmentation mask found at {true_mask_path}.')
+            results_df[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.label, 'F1 Score' : np.nan,
                                            'Precision' : np.nan, 'Recall' : np.nan}
             continue
-
-
-        feature_mask = np.zeros_like(map_data.mask, dtype=np.uint8)
-        feature_mask[map_data.mask == legend_index] = 1
         true_mask, _, _ = io.loadGeoTiff(true_mask_path)
+
+        # Get predicted mask
+        if feature.segmentation is not None and feature.segmentation.mask is not None:
+            feature_mask = feature.segmentation.mask
+        else:
+            if map_data.poly_segmentation_mask is None:
+                pipeline_manager.log(logging.WARNING, f'Can\'t validate feature {feature.label}. No predicted segmentation mask present.')
+                continue
+            feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
+            feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
 
         # Create feedback image if needed
         feedback_image = None
@@ -170,10 +173,10 @@ def validation(data_id, map_data, true_mask_dir, feedback_dir):
             feedback_image = np.zeros((3, *feature_mask.shape[1:]), dtype=np.uint8)
 
         # Grade image
-        if feature.type == 'pt':
+        if feature.type == MapUnitType.POINT:
             feature_score = usgs_grade_pt_raster(feature_mask, true_mask, feedback_image=feedback_image)
             results_df.loc[len(results_df)] = {'Map' : map_data.name,
-                                               'Feature' : feature.name, 
+                                               'Feature' : feature.label, 
                                                'F1 Score' : feature_score[0],
                                                'Precision' : feature_score[1],
                                                'Recall' : feature_score[2],
@@ -187,14 +190,14 @@ def validation(data_id, map_data, true_mask_dir, feedback_dir):
                                                'IoU Score (polys)' : np.nan
                                                }
 
-        if feature.type == 'poly':
+        if feature.type == MapUnitType.POLYGON:
             feature_score = grade_poly_raster(feature_mask, true_mask, feedback_image=feedback_image)
             usgs_score = (np.nan, np.nan, np.nan, np.nan, None)
-            if usgs_scores:
+            if use_usgs_scores:
                 usgs_score = usgs_grade_poly_raster(feature_mask, true_mask, map_data.image, map_data.legend, difficult_weight=0.7)
                 feature_score = {**feature_score, **usgs_score}
             results_df.loc[len(results_df)] = {'Map' : map_data.name,
-                                            'Feature' : feature.name, 
+                                            'Feature' : feature.label, 
                                             'F1 Score' : feature_score[0],
                                             'Precision' : feature_score[1],
                                             'Recall' : feature_score[2],
@@ -210,18 +213,9 @@ def validation(data_id, map_data, true_mask_dir, feedback_dir):
 
         # Save feature feedback image
         if feedback_dir:
-            feedback_path = os.path.join(feedback_dir, f'val_{map_data.name}_{feature.name}.tif')
+            feedback_path = os.path.join(feedback_dir, f'val_{map_data.name}_{feature.label}.tif')
             io.saveGeoTiff(feedback_path, feedback_image, map_data.georef.crs, map_data.georef.transform)
         legend_index += 1
-
-     # Average validation results for map
-    f1s, pre, rec, iou = results_df["F1 Score"].mean(), results_df["Precision"].mean(), results_df["Recall"].mean(), results_df["IoU Score (polys)"].mean()
-    uf1, upr, urc = results_df["USGS F1 Score (polys)"].mean(), results_df["USGS Precision (polys)"].mean(), results_df["USGS Recall (polys)"].mean()
-    mpt, fpt, upt, dpt = sum(results_df["Matched (pts)"]), sum(results_df["Missing (pts)"]), sum(results_df["Unmatched (pts)"]), results_df["Mean matched distance (pts)"].mean()
-    log_queue.put(ipq_log_message(pid, ipq_message_type.VALIDATION, logging.WARNING, map_data.name, f'{map_data.name} average scores | ' +
-             f'F1 : {f1s:.2f}, Precision : {pre:.2f}, Recall : {rec:.2f} IoU : {iou:.2f} ' +
-             f'USGS F1 Score : {uf1:.2f}, USGS Precision : {upr:.2f}, USGS Recall : {urc:.2f} ' +
-             f'Matched pts : {mpt}, Missing pts : {fpt}, Unmatched pts : {upt}, Mean matched distance : {dpt:.2f}'))
 
     # Save map scores
     if feedback_dir:
@@ -229,6 +223,15 @@ def validation(data_id, map_data, true_mask_dir, feedback_dir):
         csv_path = os.path.join(feedback_dir, map_data.name, f'#{map_data.name}_scores.csv')
         results_df.to_csv(csv_path, index=False)
 
-    val_time = time() - val_stime
-    #log.debug(f'Time to validate {map_data.name} : {val_time:.2f} seconds')
-    return results_df
+    # Average validation results for map
+    results_df = results_df[results_df['F1 Score'].notna()]
+    f1s, pre, rec, iou = results_df["F1 Score"].mean(), results_df["Precision"].mean(), results_df["Recall"].mean(), results_df["IoU Score (polys)"].mean()
+    uf1, upr, urc = results_df["USGS F1 Score (polys)"].mean(), results_df["USGS Precision (polys)"].mean(), results_df["USGS Recall (polys)"].mean()
+    mpt, fpt, upt, dpt = sum(results_df["Matched (pts)"]), sum(results_df["Missing (pts)"]), sum(results_df["Unmatched (pts)"]), results_df["Mean matched distance (pts)"].mean()
+    pipeline_manager.log(logging.DEBUG, f"""
+        Average scores for {map_data.name} | F1 : {f1s:.2f}, Precision : {pre:.2f}, Recall : {rec:.2f}, IoU : {iou:.2f}
+        USGS F1 Score : {uf1:.2f}, USGS Precision : {upr:.2f}, USGS Recall : {urc:.2f}, Matched pts : {mpt},
+        Missing pts : {fpt}, Unmatched pts : {upt}, Mean matched distance : {dpt:.2f}""")
+    pipeline_manager.log_to_monitor(data_id, {'F1 Score': f'{f1s:.2f}'})
+
+    return 
