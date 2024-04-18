@@ -190,10 +190,10 @@ def parse_command_line():
                         default=None,
                         help='Optional directory to save debugging feedback on the pipeline. This will decrease \
                               performance of the pipeline.')
-    optional_args.add_argument('--feature_type',
-                        type=parse_feature,
-                        default='polygon',
-                        help=f'Type of features to run the pipeline on. Available features are Point, Polygon and All') 
+    # optional_args.add_argument('--feature_type',
+    #                     type=parse_feature,
+    #                     default='polygon',
+    #                     help=f'Type of features to run the pipeline on. Available features are Point, Polygon and All') 
     optional_args.add_argument('--log',
                         default='logs/Latest.log',
                         help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
@@ -242,7 +242,7 @@ def main():
     log.handlers[1].setLevel(logging.INFO)
     log.info(f'Running pipeline on {os.uname()[1]} in {log_data_mode} mode with following parameters:\n' +
             f'\tModel        : {args.model}\n' + 
-            f'\tFeature type : {args.feature_type}\n' +
+            # f'\tFeature type : {args.feature_type}\n' +
             log_data_source +
             f'\tLegends      : {args.legends}\n' +
             f'\tLayout       : {args.layouts}\n' +
@@ -257,12 +257,6 @@ def main():
     if args.feedback is not None and not os.path.exists(args.feedback):
         os.makedirs(args.feedback)
 
-    # log.info('Building Pipeline')
-    # pipeline = construct_pipeline(args)
-    # pipeline.set_inactivity_timeout(2)
-    # pipeline.start()
-    # pipeline.monitor()
-    # exit(0)
     remaining_maps = copy.deepcopy(args.data)
     completed_maps = []
     try:

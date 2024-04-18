@@ -9,16 +9,18 @@ from time import time
 
 from .pipeline_tensorflow_model import pipeline_tensorflow_model
 from submodules.models.primordial_positron.unet_util import multiplication, multiplication2, dice_coef, dice_coef_loss
+from cmaas_utils.types import MapUnitType
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
 class primordial_positron_model_3(pipeline_tensorflow_model):
     def __init__(self):
         super().__init__()
-        self.unpatch_mode = 'or'
-        self.patch_overlap = 30
         self.name = 'primordial positron'
         self.version = '0.0.3'
+        self.feature_type = MapUnitType.POLYGON
+        self.unpatch_mode = 'or'
+        self.patch_overlap = 30
         self.checkpoint = 'submodules/models/primordial_positron/inference_model/Unet-attentionUnet.h5'
 
     #@override

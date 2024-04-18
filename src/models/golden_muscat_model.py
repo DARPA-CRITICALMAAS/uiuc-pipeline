@@ -11,6 +11,7 @@ from torchvision import transforms
 from src.patching import unpatch_img
 from .pipeline_pytorch_model import pipeline_pytorch_model
 from submodules.models.golden_muscat.models import SegmentationModel
+from cmaas_utils.types import MapUnitType
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
@@ -18,6 +19,7 @@ class golden_muscat_model(pipeline_pytorch_model):
     def __init__(self):
         self.name = 'golden muscat'
         self.version = '0.1'
+        self.feature_type = MapUnitType.POLYGON
         self._checkpoint = '/projects/bbym/shared/models/golden_muscat/jaccard.ckpt'
         self._args = SimpleNamespace(model='Unet', edge=False, superpixel = '')
 

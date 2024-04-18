@@ -16,6 +16,8 @@ class pipeline_tensorflow_model(pipeline_model):
     def __init__(self):
         super().__init__()
         self.name = 'base pipeline tensorflow model'
+        self.version = '0.1'
+        self.feature_type = None
         self.patch_overlap = 64
         self.unpatch_mode = 'discard'
 

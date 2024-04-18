@@ -17,6 +17,8 @@ class pipeline_pytorch_model(pipeline_model):
     def __init__(self):
         super().__init__()
         self.name = 'base pipeline pytorch model'
+        self.version = '0.1'
+        self.feature_type = None
 
         # Modifiable parameters
         self.device = torch.device("cuda")

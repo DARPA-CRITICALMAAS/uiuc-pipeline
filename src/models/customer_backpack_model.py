@@ -3,6 +3,7 @@ from keras.models import load_model
 
 from .pipeline_tensorflow_model import pipeline_tensorflow_model
 from submodules.models.customer_backpack.unet_util import dice_coef_loss, dice_coef
+from cmaas_utils.types import MapUnitType
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
@@ -11,6 +12,7 @@ class customer_backpack_model(pipeline_tensorflow_model):
         super().__init__()
         self.name = 'customer backpack'
         self.version = '0.1'
+        self.feature_type = MapUnitType.POLYGON
         self.checkpoint = 'submodules/models/customer_backpack/inference_model/UNET_seresnet50.h5'
 
     #@override

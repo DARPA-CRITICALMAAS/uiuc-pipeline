@@ -85,9 +85,15 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
     # Cutout Legends
     legend_images = {}
     for feature in map_data.legend.features:
-        min_pt, max_pt = boundingBox(feature.bounding_box) # Need this as points order can be reverse or could have quad
-        legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
+        if feature.type == model.feature_type:
+            min_pt, max_pt = boundingBox(feature.bounding_box) # Need this as points order can be reverse or could have quad
+            legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
+        else:
+            pipeline_manager.log(logging.DEBUG, f'Skipping inference of {feature.label} as it is not a {model.feature_type.name} feature')
     
+    # Update Map Units with how many are actually being processed
+    pipeline_manager.log_to_monitor(data_id, {'Map Units': f'{len(legend_images)}/{len(map_data.legend.features)} {model.feature_type.to_str().capitalize()}s'})
+
     # Cutout map portion of image
     if map_data.layout is not None and map_data.layout.map is not None:
         min_pt, max_pt = boundingBox(map_data.layout.map)
@@ -110,30 +116,39 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
 def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
     model_provenance = Provenance(name=model_name, version=model_version)
     map_data.generate_geometry_from_masks(model_provenance)
-    total_polys = 0 
+    total_occurances = 0 
     for feature in map_data.legend.features:
-        total_polys += len(feature.segmentation.geometry)
-    pipeline_manager.log_to_monitor(data_id, {'Polys': total_polys})
-    pipeline_manager.log(logging.DEBUG, f'Generated {total_polys} polygons for {map_data.name}')
+        total_occurances += len(feature.segmentation.geometry)
+    pipeline_manager.log_to_monitor(data_id, {'Segments': total_occurances})
+    pipeline_manager.log(logging.DEBUG, f'Generated {total_occurances} polygons for {map_data.name}')
     return map_data
 
 import os
 from math import ceil, floor
 import matplotlib.pyplot as plt
 def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
-    # Save inference results
     # Save CDR schema
     cdr_schema = cdr.export_CMAAS_Map_to_cdr_schema(map_data)
     cdr_filename = os.path.join(output_dir, f'{map_data.name}_cdr.json')
     cdr.saveCDRFeatureResults(cdr_filename, cdr_schema)
+
+    # Save GeoPackage
+    gpkg_filename = os.path.join(output_dir, f'{map_data.name}.gpkg')
+    coord_type = 'pixel'
+    if map_data.georef is not None:
+        if map_data.georef.crs is not None and map_data.georef.transform is not None:
+            coord_type = 'georeferenced'
+    
+    io.saveGeoPackage(gpkg_filename, map_data, coord_type)
+
     # Save Raster masks
-    legend_index = 1
-    for feature in map_data.legend.features:
-        feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
-        feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
-        filepath = os.path.join(output_dir, f'{map_data.name}_{feature.label}.tif')
-        io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
-        legend_index += 1
+    # legend_index = 1
+    # for feature in map_data.legend.features:
+    #     feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
+    #     feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
+    #     filepath = os.path.join(output_dir, f'{map_data.name}_{feature.label}.tif')
+    #     io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
+    #     legend_index += 1
     return
 
 import pandas as pd
@@ -148,7 +163,7 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, feedback_dir, use_us
     legend_index = 1
     for feature in map_data.legend.features:
         # Get true mask
-        true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{feature.label}_{feature.type}.tif')
+        true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{feature.label.replace(" ","_")}_{feature.type}.tif')
         # Skip features that don't have a true mask available
         if not os.path.exists(true_mask_path):
             pipeline_manager.log(logging.WARNING, f'Can\'t validate feature {feature.label}. No true segmentation mask found at {true_mask_path}.')

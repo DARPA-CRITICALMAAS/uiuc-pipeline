@@ -6,6 +6,7 @@ class pipeline_model(object):
     def __init__(self):
         self.name = 'base pipeline model'
         self.version = '0.0'
+        self.feature_type = None
         self.model = None
 
     def load_model(self):

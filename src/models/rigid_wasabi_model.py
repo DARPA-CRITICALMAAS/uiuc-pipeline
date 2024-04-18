@@ -11,6 +11,7 @@ from torchvision import transforms
 from src.patching import unpatch_img
 from .pipeline_pytorch_model import pipeline_pytorch_model
 from submodules.models.rigid_wasabi.models import SegmentationModel
+from cmaas_utils.types import MapUnitType
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
@@ -18,6 +19,7 @@ class rigid_wasabi_model(pipeline_pytorch_model):
     def __init__(self):
         self.name = 'rigid wasabi'
         self.version = '0.1'
+        self.feature_type = MapUnitType.POLYGON
         self.checkpoint = '/projects/bbym/shared/models/rigid_wasabi/SWIN_jaccard.ckpt'
         self.args = SimpleNamespace(model='swin', superpixel='', edge=False)
         

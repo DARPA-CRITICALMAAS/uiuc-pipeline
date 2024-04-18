@@ -13,6 +13,7 @@ from submodules.models.flat_iceberg.inference import OneshotYOLO
 
 from src.patching import unpatch_img
 from .pipeline_pytorch_model import pipeline_pytorch_model
+from cmaas_utils.types import MapUnitType
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
     
@@ -21,6 +22,7 @@ class flat_iceberg_model(pipeline_pytorch_model):
         super().__init__()
         self.name = 'flat iceberg'
         self.version = '0.1'
+        self.feature_type = MapUnitType.POINT
         self.checkpoint = '/projects/bbym/shared/models/flat-iceberg/best.pt'
     
         # Modifiable parameters
