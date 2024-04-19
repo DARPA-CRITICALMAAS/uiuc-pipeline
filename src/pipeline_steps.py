@@ -32,7 +32,7 @@ def gen_layout(data_id, map_data):
         pass
     return map_data
 
-def gen_legend(data_id, map_data):
+def gen_legend(data_id, map_data, drab_volcano_legend=False):
     from submodules.legend_extraction.src.extraction import extractLegends
     def convertLegendtoCMASS(legend):
         from cmaas_utils.types import Legend, MapUnit
@@ -41,11 +41,14 @@ def gen_legend(data_id, map_data):
             features[feature['label']] = MapUnit(label=feature['label'], contour=feature['points'], contour_type='rectangle')
         return Legend(features=features, origin='UIUC Heuristic Model')
 
-    # Generate legend if not precomputed
-    if map_data.legend is None:
-        pipeline_manager.log(logging.DEBUG, f'No legend found for {map_data.name}, generating legend')
-        lgd = extractLegends(map_data.image.transpose(1,2,0))
-        map_data.legend = convertLegendtoCMASS(lgd)
+    if drab_volcano_legend:
+        map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
+    else:
+        # Generate legend if not precomputed
+        if map_data.legend is None:
+            pipeline_manager.log(logging.DEBUG, f'No legend found for {map_data.name}, generating legend')
+            lgd = extractLegends(map_data.image.transpose(1,2,0))
+            map_data.legend = convertLegendtoCMASS(lgd)
 
     pipeline_manager.log_to_monitor(data_id, {'Map Units': len(map_data.legend.features)})
     pipeline_manager.log(logging.DEBUG, f'{len(map_data.legend.features)} map units for {map_data.name}')

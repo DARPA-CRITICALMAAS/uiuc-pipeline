@@ -1,0 +1,846 @@
+{
+  "version": "5.0.1",
+  "flags": {},
+  "shapes": [
+    {
+        "label": "1_pt",
+        "alias" : [
+            "1_pt",
+            "gravel_pit_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "2_pt",
+        "alias" : [
+            "2_pt",
+            "Prospect_pt",
+            "prospect_pit_iron_pt",
+            "Uranium_prospect_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "3_pt",
+        "alias" : [
+            "3_pt",
+            "Prospect_pt",
+            "prospect_pit_iron_pt",
+            "Uranium_prospect_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "4_pt",
+        "alias" : [
+            "4_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "5_pt",
+        "alias" : [
+            "5_pt",
+            "Cu_or_U_mine_pt",
+            "mine_pt",
+            "rock_quarry_pt",
+            "Uranium_mine_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "horiz_bedding_pt",
+        "alias" : [
+            "bedding_horiz_pt",
+            "horiz_bedding_pt",
+            "horizon_bedding_pt",
+            "Horizontal_bedding_pt",
+            "bedding_horizontal_pt",
+            "horizbed_pt",
+            "horizontal_pt",
+            "Horizontal_pt",
+            "horzbed_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "inclined_bedding_pt",
+        "alias" : [
+            "bedding_inclined_pt",
+            "Inclined_bedding_-_S_pt",
+            "inclined_bedding_pt",
+            "bedding_pt",
+            "strike_dip_beds_pt",
+            "inclined_pt",
+            "bedding_inclined_pt",
+            "implied_bedding_pt",
+            "incl_or_imp_bedding_pt",
+            "inclbed_pt",
+            "Inclbed_pt",
+            "Inclined_Bedding_pt",
+            "Strike_and_dip_of_beds_pt",
+            "strike_dip_bedding_pt",
+            "strikedip_pt",
+            "Inclined_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "volc_center_pt",
+        "alias" : [
+            "volc_center_pt",
+            "bur_volc_center_pt",
+            "small_cone_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "circle_pt",
+        "alias" : [
+            "collapse_pt",
+            "sample_pt",
+            "collapse_structure_pt",
+            "breccia_pipe_pt",
+            "C14_or_Argon_sample_pt",
+            "collapse_structure_pt",
+            "paleomag_sample_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "direction_divide_pt",
+        "alias" : [
+            "Direction_of_glacier_flow_across_topographic_divide_pt",
+            "fluvial_transport_pt",
+            "Mineral_Lineation_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "direction_bedrock_pt",
+        "alias" : [
+            "Direction_of_ice_movement_or_meltwater_drainage_over_ice_scoured_bedrock_pt"  
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "dry_hole_pt",
+        "alias" : [
+            "dry_hole_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "direction_diversion_pt",
+        "alias" : [
+            "Former_glacial-lake_outlet_or_drainage_diversion_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "igneous_foliation_pt",
+        "alias" : [
+            "igneous_foliation_pt",
+            "early_folia_inclin_pt",
+            "inclined_flow_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "incl_foliation_pt",
+        "alias" : [
+            "incl_meta_foliation_pt",
+            "foliation_inclined_pt",
+            "foliation_pt",
+            "inclined_foliation_pt",
+            "inclined_layering_pt",
+            "late_folia_inclin_pt",
+            "metam_foliation_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "joint_pt",
+        "alias" : [
+            "joint_pt",
+            "inclin_shear_frac_pt",
+            "joint_inclined_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "overturned_bedding_pt",
+        "alias" : [
+            "Overturned_bedding_-_pt",
+            "bedding_overturned_pt",
+            "overturn_bedding_pt",
+            "overturned_bedding_pt",
+            "Overturned_Bedding_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "Pingo_pt",
+        "alias" : [
+            "Pingo_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "triangle_pt",
+        "alias" : [
+            "sinkhole_pt",
+            "Ar_Ar_sample_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "slope_direction_pt",
+        "alias" : [
+            "Slope_direction_on_gravel_surface_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "U_shapde_divide_pt",
+        "alias" : [
+            "U-shaped_pass_-_where_glacier_crossed_topographic_divide_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "USGS_or_Chevron_foss_pt",
+        "alias" : [
+            "USGS_or_Chevron_foss_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "vert_meta_foliation_pt",
+        "alias" : [
+            "vert_meta_foliation_pt",
+            "foliation_vertical_pt",
+            "met_vert_foliation_pt",
+            "Vertical_Late_Foliat_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "vertical_bedding_pt",
+        "alias" : [
+            "Vertical_bedding_-_S_pt",
+            "bedding_vertical_pt",
+            "Strike_and_dip_of_vertical_beds_pt",
+            "vertical_bedding_pt",
+            "Vertical_Bedding_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "vertical_joint_pt",
+        "alias" : [
+            "vertical_joint_pt",
+            "joint_vertical_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "water_well_pt",
+        "alias" : [
+            "water_well_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "aplite_inclined_pt",
+        "alias" : [
+            "aplite_inclined_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "aplite_vertical_pt",
+        "alias" : [
+            "aplite_vertical_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "approx_bedding_pt",
+        "alias" : [
+            "approx_bedding_pt",
+            "bedding_approx_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "overturn_topknow_bedding_pt",
+        "alias" : [
+            "overturn_topknow_bedding_pt",
+            "bed_overturn_topknow_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "inclined_topknow_bedding_pt",
+        "alias" : [
+            "inclined_topknow_bedding_pt",
+            "bedding_top_known_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "vertical_topknow_bedding_pt",
+        "alias" : [
+            "vertical_topknow_bedding_pt",
+            "bedding_vertical_top_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "cleavage_inclined_pt",
+        "alias" : [
+            "cleavage_inclined_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "cleavage_vertical_pt",
+        "alias" : [
+            "cleavage_vertical_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "conodont_pt",
+        "alias" : [
+            "conodont_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "dome_pt",
+        "alias" : [
+            "dome_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "estimated_pt",
+        "alias" : [
+            "estimated_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "exp_well_pt",
+        "alias" : [
+            "exp_well_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "explor_trench_pt",
+        "alias" : [
+            "explor_trench_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "foliation_horizontal_pt",
+        "alias" : [
+            "foliation_horizontal_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "Phyllonitic_Foliatio_pt",
+        "alias" : [
+            "Phyllonitic_Foliatio_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "rootless_vent_pt",
+        "alias" : [
+            "rootless_vent_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "sample_site_pt",
+        "alias" : [
+            "sample_site_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "Spring_pt",
+        "alias" : [
+            "Spring_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "trace_fossils_flathe_pt",
+        "alias" : [
+            "trace_fossils_flathe_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "vert_flow_layering_pt",
+        "alias" : [
+            "vert_flow_layering_pt",
+            "Vertical_Early_Folia_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "volcanic_vent_pt",
+        "alias" : [
+            "volcanic_vent_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    },
+    {
+        "label": "empty_circle_pt",
+        "alias" : [
+            "empty_circle_pt"
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            1.1
+          ]
+        ]
+    }
+  ]
+}

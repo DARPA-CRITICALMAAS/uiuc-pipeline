@@ -17,7 +17,8 @@ AVAILABLE_MODELS = [
     'golden_muscat',
     'rigid_wasabi',
     'blaring_foundry',
-    'flat_iceberg'
+    'flat_iceberg',
+    'drab_volcano'
 ]
 
 # Lazy load only the model we are going to use
@@ -41,6 +42,9 @@ def load_pipeline_model(model_name : str) -> pipeline_model :
     if model_name == 'flat_iceberg':
         from src.models.flat_iceberg_model import flat_iceberg_model
         model = flat_iceberg_model()
+    if model_name == 'drab_volcano':
+        from src.models.drab_volcano_model import drab_volcano_model
+        model = drab_volcano_model()
     
     model.load_model()
     
@@ -274,14 +278,18 @@ def construct_pipeline(args):
     p = pipeline_manager()
     import torch
     model = load_pipeline_model(args.model)
-    
+    drab_volcano_legend = False
+    if model.name == 'drab volcano':
+        log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')
+        drab_volcano_legend = True
     total_memory = torch.cuda.get_device_properties(0).total_memory
     log.info(f'Total Available GPU Memory : {total_memory/1e9:.2f} GB')
 
     # Data Loading and preprocessing
     load_step = p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=1)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
-    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(),), display='Generating Legend', workers=1)
+    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), drab_volcano_legend), display='Generating Legend', workers=1)
+
     if args.feedback:
         legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
     # Segmentation Inference
