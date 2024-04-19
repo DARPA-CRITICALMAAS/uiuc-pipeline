@@ -14,13 +14,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
 
 
 AVAILABLE_MODELS = [
-    'primordial_positron_3',
-    'primordial_positron_4',
-    'customer_backpack',
     'golden_muscat',
     'rigid_wasabi',
-    'flat_iceberg',
-    'blaring_foundry'
+    'blaring_foundry',
+    'flat_iceberg'
 ]
 
 # Lazy load only the model we are going to use
@@ -30,27 +27,21 @@ def load_pipeline_model(model_name : str) -> pipeline_model :
     log.info(f'Loading model {model_name}')
     model_stime = time()
     model = None
-    if model_name == 'primordial_positron_3':
-        from src.models.primordial_positron_model import primordial_positron_model_3
-        model = primordial_positron_model_3()
-    if model_name == 'primordial_positron_4':
-        from src.models.primordial_positron_model import primordial_positron_model_4
-        model = primordial_positron_model_4()
-    if model_name == 'customer_backpack':
-        from src.models.customer_backpack_model import customer_backpack_model
-        model = customer_backpack_model()
+    # Poly Models
     if model_name == 'golden_muscat':
         from src.models.golden_muscat_model import golden_muscat_model
         model = golden_muscat_model()
     if model_name == 'rigid_wasabi':
         from src.models.rigid_wasabi_model import rigid_wasabi_model
         model = rigid_wasabi_model()
-    if model_name == 'flat_iceberg':
-        from src.models.flat_iceberg_model import flat_iceberg_model
-        model = flat_iceberg_model()
     if model_name == 'blaring_foundry':
         from src.models.blaring_foundry_model import blaring_foundry_model
         model = blaring_foundry_model()
+    # Point Models
+    if model_name == 'flat_iceberg':
+        from src.models.flat_iceberg_model import flat_iceberg_model
+        model = flat_iceberg_model()
+    
     model.load_model()
     
     log.info(f'Model loaded in {time()-model_stime:.2f} seconds')

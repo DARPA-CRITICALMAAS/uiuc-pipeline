@@ -224,39 +224,25 @@ Pipeline config will likely contain model-specific config options. Some planned 
 
 Git Repository : https://github.com/Dongjiahua/DARPA_torch <br>
 Lead Developer : [![Git profile image](https://wsrv.nl/?url=https://avatars.githubusercontent.com/u/48640121?v=4&w=28&h=28&mask=circle) Dong Jiahua](https://github.com/Dongjiahua)<br>
-Description :<br>
+Description : Legend Image promptable point detection model<br>
 
 Release Tags :<br>
 * flat_iceberg
 
 </details>
 
+<summary> <b>Drab-Volcano</b> </summary>
+
+Git Repository : https://github.com/Dongjiahua/DARPA_torch <br>
+Lead Developer : [![Git profile image](https://wsrv.nl/?url=https://avatars.githubusercontent.com/u/48640121?v=4&w=28&h=28&mask=circle) Dong Jiahua](https://github.com/Dongjiahua)<br>
+Description : Pre-trained point detection model, works on a predefined set of point types.<br>
+
+Release Tags :<br>
+* drab_volcano
+
+</details>
+
 #### Polygon Models
-<details>
-<summary> <b>Primordial-Positron</b> </summary>
-
-Git Repository : https://git.ncsa.illinois.edu/nj7/darpa_proj<br>
-Lead Developer : [![Git profile image](https://wsrv.nl/?url=https://git.ncsa.illinois.edu/uploads/-/system/user/avatar/496/avatar.png?width=96&w=28&h=28&mask=circle) Nattapon Jaroenchai (Nathan)](https://git.ncsa.illinois.edu/nj7)<br>
-Description : Attention U-net model<br>
-
-Release Tags :<br>
-* primordial_positron_3
-* primordial_positron_4
-
-</details>
-
-<details>
-<summary> <b>Customer-Backpack</b> </summary>
-
-Git Repository : https://git.ncsa.illinois.edu/nj7/darpa_proj<br>
-Lead Developer : [![Git profile image](https://wsrv.nl/?url=https://git.ncsa.illinois.edu/uploads/-/system/user/avatar/496/avatar.png?width=96&w=28&h=28&mask=circle) Nattapon Jaroenchai](https://git.ncsa.illinois.edu/nj7)<br>
-Description : Attention U-net model<br>
-
-Release Tags :<br>
-* customer_backpack
-  
-</details>
-
 <details>
 <summary> <b>Golden-Muscat</b> </summary>
 
