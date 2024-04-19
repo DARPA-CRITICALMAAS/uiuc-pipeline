@@ -22,6 +22,6 @@ class quantum_sugar_model(pipeline_pytorch_model):
         self.model.eval()
 
     # @override
-    def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
+    def inference(self, image, legend_images, data_id=-1):
         #TODO implement point dectection inference
         raise NotImplementedError

@@ -2,6 +2,7 @@ import os
 import copy
 import logging
 import argparse
+import multiprocessing as mp
 
 from time import time
 from cmaas_utils.logging import start_logger
@@ -10,6 +11,7 @@ LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.DEBUG
 STREAM_LOG_LEVEL = logging.WARNING
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
+
 
 AVAILABLE_MODELS = [
     'primordial_positron_3',
@@ -190,10 +192,6 @@ def parse_command_line():
                         default=None,
                         help='Optional directory to save debugging feedback on the pipeline. This will decrease \
                               performance of the pipeline.')
-    # optional_args.add_argument('--feature_type',
-    #                     type=parse_feature,
-    #                     default='polygon',
-    #                     help=f'Type of features to run the pipeline on. Available features are Point, Polygon and All') 
     optional_args.add_argument('--log',
                         default='logs/Latest.log',
                         help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
@@ -216,7 +214,7 @@ def parse_command_line():
 def main():
     main_time = time()
     args = parse_command_line()
-
+    
     # TODO
     #loadconfig
     #if args.config is None:
@@ -242,7 +240,6 @@ def main():
     log.handlers[1].setLevel(logging.INFO)
     log.info(f'Running pipeline on {os.uname()[1]} in {log_data_mode} mode with following parameters:\n' +
             f'\tModel        : {args.model}\n' + 
-            # f'\tFeature type : {args.feature_type}\n' +
             log_data_source +
             f'\tLegends      : {args.legends}\n' +
             f'\tLayout       : {args.layouts}\n' +
@@ -262,7 +259,7 @@ def main():
     try:
         if args.data and not args.amqp:
             pipeline = construct_pipeline(args)
-            pipeline.set_inactivity_timeout(5)
+            pipeline.set_inactivity_timeout(10)
             pipeline.start()
             pipeline.monitor()
         else:
@@ -284,12 +281,16 @@ def construct_pipeline(args):
     import src.pipeline_steps as pipeline_steps
 
     p = pipeline_manager()
+    import torch
     model = load_pipeline_model(args.model)
     
+    total_memory = torch.cuda.get_device_properties(0).total_memory
+    log.info(f'Total Available GPU Memory : {total_memory/1e9:.2f} GB')
+
     # Data Loading and preprocessing
     load_step = p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=1)
-    layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
-    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(layout_step.output(),), display='Generating Legend', workers=1)
+    # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
+    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(),), display='Generating Legend', workers=1)
     if args.feedback:
         legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
     # Segmentation Inference
@@ -310,4 +311,5 @@ def run_in_amqp_mode(args):
 
     
 if __name__=='__main__':
+    mp.set_start_method('spawn')
     main()

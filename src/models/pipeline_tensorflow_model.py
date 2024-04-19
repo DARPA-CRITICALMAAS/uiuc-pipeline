@@ -22,7 +22,7 @@ class pipeline_tensorflow_model(pipeline_model):
         self.unpatch_mode = 'discard'
 
     #@nvtx.annotate(color="green", domain='DARPA_CMAAS_PIPELINE')
-    def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
+    def inference(self, image, legend_images, data_id=-1):
         patch_overlap = self.patch_overlap
         # Get the size of the map
         map_width, map_height, map_channels = image.shape

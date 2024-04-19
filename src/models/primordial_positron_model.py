@@ -49,7 +49,7 @@ class primordial_positron_model_4(pipeline_tensorflow_model):
         return self.model
 
     #@override 
-    def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
+    def inference(self, image, legend_images, data_id=-1):
     
         map_width, map_height, map_channels = image.shape
 

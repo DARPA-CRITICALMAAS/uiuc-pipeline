@@ -9,6 +9,7 @@ import torch
 from torchvision import transforms
 
 from src.patching import unpatch_img
+from src.pipeline_manager import pipeline_manager
 from .pipeline_pytorch_model import pipeline_pytorch_model
 from submodules.models.golden_muscat.models import SegmentationModel
 from cmaas_utils.types import MapUnitType
@@ -25,7 +26,7 @@ class golden_muscat_model(pipeline_pytorch_model):
 
         # Modifiable parameters
         self.device = torch.device("cuda")
-        self.batch_size = 256
+        self.batch_size = 64
         self.patch_size = 256
         self.patch_overlap = 64
         self.unpatch_mode = 'discard'
@@ -45,8 +46,10 @@ class golden_muscat_model(pipeline_pytorch_model):
         return data
 
     # @override
-    def inference(self, image, legend_images):
+    def inference(self, image, legend_images, data_id=-1):
         """Image data is in CHW format. legend_images is a dictionary of label to map_unit label images in CHW format."""         
+        # For profiling memory usage 
+        #torch.cuda.memory._record_memory_history()
 
         # Get the size of the map
         map_channels, map_height, map_width = image.shape
@@ -70,14 +73,20 @@ class golden_muscat_model(pipeline_pytorch_model):
         map_patches = torch.Tensor(map_patches).to(self.device)
         map_patches = self.my_norm(map_patches)
 
-        log.debug(f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
+        # pipeline_manager.log(logging.DEBUG, f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
         map_prediction = np.zeros((1, map_height, map_width), dtype=np.float32)
         map_confidence = np.zeros((1, map_height, map_width), dtype=np.float32)
         legend_index = 1
         for label, legend_img in legend_images.items():
-            log.debug(f'\t\tInferencing legend: {label}')
-            lgd_stime = time()
+            # Debugging GPU memory usage
+            # device_num = 0
+            # alloc_mem = torch.cuda.max_memory_allocated(device_num)/(1024**3)
+            # resev_mem = torch.cuda.memory_reserved(device_num)/(1024**3)
+            # free_mem = torch.cuda.mem_get_info(device_num)[0]/(1024**3)
+            # pipeline_manager.log_to_monitor(data_id, {'GPU Mem (Alloc/Reserve/Avail)' : f'{alloc_mem:.2f}/{resev_mem:.2f}/{free_mem:.2f} GB'})
 
+            # pipeline_manager.log(logging.DEBUG, f'\t\tInferencing legend: {label}')
+            lgd_stime = time()
             # Reshape maps with 1 channel legends (greyscale) to 3 channels for inference
             if legend_img.shape[0] == 1:
                 legend_img = np.concatenate([legend_img,legend_img,legend_img], axis=0)
@@ -90,7 +99,7 @@ class golden_muscat_model(pipeline_pytorch_model):
             # Create legend array to merge with patches
             legend_patches = torch.stack([legend_tensor for i in range(self.batch_size)], dim=0)
             legend_patches = self.my_norm(legend_patches)
-
+            
             # Perform Inference in batches
             prediction_patches = []
             with torch.no_grad():
@@ -113,10 +122,15 @@ class golden_muscat_model(pipeline_pytorch_model):
 
             legend_index += 1
             lgd_time = time() - lgd_stime
-            log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
-        
+            # pipeline_manager.log(logging.DEBUG, "\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
+
         # Minimum confidence threshold for a prediction
         map_prediction[map_confidence < 0.333] = 0
 
+        # For profiling memory usage 
+        # torch.cuda.memory._dump_snapshot(f'gpu_snapshots/{data_id}_inference.pickle')
+        # torch.cuda.reset_max_memory_allocated(0)
+        # pipeline_manager.log_to_monitor(data_id, {'GPU Mem (Alloc/Reserve/Avail)' : f'-'})
+        
         return map_prediction
     

@@ -12,5 +12,5 @@ class pipeline_model(object):
     def load_model(self):
         raise NotImplementedError
     
-    def inference(self, image, legend_images, batch_size=16, patch_size=256, patch_overlap=0):
+    def inference(self, image, legend_images, data_id=-1):
         raise NotImplementedError

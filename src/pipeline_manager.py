@@ -15,7 +15,7 @@ from src.pipeline_communication import data_message, worker_status_message, work
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
 class pipeline_step():
-    def __init__(self, id, func, args, display='', workers=1, max_output_size=5):
+    def __init__(self, id, func, args, display='', workers=1, max_output_size=4):
         self.id = id
         self.func = func
         self.args = args
@@ -210,7 +210,7 @@ def _start_worker(step, log_stream, management_stream):
             # Send data to subscribers
             for subscriber in step._output_subscribers:
                 subscriber.append(result, id=arg_data.id)
-        
+
             msg = worker_status_message(pid, step.id, arg_data.id, worker_status.COMPLETED_PROCESSING, log_level=None, message=f'Process {pid} - Completed {step.name} : {arg_data.id}')
             log_stream.put(msg) 
 
@@ -237,7 +237,6 @@ class pipeline_manager():
         self._running = False
         self._monitor = console_monitor()
 
-        mp.set_start_method('spawn')
         mpm = mp.Manager()
         self._log_stream = mpm.Queue()
         self._management_stream = mpm.Queue()
@@ -245,7 +244,7 @@ class pipeline_manager():
     def next_step_id(self):
         return len(self.steps) - 1
     
-    def add_step(self, func, args, display='', workers=1, max_output_size=5):
+    def add_step(self, func, args, display='', workers=1, max_output_size=4):
         if self._running:
             log.error('Cannot add step while running pipeline. Please stop pipeline before adding steps')
             return

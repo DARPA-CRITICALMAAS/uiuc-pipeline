@@ -92,7 +92,7 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
             pipeline_manager.log(logging.DEBUG, f'Skipping inference of {feature.label} as it is not a {model.feature_type.name} feature')
     
     # Update Map Units with how many are actually being processed
-    pipeline_manager.log_to_monitor(data_id, {'Map Units': f'{len(legend_images)}/{len(map_data.legend.features)} {model.feature_type.to_str().capitalize()}s'})
+    pipeline_manager.log_to_monitor(data_id, {'Map Units': f'{len(map_data.legend.features)} ({len(legend_images)} {model.feature_type.to_str().capitalize()}s)'})
 
     # Cutout map portion of image
     if map_data.layout is not None and map_data.layout.map is not None:
@@ -101,14 +101,17 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
     else:
         image = map_data.image
 
-    result_mask = model.inference(image, legend_images)
+    result_mask = model.inference(image, legend_images, data_id=data_id)
 
     # Resize cutout to full map
     if map_data.layout is not None and map_data.layout.map is not None:
         result_image = np.zeros((1, *map_data.image.shape[1:]), dtype=np.float32)
         result_image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]] = result_mask
-        map_data.poly_segmentation_mask = result_image
-    else:
+        result_mask = result_image
+    
+    if model.feature_type == MapUnitType.POINT:
+        map_data.point_segmentation_mask = result_mask
+    if model.feature_type == MapUnitType.POLYGON:
         map_data.poly_segmentation_mask = result_mask
 
     return map_data
@@ -118,7 +121,8 @@ def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
     map_data.generate_geometry_from_masks(model_provenance)
     total_occurances = 0 
     for feature in map_data.legend.features:
-        total_occurances += len(feature.segmentation.geometry)
+        if feature.segmentation is not None and feature.segmentation.geometry is not None:
+            total_occurances += len(feature.segmentation.geometry)
     pipeline_manager.log_to_monitor(data_id, {'Segments': total_occurances})
     pipeline_manager.log(logging.DEBUG, f'Generated {total_occurances} polygons for {map_data.name}')
     return map_data
@@ -139,7 +143,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
         if map_data.georef.crs is not None and map_data.georef.transform is not None:
             coord_type = 'georeferenced'
     
-    io.saveGeoPackage(gpkg_filename, map_data, coord_type)
+    #io.saveGeoPackage(gpkg_filename, map_data, coord_type)
 
     # Save Raster masks
     # legend_index = 1
@@ -162,6 +166,23 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, feedback_dir, use_us
 
     legend_index = 1
     for feature in map_data.legend.features:
+        # Get predicted mask
+        if feature.segmentation is not None and feature.segmentation.mask is not None:
+            feature_mask = feature.segmentation.mask
+        else:
+            if feature.type == MapUnitType.POINT:
+                if map_data.point_segmentation_mask is None:
+                    continue
+                feature_mask = np.zeros_like(map_data.point_segmentation_mask, dtype=np.uint8)
+                feature_mask[map_data.point_segmentation_mask == legend_index] = 1
+
+            if feature.type == MapUnitType.POLYGON:
+                if map_data.poly_segmentation_mask is None:
+                    #pipeline_manager.log(logging.WARNING, f'Can\'t validate feature {feature.label}. No predicted segmentation mask present.')
+                    continue
+                feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
+                feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
+
         # Get true mask
         true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{feature.label.replace(" ","_")}_{feature.type}.tif')
         # Skip features that don't have a true mask available
@@ -171,16 +192,6 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, feedback_dir, use_us
                                            'Precision' : np.nan, 'Recall' : np.nan}
             continue
         true_mask, _, _ = io.loadGeoTiff(true_mask_path)
-
-        # Get predicted mask
-        if feature.segmentation is not None and feature.segmentation.mask is not None:
-            feature_mask = feature.segmentation.mask
-        else:
-            if map_data.poly_segmentation_mask is None:
-                pipeline_manager.log(logging.WARNING, f'Can\'t validate feature {feature.label}. No predicted segmentation mask present.')
-                continue
-            feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
-            feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
 
         # Create feedback image if needed
         feedback_image = None
