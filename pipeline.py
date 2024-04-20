@@ -10,6 +10,7 @@ import threading
 from time import time
 import src.utils as utils
 
+QUEUE_PREFIX = "process_"
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.DEBUG
 STREAM_LOG_LEVEL = logging.WARNING
@@ -22,7 +23,8 @@ AVAILABLE_MODELS = [
     'golden_muscat',
     'rigid_wasabi',
     'flat_iceberg',
-    'blaring_foundry'
+    'blaring_foundry',
+    'drab_volcano'
 ]
 
 # Lazy load only the model we are going to use
@@ -53,6 +55,9 @@ def load_pipeline_model(model_name : str) -> pipeline_model :
     if model_name == 'blaring_foundry':
         from src.models.blaring_foundry_model import blaring_foundry_model
         model = blaring_foundry_model()
+    if model_name == 'drab_volcano':
+        from src.models.drab_volcano_model import drab_volcano_model
+        model = drab_volcano_model()
     model.load_model()
 
     log.info(f'Model loaded in {time()-model_stime:.2f} seconds')
@@ -204,6 +209,10 @@ def parse_command_line():
     optional_args.add_argument('--log',
                         default='logs/Latest.log',
                         help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
+    optional_args.add_argument('--batch_size',
+                        type=int,
+                        default=256,
+                        help='Batch size to use for inference. Defaults to 256')
     #parser.add_argument('--gpu',
     #                    type=parse_gpu,
     #                    help='The number of the gpu to use, mostly for use with amqp NOTE this is NOT the number of gpus that will be used but rather which one to use')
@@ -259,11 +268,12 @@ def main():
             f'\tAMQP         : {args.amqp}\n' +
             f'\tAMQP Idle    : {args.idle}\n' +
             f'\tLegends      : {args.legends}\n' +
-            f'\tMax Legends  : {args.max_legends}\n' +
+            f'\tMax Map Units: {args.max_legends}\n' +
             f'\tLayout       : {args.layout}\n' +
             f'\tValidation   : {args.validation}\n' +
             f'\tOutput       : {args.output}\n' +
-            f'\tFeedback     : {args.feedback}')
+            f'\tFeedback     : {args.feedback}\n' +
+            f'\tBatch Size   : {args.batch_size}')
     log.handlers[1].setLevel(STREAM_LOG_LEVEL)
 
     # Import other modules
@@ -339,6 +349,7 @@ def run_in_amqp_mode(args):
 
     # load the mode
     model = load_pipeline_model(args.model)
+    model.batch_size = args.batch_size
 
     # connect to rabbitmq
     parameters = pika.URLParameters(args.amqp)
@@ -346,14 +357,15 @@ def run_in_amqp_mode(args):
     channel = connection.channel()
 
     # create queues
-    channel.queue_declare(queue=args.model, durable=True)
-    channel.queue_declare(queue=f"{args.model}.error", durable=True)
+    channel.queue_declare(queue=f"{QUEUE_PREFIX}{args.model}", durable=True)
+    channel.queue_declare(queue=f"{QUEUE_PREFIX}{args.model}.error", durable=True)
+    channel.queue_declare(queue="upload", durable=True)
 
     # listen for messages and stop if nothing found after 5 minutes
     channel.basic_qos(prefetch_count=1)
 
     # create generator to fetch messages
-    consumer = channel.consume(queue=args.model, inactivity_timeout=1)
+    consumer = channel.consume(queue=f"{QUEUE_PREFIX}{args.model}", inactivity_timeout=1)
     # loop getting new messages until we are idle for to long
     last_active = time()
     worker = None
@@ -367,10 +379,13 @@ def run_in_amqp_mode(args):
         if worker:
             last_active = time()
             if not worker.is_alive():
+                data = json.loads(worker.body)
                 if worker.exception:
-                    data = json.loads(worker.body)
                     data['exception'] = repr(worker.exception)
-                    channel.basic_publish(exchange='', routing_key=f"{args.model}.error", body=json.dumps(data), properties=worker.properties)
+                    channel.basic_publish(exchange='', routing_key=f"{QUEUE_PREFIX}{args.model}.error", body=json.dumps(data), properties=worker.properties)
+                else:
+                    data['cdr_output'] = f"{os.path.splitext(data['filename'])[0]}_cdr.json"
+                    channel.basic_publish(exchange='', routing_key=f"upload", body=json.dumps(data), properties=worker.properties)
                 channel.basic_ack(delivery_tag=worker.method.delivery_tag)
                 worker = None
 
@@ -409,6 +424,7 @@ def run_in_local_mode(args):
         log.info("Legends are loaded")
 
         model = model_future.result()
+        model.batch_size = args.batch_size
         log.info("Model is loaded")
 
     pm = pipeline_manager(vars(args), model, legends, layouts)

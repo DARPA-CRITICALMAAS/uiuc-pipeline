@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.3.0] - 2024-04-15
+
+### Added
+- Outputs are now saved using the CDR schema as well as tiff images
+- New model (drab_volcano), this is not finished yet
+- GitHub Action to build docker images
+
+### Changed
+- Git Submodules now point to either GitHub or public download locations
+
 ## [0.2.0] - 2024-04-14
 
 RabbitMQ processing, this assumes a folder where data is downloaded externally when a new

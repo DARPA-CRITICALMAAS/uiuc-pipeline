@@ -9,16 +9,16 @@
 	url = https://github.com/xiyuez2/Darpa_Unet
 [submodule "legend-extraction"]
 	path = submodules/legend_extraction
-	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-legend-extraction.git
+	url = https://github.com/DARPA-CRITICALMAAS/uiuc-legend-extraction
 [submodule "vectorization"]
 	path = submodules/vectorization
-	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-vectorization.git
+	url = https://github.com/DARPA-CRITICALMAAS/uiuc-vectorization
 [submodule "ta1-validation"]
 	path = submodules/validation
-	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-validation.git
+	url = https://github.com/DARPA-CRITICALMAAS/uiuc-validation
 [submodule "darpa_proj"]
 	path = submodules/models/customer_backpack
-	url = git@git.ncsa.illinois.edu:nj7/darpa_proj.git
+	url = https://git.ncsa.illinois.edu/nj7/darpa_proj
 [submodule "submodules/models/rigid_wasabi"]
 	path = submodules/models/rigid_wasabi
 	url = https://github.com/xiyuez2/Darpa_Unet.git
@@ -28,3 +28,6 @@
 [submodule "submodules/models/blaring_foundry"]
 	path = submodules/models/blaring_foundry
 	url = https://github.com/xiyuez2/Darpa_Unet.git
+[submodule "submodules/models/drab_volcano"]
+	path = submodules/models/drab_volcano
+	url = https://github.com/Dongjiahua/DARPA_torch.git

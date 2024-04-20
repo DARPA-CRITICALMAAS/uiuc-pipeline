@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 python:3.9
+FROM --platform=linux/amd64 python:3.10
 
 # setup packages needed
 RUN apt-get update && \
@@ -8,9 +8,10 @@ RUN apt-get update && \
     mkdir -p /projects/bbym/shared && \
     ln -s /src/checkpoints /projects/bbym/shared/models
 
-# install requirements
+# install requirements, skip all repos starting with -e
 COPY requirements.txt /src/requirements.txt
-RUN pip install --no-cache -r /src/requirements.txt
+RUN sed -i 's#^\(-e .*\)$#\#\1#' /src/requirements.txt && \
+    pip install --no-cache -r /src/requirements.txt
 
 # setup folders
 WORKDIR /src
@@ -30,6 +31,9 @@ ENV MODEL="golden_muscat" \
 
 # install application
 COPY . /src/
+
+# reinstall requirements to install those we skipped earlier
+RUN pip install --no-cache -r /src/requirements.txt
 
 # run application
 ENTRYPOINT [ "/src/entrypoint.sh" ]

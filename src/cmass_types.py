@@ -9,6 +9,8 @@ class CMASS_Feature():
         self.contour = contour
         self.contour_type = contour_type
         self.confidence = None
+
+        # Segmentation mask
         self.mask = None
         self.geometry = None
     
