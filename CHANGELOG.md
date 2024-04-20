@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 - Outputs are now saved using the CDR schema as well as tiff images
-- Added code for a new model (drab_volcano), this is not tested yet
+- New model (drab_volcano), this is not finished yet
+- GitHub Action to build docker images
+
+### Changed
+- Git Submodules now point to either GitHub or public download locations
 
 ## [0.2.0] - 2024-04-14
 
