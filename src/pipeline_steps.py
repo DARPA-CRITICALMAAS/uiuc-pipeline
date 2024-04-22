@@ -121,7 +121,10 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
 
 def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
     model_provenance = Provenance(name=model_name, version=model_version)
-    map_data.generate_geometry_from_masks(model_provenance)
+    if map_data.point_segmentation_mask is not None:
+        map_data.generate_point_geometry(model_provenance)
+    if map_data.poly_segmentation_mask is not None:
+        map_data.generate_poly_geometry(model_provenance)
     total_occurances = 0 
     for feature in map_data.legend.features:
         if feature.segmentation is not None and feature.segmentation.geometry is not None:
@@ -135,9 +138,9 @@ from math import ceil, floor
 import matplotlib.pyplot as plt
 def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
     # Save CDR schema
-    cdr_schema = cdr.export_CMAAS_Map_to_cdr_schema(map_data)
+    cdr_schema = cdr.exportMapToCDR(map_data)
     cdr_filename = os.path.join(output_dir, f'{map_data.name}_cdr.json')
-    cdr.saveCDRFeatureResults(cdr_filename, cdr_schema)
+    io.saveCDRFeatureResults(cdr_filename, cdr_schema)
 
     # Save GeoPackage
     gpkg_filename = os.path.join(output_dir, f'{map_data.name}.gpkg')
@@ -146,7 +149,8 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
         if map_data.georef.crs is not None and map_data.georef.transform is not None:
             coord_type = 'georeferenced'
     
-    #io.saveGeoPackage(gpkg_filename, map_data, coord_type)
+    #saveGeoPackage(gpkg_filename, map_data, coord_type)
+    io.saveGeoPackage(gpkg_filename, map_data, coord_type)
 
     # Save Raster masks
     # legend_index = 1
