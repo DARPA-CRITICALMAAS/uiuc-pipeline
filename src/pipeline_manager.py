@@ -339,5 +339,7 @@ class pipeline_manager():
 
     def log(level, message, pid=None, step_id=None, item_id=None):
         # Put a message into the pipeline log stream
+        if pid is not None:
+            message = f'P-{pid} - ' + message
         pipeline_log_stream.put(worker_status_message(pid, step_id, item_id, worker_status.USER_MESSAGE, log_level=level, message=message))
                     

@@ -8,6 +8,7 @@ class pipeline_model(object):
         self.version = '0.0'
         self.feature_type = None
         self.model = None
+        self.estimated_time_per_patch = 0.005 # seconds
 
     def load_model(self):
         raise NotImplementedError

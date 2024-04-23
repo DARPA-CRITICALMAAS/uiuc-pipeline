@@ -26,6 +26,7 @@ class flat_iceberg_model(pipeline_pytorch_model):
         self.version = '0.1'
         self.feature_type = MapUnitType.POINT
         self.checkpoint = '/projects/bbym/shared/models/flat-iceberg/best.pt'
+        self.estimated_time_per_patch = 0.005 # seconds
     
         # Modifiable parameters
         self.device = torch.device("cuda")

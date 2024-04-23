@@ -5,10 +5,13 @@ import cmaas_utils.cdr as cdr
 from cmaas_utils.types import CMAAS_Map, MapUnitType, Provenance
 from src.utils import boundingBox
 from src.pipeline_manager import pipeline_manager
+from time import time
+import multiprocessing as mp
 
-def load_data(data_id, image_path, legend_dir=None, layout_dir=None):
+def load_data(data_id, image_path:str, legend_dir:str=None, layout_dir:str=None):
     """Wrapper with a custom display for the monitor"""
     map_name = os.path.splitext(os.path.basename(image_path))[0]
+    pipeline_manager.log(logging.DEBUG, f'{map_name} - Started processing', pid=mp.current_process().pid)
     pipeline_manager.log_to_monitor(data_id, {'Name': map_name})
     legend_path = None
     layout_path = None
@@ -24,15 +27,15 @@ def load_data(data_id, image_path, legend_dir=None, layout_dir=None):
     pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
     return map_data
 
-def gen_layout(data_id, map_data):
+def gen_layout(data_id, map_data:CMAAS_Map):
     # Generate layout if not precomputed
     if map_data.layout is None:
-        pipeline_manager.log(logging.WARNING, f'No layout found for {map_data.name}, skipping as generating layout in pipeline not implemented yet')
+        pipeline_manager.log(logging.WARNING, f'{map_data.name} - No layout found, generating layout in pipeline not implemented yet')
         # TODO Implement layout generation
         pass
     return map_data
 
-def gen_legend(data_id, map_data, drab_volcano_legend=False):
+def gen_legend(data_id, map_data:CMAAS_Map, drab_volcano_legend:bool=False):
     from submodules.legend_extraction.src.extraction import extractLegends
     def convertLegendtoCMASS(legend):
         from cmaas_utils.types import Legend, MapUnit
@@ -46,15 +49,28 @@ def gen_legend(data_id, map_data, drab_volcano_legend=False):
     else:
         # Generate legend if not precomputed
         if map_data.legend is None:
-            pipeline_manager.log(logging.DEBUG, f'No legend found for {map_data.name}, generating legend')
+            pipeline_manager.log(logging.DEBUG, f'{map_data.name} - No legend data found, generating legend', pid=mp.current_process().pid)
             lgd = extractLegends(map_data.image.transpose(1,2,0))
             map_data.legend = convertLegendtoCMASS(lgd)
 
+    # Count distribution of map units for log.
+    pt, ln, py, un = 0,0,0,0
+    for feature in map_data.legend.features:
+        if feature.type == MapUnitType.POINT:
+            pt += 1
+        if feature.type == MapUnitType.LINE:
+            ln += 1
+        if feature.type == MapUnitType.POLYGON:
+            py += 1
+        if feature.type == MapUnitType.UNKNOWN:
+            un += 1
+
+    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Found {len(map_data.legend.features)} Total map units. ({pt} pt, {ln} ln, {py} poly, {un} unknown)', pid=mp.current_process().pid)
     pipeline_manager.log_to_monitor(data_id, {'Map Units': len(map_data.legend.features)})
-    pipeline_manager.log(logging.DEBUG, f'{len(map_data.legend.features)} map units for {map_data.name}')
+    
     return map_data
 
-def save_legend(data_id, map_data: CMAAS_Map, feedback_dir: str, legend_feedback_mode: str = 'single_image'):
+def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_mode:str = 'single_image'):
     # Create directory for that map
     os.makedirs(os.path.join(feedback_dir, map_data.name), exist_ok=True)
 
@@ -83,6 +99,7 @@ def save_legend(data_id, map_data: CMAAS_Map, feedback_dir: str, legend_feedback
             legend_save_path = os.path.join(feedback_dir, map_data.name, map_data.name + '_labels'  + '.png')
             fig.savefig(legend_save_path)
             plt.close(fig)
+        pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved legend preview to "{legend_save_path}"', pid=mp.current_process().pid)
 
 def segmentation_inference(data_id, map_data:CMAAS_Map, model):
     # Cutout Legends
@@ -92,10 +109,7 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
             min_pt, max_pt = boundingBox(feature.bounding_box) # Need this as points order can be reverse or could have quad
             legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
         else:
-            pipeline_manager.log(logging.DEBUG, f'Skipping inference of {feature.label} as it is not a {model.feature_type.name} feature')
-    
-    # Update Map Units with how many are actually being processed
-    pipeline_manager.log_to_monitor(data_id, {'Map Units': f'{len(map_data.legend.features)} ({len(legend_images)} {model.feature_type.to_str().capitalize()}s)'})
+            pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Skipping inference for {feature.label} as it is not a {model.feature_type.name} feature', pid=mp.current_process().pid)
 
     # Cutout map portion of image
     if map_data.layout is not None and map_data.layout.map is not None:
@@ -104,7 +118,18 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
     else:
         image = map_data.image
 
+    # Log how many map units are being processed and the estimated time to perform inference
+    est_patches = ceil(image.shape[1]/model.patch_size)*ceil(image.shape[2]/model.patch_size)
+    est_time = est_patches*len(legend_images)*model.estimated_time_per_patch
+    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Preforming inference on {len(legend_images)} {model.feature_type.to_str().capitalize()} features, Estimated time: {est_time:.2f} secs', pid=mp.current_process().pid)
+    pipeline_manager.log_to_monitor(data_id, {'Map Units': f'{len(map_data.legend.features)} ({len(legend_images)} {model.feature_type.to_str().capitalize()}s)'})
+    pipeline_manager.log_to_monitor(data_id, {'Est Infer Time': f'{est_time:.2f} secs'})
+
+    # Perform Inference
+    s_time = time()
     result_mask = model.inference(image, legend_images, data_id=data_id)
+    real_time = time()-s_time
+    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Real inference time: {real_time:.2f} secs, {est_patches/real_time:.2f} patches/sec', pid=mp.current_process().pid)
 
     # Resize cutout to full map
     if map_data.layout is not None and map_data.layout.map is not None:
@@ -112,6 +137,7 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
         result_image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]] = result_mask
         result_mask = result_image
     
+    # Save mask to appropriate feature type
     if model.feature_type == MapUnitType.POINT:
         map_data.point_segmentation_mask = result_mask
     if model.feature_type == MapUnitType.POLYGON:
@@ -129,8 +155,10 @@ def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
     for feature in map_data.legend.features:
         if feature.segmentation is not None and feature.segmentation.geometry is not None:
             total_occurances += len(feature.segmentation.geometry)
+
+    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Prediction contained {total_occurances} total segmentations', pid=mp.current_process().pid)
     pipeline_manager.log_to_monitor(data_id, {'Segments': total_occurances})
-    pipeline_manager.log(logging.DEBUG, f'Generated {total_occurances} polygons for {map_data.name}')
+    
     return map_data
 
 import os
@@ -141,6 +169,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
     cdr_schema = cdr.exportMapToCDR(map_data)
     cdr_filename = os.path.join(output_dir, f'{map_data.name}_cdr.json')
     io.saveCDRFeatureResults(cdr_filename, cdr_schema)
+    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
 
     # Save GeoPackage
     gpkg_filename = os.path.join(output_dir, f'{map_data.name}.gpkg')
@@ -151,6 +180,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
     
     #saveGeoPackage(gpkg_filename, map_data, coord_type)
     io.saveGeoPackage(gpkg_filename, map_data, coord_type)
+    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
 
     # Save Raster masks
     # legend_index = 1
@@ -160,7 +190,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
     #     filepath = os.path.join(output_dir, f'{map_data.name}_{feature.label}.tif')
     #     io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
     #     legend_index += 1
-    return
+    return 
 
 import pandas as pd
 from submodules.validation.src.grading import grade_poly_raster, usgs_grade_poly_raster, usgs_grade_pt_raster   
@@ -194,7 +224,7 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, feedback_dir, use_us
         true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{feature.label.replace(" ","_")}_{feature.type}.tif')
         # Skip features that don't have a true mask available
         if not os.path.exists(true_mask_path):
-            pipeline_manager.log(logging.WARNING, f'Can\'t validate feature {feature.label}. No true segmentation mask found at {true_mask_path}.')
+            pipeline_manager.log(logging.WARNING, f'{map_data.name} - Can\'t validate feature {feature.label}. No true segmentation mask found at {true_mask_path}.', pid=mp.current_process().pid)
             results_df[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.label, 'F1 Score' : np.nan,
                                            'Precision' : np.nan, 'Recall' : np.nan}
             continue
@@ -261,10 +291,7 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, feedback_dir, use_us
     f1s, pre, rec, iou = results_df["F1 Score"].mean(), results_df["Precision"].mean(), results_df["Recall"].mean(), results_df["IoU Score (polys)"].mean()
     uf1, upr, urc = results_df["USGS F1 Score (polys)"].mean(), results_df["USGS Precision (polys)"].mean(), results_df["USGS Recall (polys)"].mean()
     mpt, fpt, upt, dpt = sum(results_df["Matched (pts)"]), sum(results_df["Missing (pts)"]), sum(results_df["Unmatched (pts)"]), results_df["Mean matched distance (pts)"].mean()
-    pipeline_manager.log(logging.DEBUG, f"""
-        Average scores for {map_data.name} | F1 : {f1s:.2f}, Precision : {pre:.2f}, Recall : {rec:.2f}, IoU : {iou:.2f}
-        USGS F1 Score : {uf1:.2f}, USGS Precision : {upr:.2f}, USGS Recall : {urc:.2f}, Matched pts : {mpt},
-        Missing pts : {fpt}, Unmatched pts : {upt}, Mean matched distance : {dpt:.2f}""")
+    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Average validation scores | F1 : {f1s:.2f}, Precision : {pre:.2f}, Recall : {rec:.2f}, IoU : {iou:.2f}', pid=mp.current_process().pid)
     pipeline_manager.log_to_monitor(data_id, {'F1 Score': f'{f1s:.2f}'})
 
     return 

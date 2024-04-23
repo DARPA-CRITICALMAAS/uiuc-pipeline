@@ -23,6 +23,7 @@ class blaring_foundry_model(pipeline_pytorch_model):
         self.feature_type = MapUnitType.POLYGON
         self._checkpoint = '/projects/bbym/shared/models/blaring_foundry/spixel_unet.ckpt'
         self._args = SimpleNamespace(model='spUnet', edge=False, sp_sz=2, sp_pretrain=True, sp_ckpt = '/projects/bbym/shared/models/blaring_foundry/spixel_bsd_sz_2.tar')
+        self.estimated_time_per_patch = 0.0022727 # seconds
 
         # Modifiable parameters
         self.device = torch.device("cuda")
