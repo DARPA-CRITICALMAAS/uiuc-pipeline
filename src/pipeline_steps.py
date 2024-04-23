@@ -120,7 +120,7 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
 
     # Log how many map units are being processed and the estimated time to perform inference
     est_patches = ceil(image.shape[1]/model.patch_size)*ceil(image.shape[2]/model.patch_size)
-    est_time = est_patches*len(legend_images)*model.estimated_time_per_patch
+    est_time = (est_patches*len(legend_images))/model.est_patches_per_sec
     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Preforming inference on {len(legend_images)} {model.feature_type.to_str().capitalize()} features, Estimated time: {est_time:.2f} secs', pid=mp.current_process().pid)
     pipeline_manager.log_to_monitor(data_id, {'Map Units': f'{len(map_data.legend.features)} ({len(legend_images)} {model.feature_type.to_str().capitalize()}s)'})
     pipeline_manager.log_to_monitor(data_id, {'Est Infer Time': f'{est_time:.2f} secs'})
@@ -129,7 +129,7 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
     s_time = time()
     result_mask = model.inference(image, legend_images, data_id=data_id)
     real_time = time()-s_time
-    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Real inference time: {real_time:.2f} secs, {est_patches/real_time:.2f} patches/sec', pid=mp.current_process().pid)
+    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Real inference time: {real_time:.2f} secs, {(est_patches*len(legend_images))/real_time:.2f} patches/sec', pid=mp.current_process().pid)
 
     # Resize cutout to full map
     if map_data.layout is not None and map_data.layout.map is not None:
@@ -203,6 +203,8 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, feedback_dir, use_us
 
     legend_index = 1
     for feature in map_data.legend.features:
+        if feature.type in [MapUnitType.LINE, MapUnitType.UNKNOWN]:
+            continue
         # Get predicted mask
         if feature.segmentation is not None and feature.segmentation.mask is not None:
             feature_mask = feature.segmentation.mask

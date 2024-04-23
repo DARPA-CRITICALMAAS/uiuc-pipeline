@@ -25,7 +25,7 @@ class drab_volcano_model(pipeline_pytorch_model):
         self.feature_type = MapUnitType.POINT
         self.checkpoint = '/projects/bbym/shared/models/drab-volcano/best.pt'
         self.label_name_path = '/projects/bbym/shared/models/drab-volcano/legend_name2class.json'
-        self.estimated_time_per_patch = 0.005 # seconds
+        self.est_patches_per_sec = 4500 # Ignore the number is not actually patches per sec for this model as its multi-class
 
         # Modifiable parameters
         self.device = torch.device("cuda")

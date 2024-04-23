@@ -8,7 +8,7 @@ class pipeline_model(object):
         self.version = '0.0'
         self.feature_type = None
         self.model = None
-        self.estimated_time_per_patch = 0.005 # seconds
+        self.est_patches_per_sec = 100 # Only used for estimating inference time, Conservative number used here for default
 
     def load_model(self):
         raise NotImplementedError

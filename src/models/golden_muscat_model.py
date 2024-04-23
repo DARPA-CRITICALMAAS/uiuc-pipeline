@@ -23,7 +23,7 @@ class golden_muscat_model(pipeline_pytorch_model):
         self.feature_type = MapUnitType.POLYGON
         self._checkpoint = '/projects/bbym/shared/models/golden_muscat/jaccard.ckpt'
         self._args = SimpleNamespace(model='Unet', edge=False, superpixel = '')
-        self.estimated_time_per_patch = 0.0022727 # seconds
+        self.est_patches_per_sec = 280 # Only used for estimating inference time
 
         # Modifiable parameters
         self.device = torch.device("cuda")

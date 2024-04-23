@@ -23,7 +23,7 @@ class rigid_wasabi_model(pipeline_pytorch_model):
         self.feature_type = MapUnitType.POLYGON
         self.checkpoint = '/projects/bbym/shared/models/rigid_wasabi/SWIN_jaccard.ckpt'
         self.args = SimpleNamespace(model='swin', superpixel='', edge=False)
-        self.estimated_time_per_patch = 0.0022727 # seconds
+        self.est_patches_per_sec = 250 # seconds
         
         # Modifiable parameters
         self.device = torch.device("cuda")
