@@ -9,7 +9,7 @@ from torchvision import transforms
 
 from time import time
 from patchify import patchify, unpatchify
-from submodules.models.flat_iceberg.inference import OneshotYOLO
+from submodules.models.drab_volcano.inference import OneshotYOLO
 
 from src.pipeline_manager import pipeline_manager
 from src.patching import unpatch_img
@@ -92,7 +92,7 @@ class flat_iceberg_model(pipeline_pytorch_model):
             prediction_patches = []
             with torch.no_grad():
                 for i in range(0, len(map_patches), self.batch_size):
-                    prediction = self.model(map_patches[i:i+self.batch_size], legend_patches[:len(map_patches[i:i+self.batch_size])])
+                    prediction, _ = self.model(map_patches[i:i+self.batch_size], legend_patches[:len(map_patches[i:i+self.batch_size])])
                     prediction_patches += prediction
             
             # Merge patches back into single image and remove padding
@@ -101,9 +101,12 @@ class flat_iceberg_model(pipeline_pytorch_model):
             unpatch_image = unpatch_img(prediction_patches, [1, padded_image.shape[1], padded_image.shape[2]], overlap=self.patch_overlap, mode=self.unpatch_mode)
             prediction_image = unpatch_image[:,:map_height,:map_width]
 
+            #pipeline_manager.log(logging.WARNING, f"\t\t{legend_index}:{label} Prediction size: {len(np.where(prediction_image == 1)[0])}")
+
             # Add legend to prediction mask
-            map_prediction[prediction_image >= map_confidence] = legend_index
-            map_confidence = np.maximum(map_confidence, prediction_image)
+            map_prediction[prediction_image == 1] = legend_index
+            # map_prediction[prediction_image >= map_confidence] = legend_index
+            # map_confidence = np.maximum(map_confidence, prediction_image)
             
             gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 
@@ -111,7 +114,7 @@ class flat_iceberg_model(pipeline_pytorch_model):
             lgd_time = time() - lgd_stime
             # pipeline_manager.log(logging.DEBUG, "\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
 
-        # Minimum confidence threshold for a prediction
-        map_prediction[map_confidence < 0.333] = 0
+        # # Minimum confidence threshold for a prediction
+        # map_prediction[map_confidence < 0.333] = 0
         
         return map_prediction
