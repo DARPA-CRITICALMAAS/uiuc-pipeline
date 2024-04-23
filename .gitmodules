@@ -1,30 +1,18 @@
 [submodule "quantum-sugar"]
 	path = submodules/models/quantum_sugar
 	url = https://github.com/Dongjiahua/DARPA_torch
-[submodule "primordial-positron"]
-	path = submodules/models/primordial_positron
-	url = https://git.ncsa.illinois.edu/nj7/darpa_proj
 [submodule "golden-muscat"]
 	path = submodules/models/golden_muscat
 	url = https://github.com/xiyuez2/Darpa_Unet
 [submodule "legend-extraction"]
 	path = submodules/legend_extraction
 	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-legend-extraction.git
-[submodule "vectorization"]
-	path = submodules/vectorization
-	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-vectorization.git
 [submodule "ta1-validation"]
 	path = submodules/validation
 	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-validation.git
-[submodule "darpa_proj"]
-	path = submodules/models/customer_backpack
-	url = git@git.ncsa.illinois.edu:nj7/darpa_proj.git
 [submodule "submodules/models/rigid_wasabi"]
 	path = submodules/models/rigid_wasabi
 	url = https://github.com/xiyuez2/Darpa_Unet.git
-[submodule "submodules/models/flat_iceberg"]
-	path = submodules/models/flat_iceberg
-	url = https://github.com/Dongjiahua/DARPA_torch.git
 [submodule "submodules/models/blaring_foundry"]
 	path = submodules/models/blaring_foundry
 	url = https://github.com/xiyuez2/Darpa_Unet.git
