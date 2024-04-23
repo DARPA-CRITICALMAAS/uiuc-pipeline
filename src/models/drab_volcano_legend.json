@@ -22,10 +22,7 @@
     {
         "label": "2_pt",
         "alias" : [
-            "2_pt",
-            "Prospect_pt",
-            "prospect_pit_iron_pt",
-            "Uranium_prospect_pt"
+            "2_pt"
         ],
         "points": [
           [
