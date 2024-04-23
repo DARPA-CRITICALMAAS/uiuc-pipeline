@@ -45,8 +45,11 @@ class console_monitor():
         self._step_name_lookup = {None : 'Waiting in queue', 'FINISHED' : 'Done processing', 'ERROR': 'ERROR'}
 
     def active(self):
-        for value in self._data_df['step'].unique():
-            if value not in ['FINISHED', 'ERROR']:
+        statuses = set()
+        for entry in self._data_df['step']:
+            for state in entry:
+                statuses.add(state)
+            if 'FINISHED' not in statuses and 'ERROR' not in statuses:
                 return True
         return False
 
@@ -63,24 +66,24 @@ class console_monitor():
             irow = None
 
         # Don't updated finished items
-        if irow is not None and df.at[irow, 'step'] == 'FINISHED':
+        if irow is not None and df.at[irow, 'step'] == ['FINISHED']:
             return
 
         if record.status == worker_status.STARTED_PROCESSING:
             if irow is not None:
-                df.at[irow, 'step'] = str(record.step_id)
+                df.at[irow, 'step'].append(str(record.step_id))
                 df.at[irow, 'last_update'] = time()
             if record.data_id not in df['id'].values:
-                df.loc[len(df)] = {'id': record.data_id, 'step': str(record.step_id), 'processing_time': 0.0, 'last_update': time()}
+                df.loc[len(df)] = {'id': record.data_id, 'step': [str(record.step_id)], 'processing_time': 0.0, 'last_update': time()}
         
         elif record.status == worker_status.COMPLETED_PROCESSING:
-            df.at[irow, 'step'] = None
+            df.at[irow, 'step'].remove(str(record.step_id))
             if record.step_id == self._final_step: # Last step
-                df.at[irow, 'step'] = 'FINISHED'
+                df.at[irow, 'step'].append('FINISHED')
                 self.completed_items.append(record.data_id)
 
         elif record.status == worker_status.ERROR:
-            df.at[irow, 'step'] = 'ERROR'
+            df.at[irow, 'step'] = ['ERROR']
         
         elif record.status == worker_status.USER_MESSAGE:
             if type(record.message) == dict:
@@ -105,7 +108,7 @@ class console_monitor():
 
         # Update active item's processing time
         for index, row in self._data_df.iterrows():
-            if row['step'] not in ['FINISHED','ERROR', None]:
+            if 'FINISHED' not in row['step'] and 'ERROR' not in row['step'] and len(row['step']) != 0:
                 now = time()
                 self._data_df.at[index, 'processing_time'] += now - row['last_update']
                 self._data_df.at[index, 'last_update'] = now
@@ -115,10 +118,10 @@ class console_monitor():
         for index, row in self._data_df.iterrows():
             if total_lines >= self.max_lines:
                 break
-            if row['step'] in ['FINISHED','ERROR']: # Skip completed items
+            if 'FINISHED' in row['step'] or 'ERROR' in row['step']: # Skip completed items
                 continue
             color = ''
-            if row['step'] is not None:
+            if len(row['step']) != 0:
                 color = '[green]'
         
             item_cols = []
@@ -126,7 +129,7 @@ class console_monitor():
             for col in self._data_df.columns:
                 if col not in ['id', 'step', 'processing_time', 'last_update']:
                     item_cols.append(f'{color}{row[col]}')
-            item_cols.append(f'{color}{self._step_name_lookup[row["step"]]}')
+            item_cols.append(f'{color}{self._step_name_lookup[row["step"][0] if len(row["step"]) > 0 else None]}')
             item_cols.append(f'{color}{row["processing_time"]:.2f} seconds')
             table.add_row(*item_cols)
             total_lines += 1
@@ -135,10 +138,10 @@ class console_monitor():
         for index, row in self._data_df[::-1].iterrows():
             if total_lines >= self.max_lines:
                 break
-            if row['step'] not in ['FINISHED','ERROR']: # Skip in progress items
+            if 'FINISHED' not in row['step'] and 'ERROR' not in row['step']: # Skip in progress items
                 continue
             color = '[bright_black]'
-            if row['step'] == 'ERROR':
+            if 'ERROR' in row['step']:
                 color = '[red]'
 
             item_cols = []
@@ -146,7 +149,7 @@ class console_monitor():
             for col in self._data_df.columns:
                 if col not in ['id', 'step', 'processing_time', 'last_update']:
                     item_cols.append(f'{color}{row[col]}')
-            item_cols.append(f'{color}{self._step_name_lookup[row["step"]]}')
+            item_cols.append(f'{color}{self._step_name_lookup[row["step"][0] if len(row["step"]) > 0 else None]}')
             item_cols.append(f'{color}{row["processing_time"]:.2f} seconds')
             table.add_row(*item_cols)
             total_lines += 1
