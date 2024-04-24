@@ -160,9 +160,6 @@ def parse_command_line():
     required_args.add_argument('--output',
                         required=True,
                         help='Directory to write the outputs of inference to')
-    #required_args.add_argument('-c','--config', 
-    #                    default=os.environ.get('DARPA_CMAAS_PIPELINE_CONFIG', 'default_pipeline_config.yaml'),
-    #                    help='The config file to use for the pipeline. Not implemented yet')
     
     # Optional Arguments
     optional_args = parser.add_argument_group('optional arguments', '')
@@ -216,11 +213,6 @@ def parse_command_line():
 def main():
     main_time = time()
     args = parse_command_line()
-    
-    # TODO
-    #loadconfig
-    #if args.config is None:
-    #    exit(1)
 
     # Start logger
     if args.verbose:
@@ -233,23 +225,26 @@ def main():
     # Log Run parameters
     if args.amqp:
         log_data_mode = 'amqp'
-        log_data_source = (f'\tData         : {args.data}\n' +
-                           f'\tAMQP         : {args.amqp}\n' + 
-                           f'\tIdle Timeout : {args.amqp_timeout}\n')
     else:
         log_data_mode = 'local'
-        log_data_source = f'\tData         : {args.data}\n'
+    
+    param_msg =  f'Running pipeline on {os.uname()[1]} in {log_data_mode} mode with following parameters:\n'
+    param_msg += f'\tModel        : {args.model}\n'
+    param_msg += f'\tData         : {args.data}\n'
+    if args.amqp:
+        param_msg += f'\tAMQP         : {args.amqp}\n'
+        param_msg += f'\tIdle Timeout : {args.amqp_timeout}\n'
+    param_msg += f'\tLegends      : {args.legends}\n'
+    param_msg += f'\tLayout       : {args.layouts}\n'
+    param_msg += f'\tValidation   : {args.validation}\n'
+    param_msg += f'\tOutput       : {args.output}\n'
+    param_msg += f'\tFeedback     : {args.feedback}'
+    if args.batch_size:
+        param_msg += f'\n\tBatch Size   : {args.batch_size}'
     
     # Log info statement to console even if in warning only mode
     log.handlers[1].setLevel(logging.INFO)
-    log.info(f'Running pipeline on {os.uname()[1]} in {log_data_mode} mode with following parameters:\n' +
-            f'\tModel        : {args.model}\n' + 
-            log_data_source +
-            f'\tLegends      : {args.legends}\n' +
-            f'\tLayout       : {args.layouts}\n' +
-            f'\tValidation   : {args.validation}\n' +
-            f'\tOutput       : {args.output}\n' +
-            f'\tFeedback     : {args.feedback}')
+    log.info(param_msg)
     log.handlers[1].setLevel(STREAM_LOG_LEVEL)
     
     # Create output directories if needed

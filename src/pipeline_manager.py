@@ -1,5 +1,6 @@
 import logging
 import traceback
+import numpy as np
 import pandas as pd
 import multiprocessing as mp
 #import torch.multiprocessing as mp
@@ -92,6 +93,7 @@ class console_monitor():
                     irow = df[df['id'] == record.data_id].index[0]
                     df.at[irow, key] = value
 
+        df.replace(np.nan, '', inplace=True)
         self._data_df = df
 
     def generate_table(self) -> Table:
