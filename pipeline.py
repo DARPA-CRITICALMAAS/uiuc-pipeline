@@ -127,9 +127,18 @@ def parse_command_line():
             raise argparse.ArgumentTypeError(msg)
         return feature_type
     
-    def parse_gpu(s : str) -> str:
-        # TODO Implement check for if the selected gpu is available / a real gpu number
-        return s
+    def parse_gpu(device_num : str) -> int:
+        if device_num is None:
+            return device_num
+        device_num = int(device_num)
+        if device_num < 0 or device_num > device_count():
+            gpu_msg = f'Invalid GPU device number "{device_num}" specified. Available GPU devices are:\n'
+            for device in range(device_count()):
+                device_name = get_device_name(device)
+                device_memory = get_device_properties(device).total_memory
+                gpu_msg += f'\n\tDevice {device} : {device_name} with {device_memory/1e9:.2f} GB of memory'
+            raise argparse.ArgumentTypeError(gpu_msg)
+        return device_num
     
     def parse_url(s : str) -> str:
         """Command line argument parse for --amqp."""
@@ -195,9 +204,10 @@ def parse_command_line():
     optional_args.add_argument('--log',
                         default='logs/Latest.log',
                         help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
-    #parser.add_argument('--gpu',
-    #                    type=parse_gpu,
-    #                    help='The number of the gpu to use, mostly for use with amqp NOTE this is NOT the number of gpus that will be used but rather which one to use')
+    optional_args.add_argument('--gpu',
+                       type=parse_gpu,
+                       default=None,
+                       help='Flag to target using a specific device for inference, NOTE this is NOT the number of GPUs that will be used but rather which one to use')
     # Flags
     flag_group = parser.add_argument_group('Flags', '')
     flag_group.add_argument('-h', '--help',
@@ -249,11 +259,13 @@ def main():
     log.handlers[1].setLevel(STREAM_LOG_LEVEL)
 
     # Display stats on available hardware
-    gpu_msg = f'Found {torch.cuda.device_count()} GPU devices(s) on {os.uname()[1]}:'
-    for device in range(torch.cuda.device_count()):
-        device_name = torch.cuda.get_device_name(device)
-        device_memory = torch.cuda.get_device_properties(device).total_memory
+    gpu_msg = f'Found {device_count()} GPU devices(s) on {os.uname()[1]}:'
+    for device in range(device_count()):
+        device_name = get_device_name(device)
+        device_memory = get_device_properties(device).total_memory
         gpu_msg += f'\n\tDevice {device} : {device_name} with {device_memory/1e9:.2f} GB of memory'
+        if args.gpu is not None and args.gpu == device:
+            gpu_msg += ' <- (Target Device)'
     log.info(gpu_msg)
     
     # Create output directories if needed
@@ -288,6 +300,13 @@ def construct_pipeline(args):
     from src.pipeline_communication import parameter_data_stream
     import src.pipeline_steps as pipeline_steps
 
+    infer_workers_per_gpu = 1
+    if args.gpu is not None:
+        devices = [args.gpu] # Set specific gpu
+    else: # Use all available gpus
+        devices = [i for i in range(device_count())]
+    infer_workers = len(devices) * infer_workers_per_gpu
+
     p = pipeline_manager()
     model = load_pipeline_model(args.model, override_batch_size=args.batch_size)
     drab_volcano_legend = False
@@ -296,20 +315,20 @@ def construct_pipeline(args):
         drab_volcano_legend = True
     
     # Data Loading and preprocessing
-    load_step = p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=1)
+    load_step = p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=infer_workers)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
-    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), drab_volcano_legend), display='Generating Legend', workers=1)
+    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), drab_volcano_legend), display='Generating Legend', workers=infer_workers)
 
     if args.feedback:
         legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
     # Segmentation Inference
-    infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model), display='Segmenting Map Units', workers=1)
-    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=2)
+    infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
+    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
     # Save Output
-    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback), display='Saving Output', workers=2)
+    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback), display='Saving Output', workers=infer_workers*2)
     # Validation
     if args.validation: 
-        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=2)
+        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
 
     return p
 
@@ -318,5 +337,5 @@ def run_in_amqp_mode():
 
 if __name__=='__main__':
     mp.set_start_method('spawn')
-    import torch
+    from torch.cuda import device_count, get_device_name, get_device_properties # import statement is here on purpose, please do not move
     main()

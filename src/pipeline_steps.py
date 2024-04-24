@@ -101,7 +101,15 @@ def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_m
             plt.close(fig)
         # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved legend preview to "{legend_save_path}"', pid=mp.current_process().pid)
 
-def segmentation_inference(data_id, map_data:CMAAS_Map, model):
+def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
+    # Device is set on a per process basis
+    from torch import device
+    previous_device = model.device
+    target_device = device(devices[mp.current_process().pid % len(devices)])
+    if model.device != target_device: # Move model to device if needed
+        model.device = target_device
+        model.model.to(target_device)
+
     # Cutout Legends
     legend_images = {}
     for feature in map_data.legend.features:
