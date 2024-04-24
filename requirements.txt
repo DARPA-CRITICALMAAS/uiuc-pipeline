@@ -8,10 +8,10 @@ cmaas_utils>=0.1.6
 # Inference
 opencv_python>4.8
 patchify>0.2
-tensorflow[and-cuda]>2.10
-keras>2.10
+#tensorflow[and-cuda]>2.10
+#keras>2.10
 pillow>9.0
-scikit-learn>1.0%
+#scikit-learn>1.0%
 pytorch-lightning
 adamp
 einops
