@@ -45,12 +45,10 @@ class console_monitor():
         self._step_name_lookup = {None : 'Waiting in queue', 'FINISHED' : 'Done processing', 'ERROR': 'ERROR'}
 
     def active(self):
-        statuses = set()
         for entry in self._data_df['step']:
-            for state in entry:
-                statuses.add(state)
-            if 'FINISHED' not in statuses and 'ERROR' not in statuses:
-                return True
+            for status in entry:
+                if status not in ['FINISHED', 'ERROR']:
+                    return True
         return False
 
     def add_step(self, id, name):

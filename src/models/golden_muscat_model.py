@@ -25,8 +25,9 @@ class golden_muscat_model(pipeline_pytorch_model):
         self._args = SimpleNamespace(model='Unet', edge=False, superpixel = '')
         self.est_patches_per_sec = 280 # Only used for estimating inference time
 
-        # Modifiable parameters
         self.device = torch.device("cuda")
+
+        # Modifiable parameters
         self.batch_size = 64
         self.patch_size = 256
         self.patch_overlap = 64

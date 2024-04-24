@@ -187,6 +187,13 @@ def parse_command_line():
                         default=None,
                         help='Optional directory to save debugging feedback on the pipeline. This will decrease \
                               performance of the pipeline.')
+    optional_args.add_argument('--amqp_timeout',
+                        type=float,
+                        help='Number of seconds to wait for new messages before exiting amqp mode.')
+    optional_args.add_argument('--batch_size',
+                        type=int,
+                        default=None,
+                        help='Option to override the models default batch_size')
     optional_args.add_argument('--log',
                         default='logs/Latest.log',
                         help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
@@ -224,12 +231,14 @@ def main():
     log = start_logger(LOGGER_NAME, args.log, log_level=FILE_LOG_LEVEL, console_log_level=STREAM_LOG_LEVEL)
 
     # Log Run parameters
-    if args.data and not args.amqp:
+    if args.amqp:
+        log_data_mode = 'amqp'
+        log_data_source = (f'\tData         : {args.data}\n' +
+                           f'\tAMQP         : {args.amqp}\n' + 
+                           f'\tIdle Timeout : {args.amqp_timeout}\n')
+    else:
         log_data_mode = 'local'
         log_data_source = f'\tData         : {args.data}\n'
-    else:
-        log_data_mode = 'amqp'
-        log_data_source = f'\tData         : {args.amqp}\n'
     
     # Log info statement to console even if in warning only mode
     log.handlers[1].setLevel(logging.INFO)
@@ -278,6 +287,8 @@ def construct_pipeline(args):
     p = pipeline_manager()
     import torch
     model = load_pipeline_model(args.model)
+    if args.batch_size:
+        model.batch_size = args.batch_size
     drab_volcano_legend = False
     if model.name == 'drab volcano':
         log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')
@@ -303,12 +314,9 @@ def construct_pipeline(args):
 
     return p
 
-def run_in_amqp_mode(args):
-    # TODO
-    # Implement AMQP mode
+def run_in_amqp_mode():
     raise NotImplementedError
 
-    
 if __name__=='__main__':
     mp.set_start_method('spawn')
     main()
