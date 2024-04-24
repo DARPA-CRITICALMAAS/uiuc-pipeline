@@ -23,7 +23,7 @@ AVAILABLE_MODELS = [
 
 # Lazy load only the model we are going to use
 from src.models.pipeline_model import pipeline_model
-def load_pipeline_model(model_name : str) -> pipeline_model :
+def load_pipeline_model(model_name : str, override_batch_size=None) -> pipeline_model :
     """Utility function to only import and load the model we are going to use. Returns loaded model"""
     log.info(f'Loading model {model_name}')
     model_stime = time()
@@ -47,7 +47,8 @@ def load_pipeline_model(model_name : str) -> pipeline_model :
         model = drab_volcano_model()
     
     model.load_model()
-    
+    if override_batch_size:
+        model.batch_size = override_batch_size
     log.info(f'Model loaded in {time()-model_stime:.2f} seconds')
     return model 
 
@@ -227,7 +228,7 @@ def main():
         log_data_mode = 'amqp'
     else:
         log_data_mode = 'local'
-    
+
     param_msg =  f'Running pipeline on {os.uname()[1]} in {log_data_mode} mode with following parameters:\n'
     param_msg += f'\tModel        : {args.model}\n'
     param_msg += f'\tData         : {args.data}\n'
@@ -246,6 +247,14 @@ def main():
     log.handlers[1].setLevel(logging.INFO)
     log.info(param_msg)
     log.handlers[1].setLevel(STREAM_LOG_LEVEL)
+
+    # Display stats on available hardware
+    gpu_msg = f'Found {torch.cuda.device_count()} GPU devices(s) on {os.uname()[1]}:'
+    for device in range(torch.cuda.device_count()):
+        device_name = torch.cuda.get_device_name(device)
+        device_memory = torch.cuda.get_device_properties(device).total_memory
+        gpu_msg += f'\n\tDevice {device} : {device_name} with {device_memory/1e9:.2f} GB of memory'
+    log.info(gpu_msg)
     
     # Create output directories if needed
     if args.output is not None and not os.path.exists(args.output):
@@ -258,7 +267,7 @@ def main():
     try:
         if args.data and not args.amqp:
             pipeline = construct_pipeline(args)
-            pipeline.set_inactivity_timeout(10)
+            pipeline.set_inactivity_timeout(1)
             pipeline.start()
             pipeline.monitor()
         else:
@@ -280,17 +289,12 @@ def construct_pipeline(args):
     import src.pipeline_steps as pipeline_steps
 
     p = pipeline_manager()
-    import torch
-    model = load_pipeline_model(args.model)
-    if args.batch_size:
-        model.batch_size = args.batch_size
+    model = load_pipeline_model(args.model, override_batch_size=args.batch_size)
     drab_volcano_legend = False
     if model.name == 'drab volcano':
         log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')
         drab_volcano_legend = True
-    total_memory = torch.cuda.get_device_properties(0).total_memory
-    log.info(f'Total Available GPU Memory : {total_memory/1e9:.2f} GB')
-
+    
     # Data Loading and preprocessing
     load_step = p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=1)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
@@ -300,12 +304,12 @@ def construct_pipeline(args):
         legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
     # Segmentation Inference
     infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model), display='Segmenting Map Units', workers=1)
-    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=1)
+    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=2)
     # Save Output
-    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback), display='Saving Output', workers=1)
+    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback), display='Saving Output', workers=2)
     # Validation
     if args.validation: 
-        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=1)
+        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=2)
 
     return p
 
@@ -314,4 +318,5 @@ def run_in_amqp_mode():
 
 if __name__=='__main__':
     mp.set_start_method('spawn')
+    import torch
     main()

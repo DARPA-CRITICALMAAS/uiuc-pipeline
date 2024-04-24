@@ -99,7 +99,7 @@ def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_m
             legend_save_path = os.path.join(feedback_dir, map_data.name, map_data.name + '_labels'  + '.png')
             fig.savefig(legend_save_path)
             plt.close(fig)
-        pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved legend preview to "{legend_save_path}"', pid=mp.current_process().pid)
+        # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved legend preview to "{legend_save_path}"', pid=mp.current_process().pid)
 
 def segmentation_inference(data_id, map_data:CMAAS_Map, model):
     # Cutout Legends
@@ -108,8 +108,8 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model):
         if feature.type == model.feature_type:
             min_pt, max_pt = boundingBox(feature.bounding_box) # Need this as points order can be reverse or could have quad
             legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
-        else:
-            pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Skipping inference for {feature.label} as it is not a {model.feature_type.name} feature', pid=mp.current_process().pid)
+        # else:
+        #     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Skipping inference for {feature.label} as it is not a {model.feature_type.name} feature', pid=mp.current_process().pid)
 
     # Cutout map portion of image
     if map_data.layout is not None and map_data.layout.map is not None:
@@ -169,7 +169,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
     cdr_schema = cdr.exportMapToCDR(map_data)
     cdr_filename = os.path.join(output_dir, f'{map_data.name}_cdr.json')
     io.saveCDRFeatureResults(cdr_filename, cdr_schema)
-    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
+    # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
 
     # Save GeoPackage
     gpkg_filename = os.path.join(output_dir, f'{map_data.name}.gpkg')
@@ -180,7 +180,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
     
     #saveGeoPackage(gpkg_filename, map_data, coord_type)
     io.saveGeoPackage(gpkg_filename, map_data, coord_type)
-    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
+    # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
 
     # Save Raster masks
     # legend_index = 1

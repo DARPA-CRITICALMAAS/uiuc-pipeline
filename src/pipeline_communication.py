@@ -56,8 +56,11 @@ class parameter_data_stream():
     def put(self, data):
         self._queue.put(data)
 
-    def get(self):
-        return self._queue.get()
+    def get(self, block=True):
+        try:
+            return self._queue.get(block=block)
+        except:
+            return None
 
     def __len__(self):
         return self._queue.qsize()

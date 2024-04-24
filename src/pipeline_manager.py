@@ -3,7 +3,7 @@ import traceback
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
-#import torch.multiprocessing as mp
+
 from rich import box
 from rich.live import Live
 from rich.table import Table
@@ -46,6 +46,9 @@ class console_monitor():
         self._step_name_lookup = {None : 'Waiting in queue', 'FINISHED' : 'Done processing', 'ERROR': 'ERROR'}
 
     def active(self):
+        # Stop pipeline being marked as inactive at startup
+        if len(self._data_df) == 0:
+            return True
         for entry in self._data_df['step']:
             for status in entry:
                 if status not in ['FINISHED', 'ERROR']:
@@ -65,8 +68,8 @@ class console_monitor():
             irow = None
 
         # Don't updated finished items
-        if irow is not None and df.at[irow, 'step'] == ['FINISHED']:
-            return
+        # if irow is not None and df.at[irow, 'step'] == ['FINISHED']:
+        #     return
 
         if record.status == worker_status.STARTED_PROCESSING:
             if irow is not None:
@@ -108,7 +111,7 @@ class console_monitor():
 
         # Update active item's processing time
         for index, row in self._data_df.iterrows():
-            if 'FINISHED' not in row['step'] and 'ERROR' not in row['step'] and len(row['step']) != 0:
+            if row['step'] != ['FINISHED'] and 'ERROR' not in row['step'] and len(row['step']) != 0:
                 now = time()
                 self._data_df.at[index, 'processing_time'] += now - row['last_update']
                 self._data_df.at[index, 'last_update'] = now
@@ -118,7 +121,7 @@ class console_monitor():
         for index, row in self._data_df.iterrows():
             if total_lines >= self.max_lines:
                 break
-            if 'FINISHED' in row['step'] or 'ERROR' in row['step']: # Skip completed items
+            if row['step'] == ['FINISHED'] or 'ERROR' in row['step']: # Skip completed items
                 continue
             color = ''
             if len(row['step']) != 0:
@@ -138,7 +141,7 @@ class console_monitor():
         for index, row in self._data_df[::-1].iterrows():
             if total_lines >= self.max_lines:
                 break
-            if 'FINISHED' not in row['step'] and 'ERROR' not in row['step']: # Skip in progress items
+            if row['step'] != ['FINISHED'] and 'ERROR' not in row['step']: # Skip in progress items
                 continue
             color = '[bright_black]'
             if 'ERROR' in row['step']:
@@ -183,7 +186,7 @@ def _start_worker(step, log_stream, management_stream):
             if not management_stream.empty():
                 message = management_stream.get()
                 if message == 'STOP':
-                    msg = worker_status_message(pid, None, None, worker_status.WORKER_STOPPING, log_level=logging.DEBUG, message=f'Worker Process {pid} - Exiting')
+                    msg = worker_status_message(pid, None, None, worker_status.WORKER_STOPPING, log_level=logging.DEBUG, message=f'Worker Process {pid} - Stopping')
                     log_stream.put(msg)
                     break
 
@@ -200,10 +203,14 @@ def _start_worker(step, log_stream, management_stream):
             arg_data = None
             for arg in step.args:
                 if isinstance(arg, parameter_data_stream):
-                    arg_data = arg.get()
+                    arg_data = arg.get(block=False)
+                    if arg_data is None:
+                        break
                     func_args.append(arg_data.data)
                 else:
                     func_args.append(arg)
+            if arg_data is None:
+                continue
 
             # Run function
             msg = worker_status_message(pid, step.id, arg_data.id, worker_status.STARTED_PROCESSING, log_level=None, message=f'Process {pid} - Started {step.name} : {arg_data.id}')
@@ -245,7 +252,7 @@ class pipeline_manager():
         self._management_stream = mpm.Queue()
 
     def next_step_id(self):
-        return len(self.steps) - 1
+        return len(self.steps)
     
     def add_step(self, func, args, display='', workers=1, max_output_size=4):
         if self._running:
@@ -289,7 +296,7 @@ class pipeline_manager():
             return False
 
         log.info('Stopping pipeline')
-        for w in self._workers:
+        for w in range(len(self._workers)*2):
             self._management_stream.put('STOP')
 
         # Wait for workers to stop
@@ -316,6 +323,7 @@ class pipeline_manager():
                 # Sleep while no new messages are available
                 if self._log_stream.empty():
                     live.update(_monitor.generate_table())
+                    # log.warning(_monitor._data_df)
                     sleep(_monitor.refesh)
                     continue
 
@@ -331,7 +339,27 @@ class pipeline_manager():
 
         # Stop pipeline when done
         log.info(f'Pipeline Manager has detected that there are no more maps to process. No updates in the last {_monitor.timeout} seconds')
-        self.stop()
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor() as executor:
+            # Send stop message to workers
+            executor.submit(self.stop)
+            # Keep flushing process logging statements till pipeline fully stops
+            while self._running:
+                if self._log_stream.empty():
+                    sleep(_monitor.refesh)
+                    continue
+                # Retieve worker messages
+                record = self._log_stream.get()
+                if record.log_level is not None and record.message is not None:
+                    log.log(record.log_level, record.message)
+
+        # Final flush
+        while not self._log_stream.empty():
+            record = self._log_stream.get()
+            if record.log_level is not None and record.message is not None:
+                log.log(record.log_level, record.message)
+
+
 
     def log_to_monitor(data_id, dict):
         # Put message into pipeline log stream
