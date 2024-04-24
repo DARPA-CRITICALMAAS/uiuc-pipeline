@@ -1,6 +1,3 @@
-[submodule "quantum-sugar"]
-	path = submodules/models/quantum_sugar
-	url = https://github.com/Dongjiahua/DARPA_torch
 [submodule "golden-muscat"]
 	path = submodules/models/golden_muscat
 	url = https://github.com/xiyuez2/Darpa_Unet
@@ -16,3 +13,6 @@
 [submodule "submodules/models/blaring_foundry"]
 	path = submodules/models/blaring_foundry
 	url = https://github.com/xiyuez2/Darpa_Unet.git
+[submodule "submodules/models/drab_volcano"]
+	path = submodules/models/drab_volcano
+	url = https://github.com/Dongjiahua/DARPA_torch.git
