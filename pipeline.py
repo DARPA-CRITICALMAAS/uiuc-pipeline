@@ -315,20 +315,20 @@ def construct_pipeline(args):
         drab_volcano_legend = True
     
     # Data Loading and preprocessing
-    load_step = p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=infer_workers)
+    load_step = p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
-    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), drab_volcano_legend), display='Generating Legend', workers=infer_workers)
+    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
 
     if args.feedback:
-        legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
+        legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=2)
     # Segmentation Inference
     infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
-    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
+    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*4)
     # Save Output
-    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback), display='Saving Output', workers=infer_workers*2)
+    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback), display='Saving Output', workers=infer_workers*4)
     # Validation
     if args.validation: 
-        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
+        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*4)
 
     return p
 

@@ -35,7 +35,7 @@ class pipeline_step():
 class console_monitor():
     def __init__(self, title='Pipeline Monitor', timeout=1, refesh=0.25, max_lines=20):
         self.title = title
-        self.timeout = timeout 
+        self.timeout = timeout
         self.refesh = refesh
         self.max_lines = max_lines
         self.completed_items = []
@@ -101,7 +101,13 @@ class console_monitor():
 
     def generate_table(self) -> Table:
         # Bulid table structure
-        table = Table(title=self.title, expand=True, box=box.MINIMAL)
+        # Count in progress items
+        inprogress_items = 0
+        for index, row in self._data_df.iterrows():
+            if row['step'] != ['FINISHED'] and 'ERROR' not in row['step'] and len(row['step']) != 0:
+                inprogress_items += 1
+        title = f'{self.title}\n( {inprogress_items} Processing - {len(self.completed_items)} Completed )'
+        table = Table(title=title, expand=True, box=box.MINIMAL)
         table.add_column('ID') # Name first.
         for col in self._data_df.columns: # User supplied columns next
             if col not in ['id', 'step', 'processing_time', 'last_update']:
