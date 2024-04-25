@@ -348,11 +348,13 @@ def construct_test_pipeline(args):
     
 def run_in_amqp_mode(args):
     import pika
-    MAX_AMPQ_MAPS = 10
-    # INPUT_QUEUE = f'{RABBITMQ_QUEUE_PREFIX}{args.model}'
-    INPUT_QUEUE = f'{RABBITMQ_QUEUE_PREFIX}flat_iceberg'
+    MAX_AMPQ_MAPS = 10 * device_count()
+    if args.gpu: # 1 GPU
+        MAX_AMPQ_MAPS = 10
+
+    INPUT_QUEUE = f'{RABBITMQ_QUEUE_PREFIX}{args.model}'
     ERROR_QUEUE = f'{INPUT_QUEUE}.error'
-    UPLOAD_QUEUE = 'test_upload'
+    UPLOAD_QUEUE = 'upload'
     
     # connect to rabbitmq
     log.info('Connecting to RabbitMQ server')
@@ -408,7 +410,7 @@ def run_in_amqp_mode(args):
                     map_handle = active_maps.pop(map_name)
                     map_handle['data']['cdr_output'] = f'{map_name}_cdr.json'
                     channel.basic_publish(exchange='', routing_key=UPLOAD_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
-                    #channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
+                    channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
                 
                 if not activity:
                     from time import sleep
