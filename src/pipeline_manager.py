@@ -165,7 +165,7 @@ class console_monitor():
 
         return table
     
-def _start_worker(step, log_stream, management_stream):
+def _start_worker(step:pipeline_step, log_stream:mp.Queue, management_stream:mp.Queue):
     def work_ready(args):
         for arg in args:
             if isinstance(arg, parameter_data_stream):
@@ -231,11 +231,8 @@ def _start_worker(step, log_stream, management_stream):
             log_stream.put(msg) 
 
         except Exception as e:
-            # Log errors
-            if arg_data is not None and arg_data.id:
-                msg = worker_status_message(pid, step.id, arg_data.id, worker_status.ERROR, log_level=logging.ERROR, message=f'Process {pid} - Error in step {step.name} on {arg_data.id} : {e}\n{traceback.format_exc()}')
-            else:
-                msg = worker_status_message(pid, step.id, None, worker_status.ERROR, log_level=logging.ERROR, message=f'Process {pid} - Error in step {step.name} : {e}\n{traceback.format_exc()}')
+            # Just Log errors
+            msg = worker_status_message(pid, step.id, arg_data.id, worker_status.ERROR, log_level=logging.ERROR, message=f'Process {pid} - Error in step {step.name} on {arg_data.id} : {e}\n{traceback.format_exc()}')
             log_stream.put(msg)
 
 

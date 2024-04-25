@@ -12,7 +12,10 @@ def load_data(data_id, image_path:str, legend_dir:str=None, layout_dir:str=None)
     """Wrapper with a custom display for the monitor"""
     map_name = os.path.splitext(os.path.basename(image_path))[0]
     pipeline_manager.log(logging.DEBUG, f'{map_name} - Started processing', pid=mp.current_process().pid)
-    pipeline_manager.log_to_monitor(data_id, {'Name': map_name})
+    if len(map_name) > 50:
+        pipeline_manager.log_to_monitor(data_id, {'Name' : map_name[:24] + '...' + map_name[-24:]})
+    else:
+        pipeline_manager.log_to_monitor(data_id, {'Name': map_name})
     legend_path = None
     layout_path = None
     if legend_dir:
@@ -39,10 +42,10 @@ def gen_legend(data_id, map_data:CMAAS_Map, drab_volcano_legend:bool=False):
     from submodules.legend_extraction.src.extraction import extractLegends
     def convertLegendtoCMASS(legend):
         from cmaas_utils.types import Legend, MapUnit
-        features = {}
+        features = []
         for feature in legend:
-            features[feature['label']] = MapUnit(label=feature['label'], contour=feature['points'], contour_type='rectangle')
-        return Legend(features=features, origin='UIUC Heuristic Model')
+            features.append(MapUnit(type=MapUnitType.POLYGON, label=feature['label'], bounding_box=feature['points']))
+        return Legend(provenance=Provenance(name='UIUC Heuristic Model', version='0.1'), features=features)
 
     if drab_volcano_legend:
         map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
@@ -198,7 +201,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
     #     filepath = os.path.join(output_dir, f'{map_data.name}_{feature.label}.tif')
     #     io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
     #     legend_index += 1
-    return 
+    return map_data.name
 
 import pandas as pd
 from submodules.validation.src.grading import grade_poly_raster, usgs_grade_poly_raster, usgs_grade_pt_raster   
@@ -305,3 +308,10 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, feedback_dir, use_us
     pipeline_manager.log_to_monitor(data_id, {'F1 Score': f'{f1s:.2f}'})
 
     return 
+
+from time import sleep
+def test_step(data_id, filename):
+    raise Exception('Test Error')
+    pipeline_manager.log_to_monitor(data_id, {'filename' :os.basename(filename)})
+    sleep(1)
+    return filename

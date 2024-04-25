@@ -1,5 +1,6 @@
 import os
 import copy
+import json
 import logging
 import argparse
 import urllib.parse
@@ -8,6 +9,7 @@ import multiprocessing as mp
 from time import time
 from cmaas_utils.logging import start_logger
 
+RABBITMQ_QUEUE_PREFIX = 'process_'
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.DEBUG
 STREAM_LOG_LEVEL = logging.WARNING
@@ -277,13 +279,10 @@ def run_in_local_mode(args):
     remaining_maps = copy.deepcopy(args.data)
     completed_maps = []
     try:
-        if args.data and not args.amqp:
-            pipeline = construct_pipeline(args)
-            pipeline.set_inactivity_timeout(1)
-            pipeline.start()
-            pipeline.monitor()
-        else:
-            run_in_amqp_mode(args)
+        pipeline, input_stream, _ = construct_pipeline(args)
+        pipeline.set_inactivity_timeout(1)
+        pipeline.start()
+        pipeline.monitor()
     except:
         for idx in pipeline._monitor.completed_items:
             completed_maps.append(args.data[idx])
@@ -294,7 +293,7 @@ def run_in_local_mode(args):
         exit(1)
     return 
 
-def construct_pipeline(args):
+def construct_pipeline(args, populate_data=True):
     from src.pipeline_manager import pipeline_manager
     from src.pipeline_communication import parameter_data_stream
     import src.pipeline_steps as pipeline_steps
@@ -313,26 +312,116 @@ def construct_pipeline(args):
         log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')
         drab_volcano_legend = True
     
+    # For amqp we don't fill the stream with the args data field
+    if populate_data:
+        input_stream = parameter_data_stream(args.data)
+    else:
+        input_stream = parameter_data_stream()
+
     # Data Loading and preprocessing
-    load_step = p.add_step(func=pipeline_steps.load_data, args=(parameter_data_stream(args.data), args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
+    load_step = p.add_step(func=pipeline_steps.load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
     legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
 
     if args.feedback:
-        legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=2)
+        legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
     # Segmentation Inference
     infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
-    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*4)
+    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
     # Save Output
-    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback), display='Saving Output', workers=infer_workers*4)
+    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback), display='Saving Output', workers=infer_workers*2)
     # Validation
     if args.validation: 
-        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*4)
+        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
 
-    return p
+    return p, input_stream, save_step.output()
 
+def construct_test_pipeline(args):
+    from src.pipeline_manager import pipeline_manager
+    from src.pipeline_communication import parameter_data_stream
+    import src.pipeline_steps as pipeline_steps
+    
+    p = pipeline_manager()
+    input_stream = parameter_data_stream()
+    my_step = p.add_step(func=pipeline_steps.test_step, args=(input_stream,), display='Test Step', workers=1)
+    return p, input_stream, my_step.output()
+    
 def run_in_amqp_mode(args):
-    raise NotImplementedError
+    import pika
+    MAX_AMPQ_MAPS = 10
+    # INPUT_QUEUE = f'{RABBITMQ_QUEUE_PREFIX}{args.model}'
+    INPUT_QUEUE = f'{RABBITMQ_QUEUE_PREFIX}flat_iceberg'
+    ERROR_QUEUE = f'{INPUT_QUEUE}.error'
+    UPLOAD_QUEUE = 'test_upload'
+    
+    # connect to rabbitmq
+    log.info('Connecting to RabbitMQ server')
+    parameters = pika.URLParameters(args.amqp)
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+
+    # create queues
+    channel.queue_declare(queue=INPUT_QUEUE, durable=True)
+    channel.queue_declare(queue=ERROR_QUEUE, durable=True)
+    channel.queue_declare(queue=UPLOAD_QUEUE, durable=True)
+
+    # listen for messages and stop if nothing found after 5 minutes
+    channel.basic_qos(prefetch_count=MAX_AMPQ_MAPS)
+
+    # create generator to fetch messages
+    consumer = channel.consume(queue=INPUT_QUEUE, inactivity_timeout=1)
+
+    # Create Pipeline
+    log.info('Constructing pipeline')
+    pipeline, input_stream, output_stream = construct_pipeline(args, populate_data=False)
+    if args.amqp_timeout:
+        pipeline.set_inactivity_timeout(args.amqp_timeout)
+    pipeline.start() # Non blocking
+    active_maps = {}
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor() as executor:
+            # Run pipeline monitor in background
+            executor.submit(pipeline.monitor)
+            # Manage rabbitmq data
+            while pipeline.running():
+                activity = False
+                # Take next message of the queue 
+                method, properties, body = next(consumer)
+
+                # New message : Add to pipeline input and keep track of messages
+                if method is not None:
+                    activity = True
+                    data = json.loads(body)
+                    filename = os.path.join(args.data, data['filename'])
+                    map_name = os.path.splitext(os.path.basename(filename))[0]
+                    log.debug(f'RabbitMQ - {map_name} - Recieved cog')
+                    active_maps[map_name] = {'method':method, 'properties':properties, 'data':data} # Keep track of maps we are working on.
+                    input_stream.append(filename)
+
+                # Map Finished processing : Send to upload queue and acknowledge message is complete
+                if not output_stream.empty():
+                    activity = True
+                    finished_msg = output_stream.get()
+                    map_name = finished_msg.data
+                    log.debug(f'RabbitMQ - {map_name} - Finished processing, sending to upload queue')
+                    map_handle = active_maps.pop(map_name)
+                    map_handle['data']['cdr_output'] = f'{map_name}_cdr.json'
+                    channel.basic_publish(exchange='', routing_key=UPLOAD_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
+                    #channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
+                
+                if not activity:
+                    from time import sleep
+                    sleep(0.1)
+    except:
+        log.exception('Pipeline encounter unhandled exception. Stopping Pipeline')
+        completed_maps = []
+        for idx in pipeline._monitor.completed_items:
+            completed_maps.append(args.data[idx])
+        log.warning(f'Completed these maps before failure :\n{completed_maps}')
+        log.warning(f'Remaining maps to be processed :\n{active_maps.keys()}')
+        pipeline.stop() # This is not a hard kill, it will wait for the pipeline to finish
+    return
 
 if __name__=='__main__':
     mp.set_start_method('spawn')
