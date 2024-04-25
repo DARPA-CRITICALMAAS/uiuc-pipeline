@@ -2,6 +2,7 @@ import os
 import copy
 import logging
 import argparse
+import urllib.parse
 import multiprocessing as mp
 
 from time import time
@@ -70,29 +71,23 @@ def parse_command_line():
     
     def parse_data(path: str) -> List[str]:
         """Command line argument parser for --data. --data should accept a list of file and/or directory paths as an
-           input. This function is run called on each individual element of that list and checks if the path is valid
-           and if the path is a directory expands it to all the valid files paths inside the dir. Returns a list of 
-           valid files. This is intended to be used in conjunction with the post_parse_data function"""
+           input. This function is called on each individual element of that list and checks if the path is valid."""
         # Check if it exists
         if not os.path.exists(path):
             msg = f'Invalid path "{path}" specified : Path does not exist'
-            #log.warning(msg)
-            return None
-            #raise argparse.ArgumentTypeError(msg+'\n')
-        # Check if its a directory
-        if os.path.isdir(path):
-            data_files = [os.path.join(path, f) for f in os.listdir(path) if f.endswith('.tif')]
-            #if len(data_files) == 0:
-                #log.warning(f'Invalid path "{path}" specified : Directory does not contain any .tif files')
-        if os.path.isfile(path):
-            data_files = [path]
-        return data_files
-    
-    def post_parse_data(data : List[List[str]]) -> List[str]:
-        """Cleans up the output of parse data from a list of lists to a single list and does validity checks for the 
-           data as a whole. Returns a list of valid files. Raises an argument exception if no valid files were given"""
-        # Check that there is at least 1 valid map to run on
-        data_files = [file for sublist in data if sublist is not None for file in sublist]
+            raise argparse.ArgumentTypeError(msg+'\n')
+        return path
+
+    def post_parse_data(data : List[str]) -> List[str]:
+        """Loops over all data arguments and finds all tif files. If the path is a directory expands it to all the valid
+           files paths inside the dir. Returns a list of valid files. Raises an argument exception if no valid files were given"""
+        data_files = []
+        for path in data:
+            # Check if its a directory
+            if os.path.isdir(path):
+                data_files.extend([os.path.join(path, f) for f in os.listdir(path) if f.endswith('.tif')])
+            if os.path.isfile(path) and path.endswith('.tif'):
+                data_files.append(path)
         if len(data_files) == 0:
             msg = f'No valid files where given to --data argument. --data should be given a path or paths to file(s) \
                     and/or directory(s) containing the data to perform inference on. program will only run on .tif files'
@@ -111,23 +106,9 @@ def parse_command_line():
             raise argparse.ArgumentTypeError(msg)
         return model_name
     
-    def parse_feature(feature_type : str) -> str:
-        """Command line argument parser for --feature_type. Case insensitive, accepts point, pt, polygon, poly, or all.
-           Raises an argument exception if argument is one of these list. Returns lowercase feature type"""
-        # Convert shorthand to proper form
-        feature_type = feature_type.lower()
-        if feature_type == 'pt':
-            feature_type = 'point'
-        if feature_type == 'poly':
-            feature_type = 'polygon'
-        # Check if feature type is valid
-        if feature_type not in ['point','polygon','all']:
-            msg = f'Invalid feature type "{feature_type}" specified.\nAvailable feature types are :\n\t* Point\n\t* \
-                    Polygon\n\t* All'
-            raise argparse.ArgumentTypeError(msg)
-        return feature_type
-    
     def parse_gpu(device_num : str) -> int:
+        """Command line argument parse for --gpu. Accepts a single integer representing a gpu device numbera as input.
+           Returns an error if the device number doesn't exist."""
         if device_num is None:
             return device_num
         device_num = int(device_num)
@@ -140,10 +121,12 @@ def parse_command_line():
             raise argparse.ArgumentTypeError(gpu_msg)
         return device_num
     
-    def parse_url(s : str) -> str:
+    def parse_amqp_url(s : str) -> str:
         """Command line argument parse for --amqp."""
-        # TODO Implement a check for if a valid url has been given to ampq?
-        # If you don't want this then just remove the type flag.
+        parts = urllib.parse.urlparse(s)
+        if parts.scheme not in ['amqp','amqps']:
+            msg = f'Invalid scheme "{parts.scheme}" specified. Scheme must be either "amqp" or "amqps"'
+            raise argparse.ArgumentTypeError(msg)
         return s
     
     parser = argparse.ArgumentParser(description='', add_help=False)
@@ -151,17 +134,12 @@ def parse_command_line():
     required_args = parser.add_argument_group('required arguments', 'These are the arguments the pipeline requires to \
                                                run, --amqp and --data are used to specify what data source to use and \
                                                are mutually exclusive.')
-    data_source = required_args.add_mutually_exclusive_group(required=True)
-    data_source.add_argument('--amqp',
-                        type=parse_url,
-                        # Someone else can fill out the help for this better when it gets implemented
-                        help='Url to use to connect to a amqp data stream. Mutually exclusive with --data. ### Not \
-                              Implemented Yet ###')
-    data_source.add_argument('--data', 
+    required_args.add_argument('--data', 
                         type=parse_data,
+                        required=True,
                         nargs='+',
                         help='Path to file(s) and/or directory(s) containing the data to perform inference on. The \
-                              program will run inference on any .tif files. Mutually exclusive with --amqp')            
+                              program will run inference on any .tif files.')            
     required_args.add_argument('--model',
                         type=parse_model,
                         required=True,
@@ -194,8 +172,14 @@ def parse_command_line():
                         default=None,
                         help='Optional directory to save debugging feedback on the pipeline. This will decrease \
                               performance of the pipeline.')
+    optional_args.add_argument('--amqp',
+                        type=parse_amqp_url,
+                        default=None,
+                        help='Url to use to connect to a amqp data stream. When this option is provided the pipeline \
+                              will run in amqp mode which will expect data filenames to be sent to it via the amqp stream.')
     optional_args.add_argument('--amqp_timeout',
                         type=float,
+                        default=None,
                         help='Number of seconds to wait for new messages before exiting amqp mode.')
     optional_args.add_argument('--batch_size',
                         type=int,
@@ -218,7 +202,14 @@ def parse_command_line():
                             help='Flag to change the logging level from INFO to DEBUG')
     
     args = parser.parse_args()
-    args.data = post_parse_data(args.data)
+    if args.amqp:
+        if len(args.data) > 1:
+            raise argparse.ArgumentTypeError("Too many arguments for data. When using AMQP mode, data flag needs to be a single directory")
+        args.data = args.data[0]
+        if not os.path.isdir(args.data):
+            raise argparse.ArgumentTypeError("Data argument must be a folder for AMQP mode.")
+    else:
+        args.data = post_parse_data(args.data)
     return args
 
 def main():
@@ -274,6 +265,15 @@ def main():
     if args.feedback is not None and not os.path.exists(args.feedback):
         os.makedirs(args.feedback)
 
+    if args.amqp:
+        run_in_amqp_mode(args)
+    else:
+        run_in_local_mode(args)
+
+    log.info(f'Pipeline terminating succesfully. Runtime was {time()-main_time} seconds')
+    return
+
+def run_in_local_mode(args):
     remaining_maps = copy.deepcopy(args.data)
     completed_maps = []
     try:
@@ -292,8 +292,7 @@ def main():
         log.warning(f'Remaining maps to be processed :\n{remaining_maps}')
         log.exception('Pipeline encounter unhandled exception. Stopping Pipeline')
         exit(1)
-
-    log.info(f'Pipeline terminating succesfully. Runtime was {time()-main_time} seconds')
+    return 
 
 def construct_pipeline(args):
     from src.pipeline_manager import pipeline_manager
@@ -332,7 +331,7 @@ def construct_pipeline(args):
 
     return p
 
-def run_in_amqp_mode():
+def run_in_amqp_mode(args):
     raise NotImplementedError
 
 if __name__=='__main__':

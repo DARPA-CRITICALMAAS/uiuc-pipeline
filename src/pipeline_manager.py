@@ -293,7 +293,7 @@ class pipeline_manager():
             for i in range(step.workers):
                 self._create_worker(step)
         self._running = True
-        log.info(f'Starting pipeline manager with {len(self.steps)} steps and {len(self._workers)} workers')
+        log.info(f'Starting pipeline manager with {len(self.steps)} steps and {len(self._workers)} worker processes')
         return True
     
     def stop(self):
