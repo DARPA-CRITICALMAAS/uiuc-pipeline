@@ -181,10 +181,18 @@ def parse_command_line():
                         default=None,
                         help='Url to use to connect to a amqp data stream. When this option is provided the pipeline \
                               will run in amqp mode which will expect data filenames to be sent to it via the amqp stream.')
-    optional_args.add_argument('--amqp_timeout',
+    optional_args.add_argument('--inactive_timeout',
                         type=float,
                         default=None,
                         help='Number of seconds to wait for new messages before exiting amqp mode.')
+    optional_args.add_argument('--amqp_max_maps',
+                        type=int,
+                        default=5,
+                        help='The maximun number of maps per available gpu that will be taken from the RabbitMQ queue at a time. Default is 5')
+    optional_args.add_argument('--max_legends',
+                        type=int,
+                        default=300,
+                        help='The maxium number of map units allowable in a single map. Default is 300')
     optional_args.add_argument('--batch_size',
                         type=int,
                         default=None,
@@ -323,7 +331,7 @@ def construct_pipeline(args, populate_data=True):
     # Data Loading and preprocessing
     load_step = p.add_step(func=pipeline_steps.load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
-    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
+    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), args.max_legends, drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
 
     if args.feedback:
         legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
@@ -350,9 +358,9 @@ def construct_test_pipeline(args):
     
 def run_in_amqp_mode(args):
     import pika
-    MAX_AMPQ_MAPS = 10 * device_count()
+    MAX_AMPQ_MAPS = args.amqp_max_maps * device_count()
     if args.gpu: # 1 GPU
-        MAX_AMPQ_MAPS = 10
+        MAX_AMPQ_MAPS = args.amqp_max_maps
 
     INPUT_QUEUE = f'{RABBITMQ_QUEUE_PREFIX}{args.model}'
     ERROR_QUEUE = f'{INPUT_QUEUE}.error'
@@ -378,8 +386,8 @@ def run_in_amqp_mode(args):
     # Create Pipeline
     log.info('Constructing pipeline')
     pipeline, input_stream, output_stream = construct_pipeline(args, populate_data=False)
-    if args.amqp_timeout:
-        pipeline.set_inactivity_timeout(args.amqp_timeout)
+    if args.inactive_timeout:
+        pipeline.set_inactivity_timeout(args.inactive_timeout)
     pipeline.start() # Non blocking
     active_maps = {}
     try:

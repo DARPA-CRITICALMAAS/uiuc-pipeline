@@ -38,7 +38,7 @@ def gen_layout(data_id, map_data:CMAAS_Map):
         pass
     return map_data
 
-def gen_legend(data_id, map_data:CMAAS_Map, drab_volcano_legend:bool=False):
+def gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend:bool=False):
     from submodules.legend_extraction.src.extraction import extractLegends
     def convertLegendtoCMASS(legend):
         from cmaas_utils.types import Legend, MapUnit
@@ -69,8 +69,8 @@ def gen_legend(data_id, map_data:CMAAS_Map, drab_volcano_legend:bool=False):
             un += 1
 
     # TMP solution for maps with too many features (most likely from bad legend extraction)
-    if len(map_data.legend.features) > 300:
-        raise Exception(f'{map_data.name} - Too many features found in legend. Found {len(map_data.legend.features)} features. Max is 300')
+    if len(map_data.legend.features) > max_legends:
+        raise Exception(f'{map_data.name} - Too many features found in legend. Found {len(map_data.legend.features)} features. Max is {max_legends}')
 
     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Found {len(map_data.legend.features)} Total map units. ({pt} pt, {ln} ln, {py} poly, {un} unknown)', pid=mp.current_process().pid)
     pipeline_manager.log_to_monitor(data_id, {'Map Units': len(map_data.legend.features)})
@@ -194,6 +194,8 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
             coord_type = 'georeferenced'
     
     #saveGeoPackage(gpkg_filename, map_data, coord_type)
+    for feature in map_data.legend.features:
+        feature.label = sanitize_filename(feature.label) # Need to sanitize feature names before saving geopackage
     io.saveGeoPackage(gpkg_filename, map_data, coord_type)
     # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
 
