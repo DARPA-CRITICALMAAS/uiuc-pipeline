@@ -314,7 +314,47 @@ def run_in_local_mode(args):
         exit(1)
     return 
 
-def construct_pipeline(args, amqp_mode=True):
+def construct_pipeline(args):
+    from src.pipeline_manager import pipeline_manager
+    from src.pipeline_communication import parameter_data_stream
+    import src.pipeline_steps as pipeline_steps
+
+    infer_workers_per_gpu = 1
+    if args.gpu is not None:
+        devices = [args.gpu] # Set specific gpu
+    else: # Use all available gpus
+        devices = [i for i in range(device_count())]
+    infer_workers = len(devices) * infer_workers_per_gpu
+
+
+    p = pipeline_manager(monitor_type='console')
+    model = load_pipeline_model(args.model, override_batch_size=args.batch_size)
+    drab_volcano_legend = False
+    if model.name == 'drab volcano':
+        log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')
+        drab_volcano_legend = True
+    
+    input_stream = parameter_data_stream(args.data)
+
+    # Data Loading and preprocessing
+    load_step = p.add_step(func=pipeline_steps.load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
+    # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
+    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), args.max_legends, drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
+
+    if args.feedback:
+        legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
+    # Segmentation Inference
+    infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
+    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
+    # Save Output
+    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.cdr_system, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
+    # Validation
+    if args.validation: 
+        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
+
+    return p, input_stream, save_step.output()
+
+def construct_amqp_pipeline(args):
     from src.pipeline_manager import pipeline_manager
     from src.pipeline_communication import parameter_data_stream
     import src.pipeline_steps as pipeline_steps
@@ -327,11 +367,7 @@ def construct_pipeline(args, amqp_mode=True):
     infer_workers = len(devices) * infer_workers_per_gpu
 
     # For amqp we just want to write to file.
-    if amqp_mode:
-        p = pipeline_manager(monitor_type='file')
-    else:
-        p = pipeline_manager(monitor_type='console')
-
+    p = pipeline_manager(monitor_type='file')
     model = load_pipeline_model(args.model, override_batch_size=args.batch_size)
     drab_volcano_legend = False
     if model.name == 'drab volcano':
@@ -339,13 +375,10 @@ def construct_pipeline(args, amqp_mode=True):
         drab_volcano_legend = True
     
     # For amqp we don't fill the stream with the args data field
-    if amqp_mode:
-        input_stream = parameter_data_stream()
-    else:
-        input_stream = parameter_data_stream(args.data)
+    input_stream = parameter_data_stream()
 
     # Data Loading and preprocessing
-    load_step = p.add_step(func=pipeline_steps.load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
+    load_step = p.add_step(func=pipeline_steps.amqp_load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
     legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), args.max_legends, drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
 
@@ -401,7 +434,7 @@ def run_in_amqp_mode(args):
 
     # Create Pipeline
     log.info('Constructing pipeline')
-    pipeline, input_stream, output_stream = construct_pipeline(args, amqp_mode=False)
+    pipeline, input_stream, output_stream = construct_amqp_pipeline(args)
     if args.inactive_timeout:
         pipeline.set_inactivity_timeout(args.inactive_timeout)
     pipeline.start() # Non blocking
@@ -425,7 +458,8 @@ def run_in_amqp_mode(args):
                     map_name = os.path.splitext(os.path.basename(filename))[0]
                     log.debug(f'RabbitMQ - {map_name} - Recieved cog')
                     active_maps[map_name] = {'method':method, 'properties':properties, 'data':data} # Keep track of maps we are working on.
-                    input_stream.append(filename)
+                    input_data = (data['cog_id'], filename)
+                    input_stream.append(input_data)
 
                 # An error occured : Send to error queue and acknowledge message is complete
                 if not pipeline.error_stream.empty():

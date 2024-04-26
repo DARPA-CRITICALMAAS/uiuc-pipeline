@@ -30,6 +30,30 @@ def load_data(data_id, image_path:str, legend_dir:str=None, layout_dir:str=None)
     pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
     return map_data
 
+def amqp_load_data(data_id, cog_image_tuple, legend_dir:str=None, layout_dir:str=None):
+    """Wrapper with a custom display for the monitor"""
+    cog_id, image_path = cog_image_tuple
+    map_name = os.path.splitext(os.path.basename(image_path))[0]
+    pipeline_manager.log(logging.DEBUG, f'{map_name} - Started processing', pid=mp.current_process().pid)
+    if len(map_name) > 50:
+        pipeline_manager.log_to_monitor(data_id, {'Name' : map_name[:24] + '...' + map_name[-24:]})
+    else:
+        pipeline_manager.log_to_monitor(data_id, {'Name': map_name})
+    legend_path = None
+    layout_path = None
+    if legend_dir:
+        legend_path = os.path.join(legend_dir, map_name + '.json')
+        if not os.path.exists(legend_path):
+            legend_path = None
+    if layout_dir:
+        layout_path = os.path.join(layout_dir, map_name + '.json')
+        if not os.path.exists(layout_path):
+            layout_path = None
+    map_data = io.loadCMAASMapFromFiles(image_path, legend_path, layout_path)
+    map_data.cog_id = cog_id
+    pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
+    return map_data
+
 def gen_layout(data_id, map_data:CMAAS_Map):
     # Generate layout if not precomputed
     if map_data.layout is None:
