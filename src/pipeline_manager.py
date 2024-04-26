@@ -303,7 +303,7 @@ def _start_worker(step:pipeline_step, log_stream:mp.Queue, management_stream:mp.
             log_stream.put(msg)
 
 class pipeline_manager():
-    def __new__(cls): # Singleton Pattern
+    def __new__(cls, **kwargs): # Singleton Pattern
         if not hasattr(cls, 'instance'):
             cls.instance = super(pipeline_manager, cls).__new__(cls)
         return cls.instance

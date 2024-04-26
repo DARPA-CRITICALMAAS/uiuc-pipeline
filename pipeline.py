@@ -207,11 +207,11 @@ def parse_command_line():
                         help='The maxium number of map units allowable in a single map. Default is 300')
     optional_args.add_argument('--cdr_system',
                         type=str,
-                        default='UIUC',
+                        default=os.getenv("CDR_SYSTEM", "UIUC"),
                         help='The system that will be used to generate cdrs. Default is cdr')
     optional_args.add_argument('--cdr_system_version',
                         type=str,
-                        default='0.3.0',
+                        default=os.getenv("CDR_SYSTEM_VERSION", "0.3.0"),
                         help='The version of the cdr system that will be used to generate cdrs. Default is 1.0')
     
     # Flags
