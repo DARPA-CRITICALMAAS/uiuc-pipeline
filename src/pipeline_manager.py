@@ -255,6 +255,7 @@ class pipeline_manager():
         mpm = mp.Manager()
         self._log_stream = mpm.Queue()
         self._management_stream = mpm.Queue()
+        self.error_stream = mpm.Queue() # This is purely for provided a way for users to get error 
 
     def next_step_id(self):
         return len(self.steps)
@@ -336,6 +337,11 @@ class pipeline_manager():
                 record = self._log_stream.get()
                 if record.log_level is not None and record.message is not None:
                     log.log(record.log_level, record.message)
+
+                # Pass onto user error stream
+                if record.log_level == worker_status.ERROR and record.message is not None:
+                    if not self._error_stream.full(): # if a user is not pulling them out, just ignore them so that it doesn't block. 
+                        self._error_stream.put(record)
                 
                 # Update monitor table
                 _monitor.update_data(record)

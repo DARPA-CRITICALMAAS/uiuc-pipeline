@@ -411,6 +411,23 @@ def run_in_amqp_mode(args):
                     active_maps[map_name] = {'method':method, 'properties':properties, 'data':data} # Keep track of maps we are working on.
                     input_stream.append(filename)
 
+                # An error occured : Send to error queue and acknowledge message is complete
+                if not pipeline.error_stream.empty():
+                    activity = True
+                    error_msg = pipeline.error_stream.get() # This is a worker_status_message
+                    # Unforantely worker_status messages identity by internal pipeline ids to identify data, so we have to get the map name by parsing the message.
+                    map_name = None
+                    for label in active_maps.keys():
+                        if label in error_msg.message:
+                            map_name = label
+                            break
+                    if map_name is not None:
+                        log.debug(f'RabbitMQ - {map_name} - Error occured, sending to error queue')
+                        map_handle = active_maps.pop(map_name)
+                        map_handle['data']['exception'] = error_msg.message
+                        channel.basic_publish(exchange='', routing_key=ERROR_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
+                        channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
+
                 # Map Finished processing : Send to upload queue and acknowledge message is complete
                 if not output_stream.empty():
                     activity = True
