@@ -1,12 +1,6 @@
 [submodule "golden-muscat"]
 	path = submodules/models/golden_muscat
 	url = https://github.com/xiyuez2/Darpa_Unet
-[submodule "legend-extraction"]
-	path = submodules/legend_extraction
-	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-legend-extraction.git
-[submodule "ta1-validation"]
-	path = submodules/validation
-	url = git@git.ncsa.illinois.edu:criticalmaas/ta1-validation.git
 [submodule "submodules/models/rigid_wasabi"]
 	path = submodules/models/rigid_wasabi
 	url = https://github.com/xiyuez2/Darpa_Unet.git
