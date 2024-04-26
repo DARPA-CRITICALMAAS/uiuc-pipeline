@@ -10,3 +10,9 @@
 [submodule "submodules/models/drab_volcano"]
 	path = submodules/models/drab_volcano
 	url = https://github.com/Dongjiahua/DARPA_torch.git
+[submodule "submodules/legend_extraction"]
+	path = submodules/legend_extraction
+	url = https://github.com/DARPA-CRITICALMAAS/uiuc-legend-extraction
+[submodule "submodules/validation"]
+	path = submodules/validation
+	url = https://github.com/DARPA-CRITICALMAAS/uiuc-validation
