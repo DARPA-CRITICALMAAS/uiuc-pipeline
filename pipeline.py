@@ -303,7 +303,7 @@ def run_in_local_mode(args):
         exit(1)
     return 
 
-def construct_pipeline(args, populate_data=True):
+def construct_pipeline(args, amqp_mode=True):
     from src.pipeline_manager import pipeline_manager
     from src.pipeline_communication import parameter_data_stream
     import src.pipeline_steps as pipeline_steps
@@ -315,7 +315,12 @@ def construct_pipeline(args, populate_data=True):
         devices = [i for i in range(device_count())]
     infer_workers = len(devices) * infer_workers_per_gpu
 
-    p = pipeline_manager()
+    # For amqp we just want to write to file.
+    if amqp_mode:
+        p = pipeline_manager(monitor_type='file')
+    else:
+        p = pipeline_manager(monitor_type='console')
+
     model = load_pipeline_model(args.model, override_batch_size=args.batch_size)
     drab_volcano_legend = False
     if model.name == 'drab volcano':
@@ -323,10 +328,10 @@ def construct_pipeline(args, populate_data=True):
         drab_volcano_legend = True
     
     # For amqp we don't fill the stream with the args data field
-    if populate_data:
-        input_stream = parameter_data_stream(args.data)
-    else:
+    if amqp_mode:
         input_stream = parameter_data_stream()
+    else:
+        input_stream = parameter_data_stream(args.data)
 
     # Data Loading and preprocessing
     load_step = p.add_step(func=pipeline_steps.load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
@@ -385,7 +390,7 @@ def run_in_amqp_mode(args):
 
     # Create Pipeline
     log.info('Constructing pipeline')
-    pipeline, input_stream, output_stream = construct_pipeline(args, populate_data=False)
+    pipeline, input_stream, output_stream = construct_pipeline(args, amqp_mode=False)
     if args.inactive_timeout:
         pipeline.set_inactivity_timeout(args.inactive_timeout)
     pipeline.start() # Non blocking

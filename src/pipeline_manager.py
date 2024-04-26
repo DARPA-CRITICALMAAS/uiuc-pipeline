@@ -32,6 +32,70 @@ class pipeline_step():
         self._output_subscribers.append(output_stream)
         return output_stream
 
+class file_monitor():
+    def __init__(self, title='Pipeline Monitor', timeout=1):
+        self.title = title
+        self.timeout = timeout
+        self.completed_items = []
+        
+        self._final_step = None
+        self._data_df = pd.DataFrame(columns=['id', 'step', 'processing_time', 'last_update'])
+        self._step_name_lookup = {None : 'Waiting in queue', 'FINISHED' : 'Done processing', 'ERROR': 'ERROR'}
+
+    def active(self):
+        # Stop pipeline being marked as inactive at startup
+        if len(self._data_df) == 0:
+            return True
+        for entry in self._data_df['step']:
+            for status in entry:
+                if status not in ['FINISHED', 'ERROR']:
+                    return True
+        return False
+
+    def add_step(self, id, name):
+        self._step_name_lookup[str(id)] = name
+        self._final_step = id
+
+    def update_data(self, record:worker_status_message) -> pd.DataFrame:
+        df = self._data_df
+        # Get entry for existing data  
+        if record.data_id in df['id'].values:
+            irow = df[df['id'] == record.data_id].index[0]
+        else:
+            irow = None
+
+        # Don't updated finished items
+        # if irow is not None and df.at[irow, 'step'] == ['FINISHED']:
+        #     return
+
+        if record.status == worker_status.STARTED_PROCESSING:
+            if irow is not None:
+                df.at[irow, 'step'].append(str(record.step_id))
+                df.at[irow, 'last_update'] = time()
+            if record.data_id not in df['id'].values:
+                df.loc[len(df)] = {'id': record.data_id, 'step': [str(record.step_id)], 'processing_time': 0.0, 'last_update': time()}
+        
+        elif record.status == worker_status.COMPLETED_PROCESSING:
+            df.at[irow, 'step'].remove(str(record.step_id))
+            if record.step_id == self._final_step: # Last step
+                df.at[irow, 'step'].append('FINISHED')
+                self.completed_items.append(record.data_id)
+
+        elif record.status == worker_status.ERROR:
+            df.at[irow, 'step'] = ['ERROR']
+        
+        elif record.status == worker_status.USER_MESSAGE:
+            if type(record.message) == dict:
+                for key, value in record.message.items():
+                    if key not in df.columns: # If column does not exist, add it
+                        df.insert(self._user_col, key, [None for _ in range(len(df))])
+                        self._user_col += 1
+                    irow = df[df['id'] == record.data_id].index[0]
+                    df.at[irow, key] = value
+
+        df.replace(np.nan, '', inplace=True)
+        self._data_df = df
+    
 
 class console_monitor():
     def __init__(self, title='Pipeline Monitor', timeout=1, refesh=0.25, max_lines=20):
@@ -244,13 +308,18 @@ class pipeline_manager():
             cls.instance = super(pipeline_manager, cls).__new__(cls)
         return cls.instance
     
-    def __init__(self, max_processes=mp.cpu_count()):
+    def __init__(self, max_processes=mp.cpu_count(), monitor_type='console'):
+        if monitor_type not in ['console', 'file']:
+            raise Exception(f'Invalid monitor type {monitor_type}. Must be one of [console, file]')
         self.steps = []
         self.step_dict = {}
         self.max_processes = max_processes
         self._workers = []
         self._running = False
-        self._monitor = console_monitor()
+        if monitor_type == 'console':
+            self._monitor = console_monitor()
+        if monitor_type == 'file':
+            self._monitor = file_monitor()
 
         mpm = mp.Manager()
         self._log_stream = mpm.Queue()
@@ -316,8 +385,42 @@ class pipeline_manager():
 
     def monitor(self):
         _monitor = self._monitor
-        with Live(_monitor.generate_table(), refresh_per_second=(1/_monitor.refesh)) as live:
-            logging_handler = swap_console_handler(log, RichHandler(live))
+
+        # Console monitor
+        if isinstance(_monitor, console_monitor):
+            with Live(_monitor.generate_table(), refresh_per_second=(1/_monitor.refesh)) as live:
+                logging_handler = swap_console_handler(log, RichHandler(live))
+                last_activity = time()
+                while self._running:
+                    # Check if there is any in progress maps
+                    if _monitor.active():
+                        last_activity = time()
+                    if time() - last_activity > _monitor.timeout:
+                        break
+
+                    # Sleep while no new messages are available
+                    if self._log_stream.empty():
+                        live.update(_monitor.generate_table())
+                        # log.warning(_monitor._data_df)
+                        sleep(_monitor.refesh)
+                        continue
+
+                    # Retieve worker messages
+                    record = self._log_stream.get()
+                    if record.log_level is not None and record.message is not None:
+                        log.log(record.log_level, record.message)
+
+                    # Pass onto user error stream
+                    if record.log_level == worker_status.ERROR and record.message is not None:
+                        if not self._error_stream.full(): # if a user is not pulling them out, just ignore them so that it doesn't block. 
+                            self._error_stream.put(record)
+                    
+                    # Update monitor table
+                    _monitor.update_data(record)
+                    live.update(_monitor.generate_table())
+                swap_console_handler(log, logging_handler)
+        # File monitor
+        elif isinstance(_monitor, file_monitor):
             last_activity = time()
             while self._running:
                 # Check if there is any in progress maps
@@ -328,8 +431,6 @@ class pipeline_manager():
 
                 # Sleep while no new messages are available
                 if self._log_stream.empty():
-                    live.update(_monitor.generate_table())
-                    # log.warning(_monitor._data_df)
                     sleep(_monitor.refesh)
                     continue
 
@@ -345,8 +446,10 @@ class pipeline_manager():
                 
                 # Update monitor table
                 _monitor.update_data(record)
-                live.update(_monitor.generate_table())
-            swap_console_handler(log, logging_handler)
+        # Shouldn't ever happen
+        else:
+            msg = 'No monitor attached to pipeline manager. Cannot start monitor'
+            raise Exception(msg)
 
         # Stop pipeline when done
         log.info(f'Pipeline Manager has detected that there are no more maps to process. No updates in the last {_monitor.timeout} seconds')
