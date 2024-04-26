@@ -195,7 +195,7 @@ def parse_command_line():
     optional_args.add_argument('--gpu',
                        type=parse_gpu,
                        default=None,
-                       help='Flag to target using a specific device for inference, NOTE this is NOT the number of GPUs that will be used but rather which one to use')
+                       help='Option to target a specific device for inference, when not present pipeline will use all available gpus. NOTE this is NOT the number of GPUs that will be used but rather which one to use')
     # Flags
     flag_group = parser.add_argument_group('Flags', '')
     flag_group.add_argument('-h', '--help',

@@ -3,7 +3,7 @@ import numpy as np
 import cmaas_utils.io as io
 import cmaas_utils.cdr as cdr
 from cmaas_utils.types import CMAAS_Map, MapUnitType, Provenance
-from src.utils import boundingBox
+from src.utils import boundingBox, sanitize_filename
 from src.pipeline_manager import pipeline_manager
 from time import time
 import multiprocessing as mp
@@ -68,6 +68,10 @@ def gen_legend(data_id, map_data:CMAAS_Map, drab_volcano_legend:bool=False):
         if feature.type == MapUnitType.UNKNOWN:
             un += 1
 
+    # TMP solution for maps with too many features (most likely from bad legend extraction)
+    if len(map_data.legend.features) > 300:
+        raise Exception(f'{map_data.name} - Too many features found in legend. Found {len(map_data.legend.features)} features. Max is 300')
+
     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Found {len(map_data.legend.features)} Total map units. ({pt} pt, {ln} ln, {py} poly, {un} unknown)', pid=mp.current_process().pid)
     pipeline_manager.log_to_monitor(data_id, {'Map Units': len(map_data.legend.features)})
     
@@ -86,7 +90,7 @@ def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_m
     # Save preview of legend labels
     if len(legend_images) > 0:
         if legend_feedback_mode == 'individual_images':
-            legend_save_path = os.path.join(feedback_dir, map_data.name, 'lgd_' + map_data.name + '_' + feature.label + '.tif')
+            legend_save_path = sanitize_filename(os.path.join(feedback_dir, map_data.name, 'lgd_' + map_data.name + '_' + feature.label + '.tif'))
             io.saveGeoTiff(legend_save_path, legend_images[feature.label], None, None)
         if legend_feedback_mode == 'single_image':
             cols = 4
@@ -99,7 +103,7 @@ def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_m
                 row, col  = floor(i/cols), i%cols
                 ax[row][col].set_title(label)
                 ax[row][col].imshow(legend_images[label].transpose(1,2,0))
-            legend_save_path = os.path.join(feedback_dir, map_data.name, map_data.name + '_labels'  + '.png')
+            legend_save_path = sanitize_filename(os.path.join(feedback_dir, map_data.name, map_data.name + '_labels'  + '.png'))
             fig.savefig(legend_save_path)
             plt.close(fig)
         # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved legend preview to "{legend_save_path}"', pid=mp.current_process().pid)
@@ -178,12 +182,12 @@ import matplotlib.pyplot as plt
 def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
     # Save CDR schema
     cdr_schema = cdr.exportMapToCDR(map_data)
-    cdr_filename = os.path.join(output_dir, f'{map_data.name}_cdr.json')
+    cdr_filename = sanitize_filename(os.path.join(output_dir, f'{map_data.name}_cdr.json'))
     io.saveCDRFeatureResults(cdr_filename, cdr_schema)
     # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
 
     # Save GeoPackage
-    gpkg_filename = os.path.join(output_dir, f'{map_data.name}.gpkg')
+    gpkg_filename = sanitize_filename(os.path.join(output_dir, f'{map_data.name}.gpkg'))
     coord_type = 'pixel'
     if map_data.georef is not None:
         if map_data.georef.crs is not None and map_data.georef.transform is not None:

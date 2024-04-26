@@ -4,7 +4,6 @@ rasterio>=1.3.9
 geopandas
 --extra-index-url https://test.pypi.org/simple/
 cmaas_utils>=0.1.6
-rich>13.0
 
 # AMQP
 pika
@@ -33,7 +32,7 @@ nvtx
 nvitop
 pipdeptree
 tqdm
-rich
+rich>13.0
 matplotlib
 
 ### Submodule Dependencies

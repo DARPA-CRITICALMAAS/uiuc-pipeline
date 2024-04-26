@@ -1,6 +1,8 @@
+import re
 import os
 import sys
 import logging
+import numpy as np
 from rich.progress import Progress
 
 # ANSI Escape Codes
@@ -93,9 +95,11 @@ def swap_console_handler(log, handler):
     log.handlers[1] = handler
     return orig_handler
 
-import numpy as np
 def boundingBox(array):
     array = np.array(array).astype(int)
     min_xy = [min(array, key=lambda x: (x[0]))[0], min(array, key=lambda x: (x[1]))[1]]
     max_xy = [max(array, key=lambda x: (x[0]))[0], max(array, key=lambda x: (x[1]))[1]]
     return [min_xy, max_xy]
+
+def sanitize_filename(filename):
+    return re.sub(r'[/\\?%*:|\"<>\x7F\x00-\x1F]', '-', filename).strip().replace(' ', '_')
