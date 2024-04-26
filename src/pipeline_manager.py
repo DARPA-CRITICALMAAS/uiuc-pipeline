@@ -33,11 +33,13 @@ class pipeline_step():
         return output_stream
 
 class file_monitor():
-    def __init__(self, title='Pipeline Monitor', timeout=1):
+    def __init__(self, title='Pipeline Monitor', refesh=0.25, timeout=1):
         self.title = title
         self.timeout = timeout
+        self.refesh = refesh
         self.completed_items = []
         
+        self._user_col = 2
         self._final_step = None
         self._data_df = pd.DataFrame(columns=['id', 'step', 'processing_time', 'last_update'])
         self._step_name_lookup = {None : 'Waiting in queue', 'FINISHED' : 'Done processing', 'ERROR': 'ERROR'}
@@ -308,18 +310,13 @@ class pipeline_manager():
             cls.instance = super(pipeline_manager, cls).__new__(cls)
         return cls.instance
     
-    def __init__(self, max_processes=mp.cpu_count(), monitor_type='console'):
-        if monitor_type not in ['console', 'file']:
-            raise Exception(f'Invalid monitor type {monitor_type}. Must be one of [console, file]')
+    def __init__(self, max_processes=mp.cpu_count(), monitor=console_monitor()):
         self.steps = []
         self.step_dict = {}
         self.max_processes = max_processes
         self._workers = []
         self._running = False
-        if monitor_type == 'console':
-            self._monitor = console_monitor()
-        if monitor_type == 'file':
-            self._monitor = file_monitor()
+        self._monitor = monitor
 
         mpm = mp.Manager()
         self._log_stream = mpm.Queue()

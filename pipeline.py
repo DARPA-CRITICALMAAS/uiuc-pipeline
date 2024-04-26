@@ -13,7 +13,7 @@ from cmaas_utils.logging import start_logger
 RABBITMQ_QUEUE_PREFIX = 'process_'
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.DEBUG
-STREAM_LOG_LEVEL = logging.WARNING
+STREAM_LOG_LEVEL = logging.INFO
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
 
 AVAILABLE_MODELS = [
@@ -242,7 +242,7 @@ def main():
     if args.verbose:
         global FILE_LOG_LEVEL, STREAM_LOG_LEVEL
         FILE_LOG_LEVEL = logging.DEBUG
-        STREAM_LOG_LEVEL = logging.INFO
+        STREAM_LOG_LEVEL = logging.DEBUG
     global log
     log = start_logger(LOGGER_NAME, args.log, log_level=FILE_LOG_LEVEL, console_log_level=STREAM_LOG_LEVEL)
 
@@ -327,7 +327,7 @@ def construct_pipeline(args):
     infer_workers = len(devices) * infer_workers_per_gpu
 
 
-    p = pipeline_manager(monitor_type='console')
+    p = pipeline_manager()
     model = load_pipeline_model(args.model, override_batch_size=args.batch_size)
     drab_volcano_legend = False
     if model.name == 'drab volcano':
@@ -355,7 +355,7 @@ def construct_pipeline(args):
     return p, input_stream, save_step.output()
 
 def construct_amqp_pipeline(args):
-    from src.pipeline_manager import pipeline_manager
+    from src.pipeline_manager import pipeline_manager, file_monitor
     from src.pipeline_communication import parameter_data_stream
     import src.pipeline_steps as pipeline_steps
 
@@ -367,7 +367,7 @@ def construct_amqp_pipeline(args):
     infer_workers = len(devices) * infer_workers_per_gpu
 
     # For amqp we just want to write to file.
-    p = pipeline_manager(monitor_type='file')
+    p = pipeline_manager(monitor=file_monitor())
     model = load_pipeline_model(args.model, override_batch_size=args.batch_size)
     drab_volcano_legend = False
     if model.name == 'drab volcano':
@@ -378,7 +378,7 @@ def construct_amqp_pipeline(args):
     input_stream = parameter_data_stream()
 
     # Data Loading and preprocessing
-    load_step = p.add_step(func=pipeline_steps.amqp_load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
+    load_step = p.add_step(func=pipeline_steps.amqp_load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
     legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), args.max_legends, drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
 
