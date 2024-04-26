@@ -73,6 +73,7 @@ class drab_volcano_model(pipeline_pytorch_model):
         map_patches = np.transpose(map_patches, (0, 2, 3, 1))
 
         # pipeline_manager.log(logging.DEBUG, f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
+
         # Perform Inference in batches
         prediction_patches = []
         with torch.no_grad():

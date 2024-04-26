@@ -15,6 +15,7 @@ from src.pipeline_communication import data_message, worker_status_message, work
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
+
 class pipeline_step():
     def __init__(self, id, func, args, display='', workers=1, max_output_size=4):
         self.id = id
@@ -165,6 +166,7 @@ class console_monitor():
 
         return table
     
+    
 def _start_worker(step:pipeline_step, log_stream:mp.Queue, management_stream:mp.Queue):
     def work_ready(args):
         for arg in args:
@@ -234,7 +236,6 @@ def _start_worker(step:pipeline_step, log_stream:mp.Queue, management_stream:mp.
             # Just Log errors
             msg = worker_status_message(pid, step.id, arg_data.id, worker_status.ERROR, log_level=logging.ERROR, message=f'Process {pid} - Error in step {step.name} on {arg_data.id} : {e}\n{traceback.format_exc()}')
             log_stream.put(msg)
-
 
 class pipeline_manager():
     def __new__(cls): # Singleton Pattern
@@ -361,7 +362,6 @@ class pipeline_manager():
             record = self._log_stream.get()
             if record.log_level is not None and record.message is not None:
                 log.log(record.log_level, record.message)
-
 
 
     def log_to_monitor(data_id, dict):

@@ -9,12 +9,12 @@ import multiprocessing as mp
 from time import time
 from cmaas_utils.logging import start_logger
 
+
 RABBITMQ_QUEUE_PREFIX = 'process_'
 LOGGER_NAME = 'DARPA_CMAAS_PIPELINE'
 FILE_LOG_LEVEL = logging.DEBUG
 STREAM_LOG_LEVEL = logging.WARNING
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # tf log level, 2 is error only
-
 
 AVAILABLE_MODELS = [
     'golden_muscat',
@@ -52,8 +52,9 @@ def load_pipeline_model(model_name : str, override_batch_size=None) -> pipeline_
     model.load_model()
     if override_batch_size:
         model.batch_size = override_batch_size
+
     log.info(f'Model loaded in {time()-model_stime:.2f} seconds')
-    return model 
+    return model
 
 def parse_command_line():
     """Runs Command line argument parser for pipeline. Exit program on bad arguments. Returns struct of arguments"""
@@ -70,7 +71,7 @@ def parse_command_line():
             msg = f'Invalid path "{path}" specified : Path is not a directory\n'
             raise argparse.ArgumentTypeError(msg)
         return path
-    
+
     def parse_data(path: str) -> List[str]:
         """Command line argument parser for --data. --data should accept a list of file and/or directory paths as an
            input. This function is called on each individual element of that list and checks if the path is valid."""
@@ -95,7 +96,7 @@ def parse_command_line():
                     and/or directory(s) containing the data to perform inference on. program will only run on .tif files'
             raise argparse.ArgumentTypeError(msg)
         return data_files
-    
+
     def parse_model(model_name : str) -> str:
         """Command line arugment parse for --model. Case insensitive, accepts any valid model name. Returns lowercase
            model name"""
@@ -130,12 +131,13 @@ def parse_command_line():
             msg = f'Invalid scheme "{parts.scheme}" specified. Scheme must be either "amqp" or "amqps"'
             raise argparse.ArgumentTypeError(msg)
         return s
-    
+
     parser = argparse.ArgumentParser(description='', add_help=False)
     # Required Arguments
     required_args = parser.add_argument_group('required arguments', 'These are the arguments the pipeline requires to \
                                                run, --amqp and --data are used to specify what data source to use and \
                                                are mutually exclusive.')
+
     required_args.add_argument('--data', 
                         type=parse_data,
                         required=True,
@@ -150,7 +152,7 @@ def parse_command_line():
     required_args.add_argument('--output',
                         required=True,
                         help='Directory to write the outputs of inference to')
-    
+
     # Optional Arguments
     optional_args = parser.add_argument_group('optional arguments', '')
     optional_args.add_argument('--legends',
@@ -169,7 +171,7 @@ def parse_command_line():
                         default=None,
                         help='Optional directory containing the true raster segmentations. If option is provided, the \
                               pipeline will perform the validation step (Scoring the results of predictions) with this \
-                              data.')    
+                              data.')
     optional_args.add_argument('--feedback',
                         default=None,
                         help='Optional directory to save debugging feedback on the pipeline. This will decrease \
@@ -197,12 +199,12 @@ def parse_command_line():
     # Flags
     flag_group = parser.add_argument_group('Flags', '')
     flag_group.add_argument('-h', '--help',
-                            action='help', 
+                            action='help',
                             help='show this message and exit')
     flag_group.add_argument('-v', '--verbose',
                             action='store_true',
                             help='Flag to change the logging level from INFO to DEBUG')
-    
+
     args = parser.parse_args()
     if args.amqp:
         if len(args.data) > 1:
