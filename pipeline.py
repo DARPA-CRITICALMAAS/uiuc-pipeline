@@ -281,8 +281,8 @@ def run_in_local_mode(args):
     remaining_maps = copy.deepcopy(args.data)
     completed_maps = []
     try:
-        pipeline, input_stream, _ = construct_pipeline(args)
-        pipeline.set_inactivity_timeout(1)
+        pipeline, _, _ = construct_pipeline(args)
+        pipeline.set_inactivity_timeout(3)
         pipeline.start()
         pipeline.monitor()
     except:

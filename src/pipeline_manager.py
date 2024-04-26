@@ -226,12 +226,12 @@ def _start_worker(step:pipeline_step, log_stream:mp.Queue, management_stream:mp.
 
             result = step.func(arg_data.id, *func_args)
 
-            msg = worker_status_message(pid, step.id, arg_data.id, worker_status.COMPLETED_PROCESSING, log_level=None, message=f'Process {pid} - Completed {step.name} : {arg_data.id}')
-            log_stream.put(msg) 
-
             # Send data to subscribers
             for subscriber in step._output_subscribers:
                 subscriber.append(result, id=arg_data.id)
+
+            msg = worker_status_message(pid, step.id, arg_data.id, worker_status.COMPLETED_PROCESSING, log_level=None, message=f'Process {pid} - Completed {step.name} : {arg_data.id}')
+            log_stream.put(msg) 
 
         except Exception as e:
             # Just Log errors
