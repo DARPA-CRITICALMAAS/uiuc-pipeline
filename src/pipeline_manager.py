@@ -7,7 +7,6 @@ import multiprocessing as mp
 from rich import box
 from rich.live import Live
 from rich.table import Table
-from typing import List
 from time import time, sleep
 
 from src.utils import RichHandler, swap_console_handler
