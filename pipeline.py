@@ -181,29 +181,39 @@ def parse_command_line():
                         default=None,
                         help='Url to use to connect to a amqp data stream. When this option is provided the pipeline \
                               will run in amqp mode which will expect data filenames to be sent to it via the amqp stream.')
-    optional_args.add_argument('--inactive_timeout',
-                        type=float,
-                        default=None,
-                        help='Number of seconds to wait for new messages before exiting amqp mode.')
     optional_args.add_argument('--amqp_max_maps',
                         type=int,
                         default=5,
                         help='The maximun number of maps per available gpu that will be taken from the RabbitMQ queue at a time. Default is 5')
-    optional_args.add_argument('--max_legends',
-                        type=int,
-                        default=300,
-                        help='The maxium number of map units allowable in a single map. Default is 300')
-    optional_args.add_argument('--batch_size',
-                        type=int,
+    optional_args.add_argument('--inactive_timeout',
+                        type=float,
                         default=None,
-                        help='Option to override the models default batch_size')
-    optional_args.add_argument('--log',
-                        default='logs/Latest.log',
-                        help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
+                        help='Number of seconds to wait for new messages before exiting amqp mode.')
     optional_args.add_argument('--gpu',
                        type=parse_gpu,
                        default=None,
                        help='Option to target a specific device for inference, when not present pipeline will use all available gpus. NOTE this is NOT the number of GPUs that will be used but rather which one to use')
+    optional_args.add_argument('--log',
+                        default='logs/Latest.log',
+                        help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
+    # These should be moved to config file eventually
+    optional_args.add_argument('--batch_size',
+                        type=int,
+                        default=None,
+                        help='Option to override the models default batch_size')
+    optional_args.add_argument('--max_legends',
+                        type=int,
+                        default=300,
+                        help='The maxium number of map units allowable in a single map. Default is 300')
+    optional_args.add_argument('--cdr_system',
+                        type=str,
+                        default='UIUC',
+                        help='The system that will be used to generate cdrs. Default is cdr')
+    optional_args.add_argument('--cdr_system_version',
+                        type=str,
+                        default='0.3.0',
+                        help='The version of the cdr system that will be used to generate cdrs. Default is 1.0')
+    
     # Flags
     flag_group = parser.add_argument_group('Flags', '')
     flag_group.add_argument('-h', '--help',
@@ -247,7 +257,8 @@ def main():
     param_msg += f'\tData         : {args.data}\n'
     if args.amqp:
         param_msg += f'\tAMQP         : {args.amqp}\n'
-        param_msg += f'\tIdle Timeout : {args.amqp_timeout}\n'
+        param_msg += f'\tAMQP Max Maps: {args.amqp_max_maps}\n'
+        param_msg += f'\tAMQP Timeout : {args.inactive_timeout}\n'
     param_msg += f'\tLegends      : {args.legends}\n'
     param_msg += f'\tLayout       : {args.layouts}\n'
     param_msg += f'\tValidation   : {args.validation}\n'
@@ -344,7 +355,7 @@ def construct_pipeline(args, amqp_mode=True):
     infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
     geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
     # Save Output
-    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback), display='Saving Output', workers=infer_workers*2)
+    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.cdr_system, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
     # Validation
     if args.validation: 
         valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)

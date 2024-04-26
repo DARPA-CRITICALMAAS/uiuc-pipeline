@@ -179,9 +179,9 @@ def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
 import os
 from math import ceil, floor
 import matplotlib.pyplot as plt
-def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir):
+def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, system, system_version):
     # Save CDR schema
-    cdr_schema = cdr.exportMapToCDR(map_data)
+    cdr_schema = cdr.exportMapToCDR(map_data, system=system, system_version=system_version)
     cdr_filename = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_cdr.json'))
     io.saveCDRFeatureResults(cdr_filename, cdr_schema)
     # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
