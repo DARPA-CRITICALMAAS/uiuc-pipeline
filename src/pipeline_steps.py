@@ -203,6 +203,11 @@ def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
 import os
 from math import ceil, floor
 import matplotlib.pyplot as plt
+def amqp_save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, system, system_version):
+    """Wrapper for amqp to return the filename when done"""
+    save_output(data_id, map_data, output_dir, feedback_dir, system, system_version)
+    return map_data.name 
+
 def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, system, system_version):
     # Save CDR schema
     cdr_schema = cdr.exportMapToCDR(map_data, system=system, system_version=system_version)
@@ -231,7 +236,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, system, 
     #     filepath = os.path.join(output_dir, f'{map_data.name}_{feature.label}.tif')
     #     io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
     #     legend_index += 1
-    return map_data.name
+    return
 
 import pandas as pd
 from submodules.validation.src.grading import grade_poly_raster, usgs_grade_poly_raster, usgs_grade_pt_raster   
