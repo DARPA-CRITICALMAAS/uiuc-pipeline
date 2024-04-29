@@ -203,34 +203,35 @@ def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
 import os
 from math import ceil, floor
 import matplotlib.pyplot as plt
-def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, system, system_version):
+def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_types, system, system_version):
     # Save CDR schema
-    cdr_schema = cdr.exportMapToCDR(map_data, system=system, system_version=system_version)
-    cdr_filename = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_cdr.json'))
-    io.saveCDRFeatureResults(cdr_filename, cdr_schema)
-    # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
+    if 'cdr_json' in output_types:
+        cdr_schema = cdr.exportMapToCDR(map_data, system=system, system_version=system_version)
+        cdr_filename = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_cdr.json'))
+        io.saveCDRFeatureResults(cdr_filename, cdr_schema)
+        # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
 
     # Save GeoPackage
-    gpkg_filename = os.path.join(output_dir, sanitize_filename(f'{map_data.name}.gpkg'))
-    coord_type = 'pixel'
-    if map_data.georef is not None:
-        if map_data.georef.crs is not None and map_data.georef.transform is not None:
-            coord_type = 'georeferenced'
-    
-    #saveGeoPackage(gpkg_filename, map_data, coord_type)
-    for feature in map_data.legend.features:
-        feature.label = sanitize_filename(feature.label) # Need to sanitize feature names before saving geopackage
-    io.saveGeoPackage(gpkg_filename, map_data, coord_type)
-    # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
+    if 'geopackage' in output_types:
+        gpkg_filename = os.path.join(output_dir, sanitize_filename(f'{map_data.name}.gpkg'))
+        coord_type = 'pixel'
+        if map_data.georef is not None:
+            if map_data.georef.crs is not None and map_data.georef.transform is not None:
+                coord_type = 'georeferenced'
+        for feature in map_data.legend.features:
+            feature.label = sanitize_filename(feature.label) # Need to sanitize feature names before saving geopackage
+        io.saveGeoPackage(gpkg_filename, map_data, coord_type)
+        # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
 
     # Save Raster masks
-    # legend_index = 1
-    # for feature in map_data.legend.features:
-    #     feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
-    #     feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
-    #     filepath = os.path.join(output_dir, f'{map_data.name}_{feature.label}.tif')
-    #     io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
-    #     legend_index += 1
+    if 'raster_masks' in output_types:
+        legend_index = 1
+        for feature in map_data.legend.features:
+            feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
+            feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
+            filepath = os.path.join(output_dir, f'{map_data.name}_{feature.label}.tif')
+            io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
+            legend_index += 1
     return map_data.name
 
 import pandas as pd

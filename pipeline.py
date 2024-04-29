@@ -131,6 +131,19 @@ def parse_command_line():
             msg = f'Invalid scheme "{parts.scheme}" specified. Scheme must be either "amqp" or "amqps"'
             raise argparse.ArgumentTypeError(msg)
         return s
+    
+    def post_parse_output_types(data : List[str]) -> List[str]:
+        """Command line argument parser for --output_types. This function is called on the list of output types and
+           checks if they are valid. Returns a list of valid output types. Raises an argument exception if no valid output
+           types were given"""
+        valid_output_types = ['none', 'cdr_json', 'geopackage', 'raster_masks']
+        for output_type in data:
+            if output_type not in valid_output_types:
+                msg = f'Invalid output type "{output_type}" specified. Valid output types are :'
+                for t in valid_output_types:
+                    msg += '\n\t* {}'.format(t)
+                raise argparse.ArgumentTypeError(msg)
+        return data
 
     parser = argparse.ArgumentParser(description='', add_help=False)
     # Required Arguments
@@ -176,6 +189,10 @@ def parse_command_line():
                         default=None,
                         help='Optional directory to save debugging feedback on the pipeline. This will decrease \
                               performance of the pipeline.')
+    optional_args.add_argument('--output_types',
+                        nargs='+',
+                        default=['cdr_json', 'geopackage'],
+                        help='Specify what output formats the pipeline should save. Options are : [cdr_json, geopackage, raster_masks].')
     optional_args.add_argument('--amqp',
                         type=parse_amqp_url,
                         default=None,
@@ -224,6 +241,7 @@ def parse_command_line():
                             help='Flag to change the logging level from INFO to DEBUG')
 
     args = parser.parse_args()
+    args.output_types = post_parse_output_types(args.output_types)
     if args.amqp:
         if len(args.data) > 1:
             raise argparse.ArgumentTypeError("Too many arguments for data. When using AMQP mode, data flag needs to be a single directory")
@@ -347,7 +365,7 @@ def construct_pipeline(args):
     infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
     geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
     # Save Output
-    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.cdr_system, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
+    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, args.cdr_system, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
     # Validation
     if args.validation: 
         valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
@@ -388,7 +406,7 @@ def construct_amqp_pipeline(args):
     infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
     geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
     # Save Output
-    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.cdr_system, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
+    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, args.cdr_system, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
     # Validation
     if args.validation: 
         valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
