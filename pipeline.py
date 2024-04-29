@@ -300,7 +300,7 @@ def run_in_local_mode(args):
     remaining_maps = copy.deepcopy(args.data)
     completed_maps = []
     try:
-        pipeline, _, _ = construct_pipeline(args)
+        pipeline, _ = construct_pipeline(args)
         pipeline.set_inactivity_timeout(3)
         pipeline.start()
         pipeline.monitor()
@@ -352,7 +352,7 @@ def construct_pipeline(args):
     if args.validation: 
         valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
 
-    return p, input_stream, save_step.output()
+    return p, input_stream
 
 def construct_amqp_pipeline(args):
     from src.pipeline_manager import pipeline_manager, file_monitor
