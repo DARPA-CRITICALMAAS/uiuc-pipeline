@@ -407,9 +407,9 @@ class pipeline_manager():
                         log.log(record.log_level, record.message)
 
                     # Pass onto user error stream
-                    if record.log_level == worker_status.ERROR and record.message is not None:
-                        if not self._error_stream.full(): # if a user is not pulling them out, just ignore them so that it doesn't block. 
-                            self._error_stream.put(record)
+                    if record.status == worker_status.ERROR:
+                        if not self.error_stream.full(): # if a user is not pulling them out, just ignore them so that it doesn't block. 
+                            self.error_stream.put(record)
                     
                     # Update monitor table
                     _monitor.update_data(record)
@@ -436,9 +436,9 @@ class pipeline_manager():
                     log.log(record.log_level, record.message)
 
                 # Pass onto user error stream
-                if record.log_level == worker_status.ERROR and record.message is not None:
-                    if not self._error_stream.full(): # if a user is not pulling them out, just ignore them so that it doesn't block. 
-                        self._error_stream.put(record)
+                if record.status == worker_status.ERROR:
+                    if not self.error_stream.full(): # if a user is not pulling them out, just ignore them so that it doesn't block. 
+                        self.error_stream.put(record)
                 
                 # Update monitor table
                 _monitor.update_data(record)
