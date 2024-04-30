@@ -509,7 +509,7 @@ def run_in_amqp_mode(args):
                     map_name = finished_msg.data
                     log.debug(f'RabbitMQ - {map_name} - Finished processing, sending to upload queue')
                     map_handle = active_maps.pop(map_name)
-                    map_handle['data']['cdr_output'] = f'{map_name}_cdr.json'
+                    map_handle['data']['cdr_output'] = os.path.join(args.model, data['cog_id'][0:2], data['cog_id'][2:4], data['cog_id'], f'{map_name}_cdr.json')
                     channel.basic_publish(exchange='', routing_key=UPLOAD_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
                     channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
 
