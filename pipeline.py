@@ -204,7 +204,7 @@ def parse_command_line():
                         help='The maximun number of maps per available gpu that will be taken from the RabbitMQ queue at a time. Default is 5')
     optional_args.add_argument('--inactive_timeout',
                         type=float,
-                        default=None,
+                        default=60,
                         help='Number of seconds to wait for new messages before exiting amqp mode.')
     optional_args.add_argument('--gpu',
                        type=parse_gpu,
@@ -425,6 +425,7 @@ def construct_test_pipeline(args):
     
 def run_in_amqp_mode(args):
     import pika
+    import shutil
     MAX_AMPQ_MAPS = args.amqp_max_maps * device_count()
     if args.gpu: # 1 GPU
         MAX_AMPQ_MAPS = args.amqp_max_maps
@@ -449,6 +450,11 @@ def run_in_amqp_mode(args):
 
     # create generator to fetch messages
     consumer = channel.consume(queue=INPUT_QUEUE, inactivity_timeout=1)
+
+    # Append tmp to output directory
+    output_root = args.output
+    args.output = os.path.join(args.output, 'tmp')
+    os.makedirs(args.output, exist_ok=True)
 
     # Create Pipeline
     log.info('Constructing pipeline')
@@ -506,6 +512,14 @@ def run_in_amqp_mode(args):
                     map_handle['data']['cdr_output'] = f'{map_name}_cdr.json'
                     channel.basic_publish(exchange='', routing_key=UPLOAD_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
                     channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
+
+                    # Move the file into the amqp directory structure
+                    files = [f for f in os.listdir(args.output) if map_name in f]
+                    for file in files:
+                        tmp_location = os.path.join(args.output, file)
+                        final_location = os.path.join(output_root, args.model, data['cog_id'][0:2], data['cog_id'][2:4], data['cog_id'], file)
+                        os.makedirs(os.path.dirname(final_location), exist_ok=True)
+                        shutil.move(tmp_location, final_location)
                 
                 if not activity:
                     from time import sleep
@@ -518,6 +532,11 @@ def run_in_amqp_mode(args):
         log.warning(f'Completed these maps before failure :\n{completed_maps}')
         log.warning(f'Remaining maps to be processed :\n{active_maps.keys()}')
         pipeline.stop() # This is not a hard kill, it will wait for the pipeline to finish
+    finally:
+        # Remove the tmp directory when done.
+        if os.path.exists(os.path.join(output_root, 'tmp')):
+            shutil.rmtree(os.path.join(output_root, 'tmp'))
+        pass
     return
 
 if __name__=='__main__':
