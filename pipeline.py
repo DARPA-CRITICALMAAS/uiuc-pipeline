@@ -532,11 +532,6 @@ def run_in_amqp_mode(args):
         log.warning(f'Completed these maps before failure :\n{completed_maps}')
         log.warning(f'Remaining maps to be processed :\n{active_maps.keys()}')
         pipeline.stop() # This is not a hard kill, it will wait for the pipeline to finish
-    finally:
-        # Remove the tmp directory when done.
-        if os.path.exists(os.path.join(output_root, 'tmp')):
-            shutil.rmtree(os.path.join(output_root, 'tmp'))
-        pass
     return
 
 if __name__=='__main__':
