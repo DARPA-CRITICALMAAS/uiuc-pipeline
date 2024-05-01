@@ -432,7 +432,7 @@ def run_in_amqp_mode(args):
 
     INPUT_QUEUE = f'{RABBITMQ_QUEUE_PREFIX}{args.model}'
     ERROR_QUEUE = f'{INPUT_QUEUE}.error'
-    UPLOAD_QUEUE = 'upload'
+    UPLOAD_QUEUE = f'upload'
     
     # connect to rabbitmq
     log.info('Connecting to RabbitMQ server')
@@ -490,7 +490,6 @@ def run_in_amqp_mode(args):
 
                 # An error occured : Send to error queue and acknowledge message is complete
                 if not pipeline.error_stream.empty():
-                    log.warning('RabbitMQ - Error occured')
                     activity = True
                     error_msg = pipeline.error_stream.get() # This is a worker_status_message
                     # Unforantely worker_status messages identity by internal pipeline ids to identify data, so we have to get the map name by parsing the message.

@@ -2,7 +2,7 @@ import logging
 import numpy as np
 import cmaas_utils.io as io
 import cmaas_utils.cdr as cdr
-from cmaas_utils.types import CMAAS_Map, Layout, MapUnitType, Provenance
+from cmaas_utils.types import CMAAS_Map, GeoReference, Layout, MapUnitType, Provenance
 from src.utils import boundingBox, sanitize_filename
 from src.pipeline_manager import pipeline_manager
 from time import time
@@ -45,7 +45,9 @@ def amqp_load_data(data_id, cog_tuple):
     map_data.name = map_name
     map_data.cog_id = cog_id
     map_data.layout = tmp_fix_layout(map_data.layout)
-    map_data.image = io.loadGeoTiff(image_path)[0]
+    image, crs, transform = io.loadGeoTiff(image_path)
+    map_data.image = image
+    map_data.georef = GeoReference(provenance=Provenance(name='GeoTIFF'), crs=crs, transform=transform)
     pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
     return map_data
 
