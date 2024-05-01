@@ -502,6 +502,14 @@ def run_in_amqp_mode(args):
                         channel.basic_publish(exchange='', routing_key=ERROR_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
                         channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
 
+                    # Move the file into the amqp directory structure
+                    files = [f for f in os.listdir(args.output) if map_name in f]
+                    for file in files:
+                        tmp_location = os.path.join(args.output, file)
+                        final_location = os.path.join(output_root, args.model, data['cog_id'][0:2], data['cog_id'][2:4], data['cog_id'], file)
+                        os.makedirs(os.path.dirname(final_location), exist_ok=True)
+                        shutil.move(tmp_location, final_location)
+
                 # Map Finished processing : Send to upload queue and acknowledge message is complete
                 if not output_stream.empty():
                     activity = True
