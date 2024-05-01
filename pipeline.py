@@ -396,7 +396,7 @@ def construct_amqp_pipeline(args):
     input_stream = parameter_data_stream()
 
     # Data Loading and preprocessing
-    load_step = p.add_step(func=pipeline_steps.amqp_load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers)
+    load_step = p.add_step(func=pipeline_steps.amqp_load_data, args=(input_stream,), display='Loading Data', workers=infer_workers)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
     legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), args.max_legends, drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
 
@@ -462,6 +462,7 @@ def run_in_amqp_mode(args):
     if args.inactive_timeout:
         pipeline.set_inactivity_timeout(args.inactive_timeout)
     pipeline.start() # Non blocking
+    data_id = 0
     active_maps = {}
     try:
         from concurrent.futures import ThreadPoolExecutor
@@ -478,21 +479,26 @@ def run_in_amqp_mode(args):
                 if method is not None:
                     activity = True
                     data = json.loads(body)
-                    filename = os.path.join(args.data, data['filename'])
-                    map_name = os.path.splitext(os.path.basename(filename))[0]
+                    image_path = os.path.join(args.data, data['image_filename'])
+                    json_path = os.path.join(args.data, data['json_filename'])
+                    log.warning(f'RabbitMQ - {image_path} - image_path')
+                    log.warning(f'RabbitMQ - {json_path} - json_path')
+                    map_name = os.path.splitext(os.path.basename(image_path))[0]
                     log.debug(f'RabbitMQ - {map_name} - Recieved cog')
-                    active_maps[map_name] = {'method':method, 'properties':properties, 'data':data} # Keep track of maps we are working on.
-                    input_data = (data['cog_id'], filename)
+                    active_maps[map_name] = {'method':method, 'properties':properties, 'data':data, 'id':data_id} # Keep track of maps we are working on.
+                    input_data = (data['cog_id'], image_path, json_path)
                     input_stream.append(input_data)
+                    data_id += 1
 
                 # An error occured : Send to error queue and acknowledge message is complete
                 if not pipeline.error_stream.empty():
+                    log.warning('RabbitMQ - Error occured')
                     activity = True
                     error_msg = pipeline.error_stream.get() # This is a worker_status_message
                     # Unforantely worker_status messages identity by internal pipeline ids to identify data, so we have to get the map name by parsing the message.
                     map_name = None
-                    for label in active_maps.keys():
-                        if label in error_msg.message:
+                    for label, value in active_maps.items():
+                        if value['id'] == error_msg.data_id:
                             map_name = label
                             break
                     if map_name is not None:

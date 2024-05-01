@@ -30,27 +30,21 @@ def load_data(data_id, image_path:str, legend_dir:str=None, layout_dir:str=None)
     pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
     return map_data
 
-def amqp_load_data(data_id, cog_image_tuple, legend_dir:str=None, layout_dir:str=None):
+def amqp_load_data(data_id, cog_tuple):
     """Wrapper with a custom display for the monitor"""
-    cog_id, image_path = cog_image_tuple
+    cog_id, image_path, cdr_json_path = cog_tuple
     map_name = os.path.splitext(os.path.basename(image_path))[0]
     pipeline_manager.log(logging.DEBUG, f'{map_name} - Started processing', pid=mp.current_process().pid)
     if len(map_name) > 50:
         pipeline_manager.log_to_monitor(data_id, {'Name' : map_name[:24] + '...' + map_name[-24:]})
     else:
         pipeline_manager.log_to_monitor(data_id, {'Name': map_name})
-    legend_path = None
-    layout_path = None
-    if legend_dir:
-        legend_path = os.path.join(legend_dir, map_name + '.json')
-        if not os.path.exists(legend_path):
-            legend_path = None
-    if layout_dir:
-        layout_path = os.path.join(layout_dir, map_name + '.json')
-        if not os.path.exists(layout_path):
-            layout_path = None
-    map_data = io.loadCMAASMapFromFiles(image_path, legend_path, layout_path)
+    # Load CDR data
+    fr = io.loadCDRFeatureResults(cdr_json_path)
+    map_data = cdr.importCDRFeatureResults(fr)
+    map_data.name = map_name
     map_data.cog_id = cog_id
+    map_data.image = io.loadGeoTiff(image_path)[0]
     pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
     return map_data
 
