@@ -65,9 +65,10 @@ class file_monitor():
         else:
             irow = None
 
-        # Don't updated finished items
-        # if irow is not None and df.at[irow, 'step'] == ['FINISHED']:
-        #     return
+        # Don't updated error items
+        if irow:
+            if df.at[irow, 'step'] == ['ERROR']:
+                return
 
         if record.status == worker_status.STARTED_PROCESSING:
             if irow is not None:
@@ -133,9 +134,10 @@ class console_monitor():
         else:
             irow = None
 
-        # Don't updated finished items
-        # if irow is not None and df.at[irow, 'step'] == ['FINISHED']:
-        #     return
+        # Don't updated error items
+        if irow:
+            if df.at[irow, 'step'] == ['ERROR']:
+                return
 
         if record.status == worker_status.STARTED_PROCESSING:
             if irow is not None:

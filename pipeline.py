@@ -481,8 +481,6 @@ def run_in_amqp_mode(args):
                     data = json.loads(body)
                     image_path = os.path.join(args.data, data['image_filename'])
                     json_path = os.path.join(args.data, data['json_filename'])
-                    log.warning(f'RabbitMQ - {image_path} - image_path')
-                    log.warning(f'RabbitMQ - {json_path} - json_path')
                     map_name = os.path.splitext(os.path.basename(image_path))[0]
                     log.debug(f'RabbitMQ - {map_name} - Recieved cog')
                     active_maps[map_name] = {'method':method, 'properties':properties, 'data':data, 'id':data_id} # Keep track of maps we are working on.

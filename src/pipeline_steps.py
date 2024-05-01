@@ -2,7 +2,7 @@ import logging
 import numpy as np
 import cmaas_utils.io as io
 import cmaas_utils.cdr as cdr
-from cmaas_utils.types import CMAAS_Map, MapUnitType, Provenance
+from cmaas_utils.types import CMAAS_Map, Layout, MapUnitType, Provenance
 from src.utils import boundingBox, sanitize_filename
 from src.pipeline_manager import pipeline_manager
 from time import time
@@ -44,6 +44,7 @@ def amqp_load_data(data_id, cog_tuple):
     map_data = cdr.importCDRFeatureResults(fr)
     map_data.name = map_name
     map_data.cog_id = cog_id
+    map_data.layout = tmp_fix_layout(map_data.layout)
     map_data.image = io.loadGeoTiff(image_path)[0]
     pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
     return map_data
@@ -340,3 +341,18 @@ def test_step(data_id, filename):
     pipeline_manager.log_to_monitor(data_id, {'filename' :os.basename(filename)})
     sleep(1)
     return filename
+
+def tmp_fix_layout(layout : Layout):
+    if layout.map is not None:
+        layout.map = layout.map[0]
+    if layout.polygon_legend is not None:
+        layout.polygon_legend = layout.polygon_legend[0]
+    if layout.point_legend is not None:
+        layout.point_legend = layout.point_legend[0]
+    if layout.line_legend is not None:
+        layout.line_legend = layout.line_legend[0]
+    if layout.cross_section is not None:
+        layout.cross_section = layout.cross_section[0]
+    if layout.correlation_diagram is not None:
+        layout.correlation_diagram = layout.correlation_diagram[0]
+    return layout
