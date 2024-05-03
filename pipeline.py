@@ -502,16 +502,19 @@ def run_in_amqp_mode(args):
                         log.debug(f'RabbitMQ - {map_name} - Error occured, sending to error queue')
                         map_handle = active_maps.pop(map_name)
                         map_handle['data']['exception'] = error_msg.message
+
+                        # Move the file into the amqp directory structure, before we send the publish message :)
+                        files = [f for f in os.listdir(args.output) if map_name in f]
+                        for file in files:
+                            tmp_location = os.path.join(args.output, file)
+                            final_location = os.path.join(output_root, args.model, data['cog_id'][0:2], data['cog_id'][2:4], data['cog_id'], file)
+                            os.makedirs(os.path.dirname(final_location), exist_ok=True)
+                            shutil.move(tmp_location, final_location)
+
                         channel.basic_publish(exchange='', routing_key=ERROR_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
                         channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
 
-                    # Move the file into the amqp directory structure
-                    files = [f for f in os.listdir(args.output) if map_name in f]
-                    for file in files:
-                        tmp_location = os.path.join(args.output, file)
-                        final_location = os.path.join(output_root, args.model, data['cog_id'][0:2], data['cog_id'][2:4], data['cog_id'], file)
-                        os.makedirs(os.path.dirname(final_location), exist_ok=True)
-                        shutil.move(tmp_location, final_location)
+                    
 
                 # Map Finished processing : Send to upload queue and acknowledge message is complete
                 if not output_stream.empty():
@@ -521,16 +524,19 @@ def run_in_amqp_mode(args):
                     log.debug(f'RabbitMQ - {map_name} - Finished processing, sending to upload queue')
                     map_handle = active_maps.pop(map_name)
                     map_handle['data']['cdr_output'] = os.path.join(args.model, data['cog_id'][0:2], data['cog_id'][2:4], data['cog_id'], f'{map_name}_cdr.json')
-                    channel.basic_publish(exchange='', routing_key=UPLOAD_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
-                    channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
-
-                    # Move the file into the amqp directory structure
+                    
+                    # Move the file into the amqp directory structure, before we send the publish message :)
                     files = [f for f in os.listdir(args.output) if map_name in f]
                     for file in files:
                         tmp_location = os.path.join(args.output, file)
                         final_location = os.path.join(output_root, args.model, data['cog_id'][0:2], data['cog_id'][2:4], data['cog_id'], file)
                         os.makedirs(os.path.dirname(final_location), exist_ok=True)
                         shutil.move(tmp_location, final_location)
+                    
+                    channel.basic_publish(exchange='', routing_key=UPLOAD_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
+                    channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
+
+                    
                 
                 if not activity:
                     from time import sleep
