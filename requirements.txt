@@ -2,10 +2,11 @@
 numpy>1.21
 rasterio>=1.3.9
 geopandas
-rich>13.0
-matplotlib
-pika
+--extra-index-url https://test.pypi.org/simple/
+cmaas_utils>=0.1.7
 
+# AMQP
+pika
 # bug with pyyaml, cython3 and python > 3.10
 # https://github.com/yaml/pyyaml/issues/724#issuecomment-1638591821
 pyyaml!=6.0.0,!=5.4.0,!=5.4.1
@@ -17,11 +18,9 @@ git+https://github.com/DARPA-CRITICALMAAS/cdr_schemas.git@v0.2.6+draft
 # Inference
 opencv_python>4.8
 patchify>0.2
-tensorflow[and-cuda]>2.10
-keras>2.10
 pillow>9.0
-scikit-learn>1.0%
 pytorch_lightning
+
 adamp
 einops
 timm
@@ -33,7 +32,7 @@ nvtx
 nvitop
 pipdeptree
 tqdm
-rich
+rich>13.0
 matplotlib
 
 ### Submodule Dependencies
@@ -48,7 +47,7 @@ easyocr>=1.7.1
 # Vectorization
 #geopandas
 #rasterio
-shapely
+#shapely
 
 # Validation
 #numpy

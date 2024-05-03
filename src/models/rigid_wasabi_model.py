@@ -8,17 +8,22 @@ from patchify import patchify, unpatchify
 import torch
 from torchvision import transforms
 
+from src.pipeline_manager import pipeline_manager
 from src.patching import unpatch_img
 from .pipeline_pytorch_model import pipeline_pytorch_model
 from submodules.models.rigid_wasabi.models import SegmentationModel
+from cmaas_utils.types import MapUnitType
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
 class rigid_wasabi_model(pipeline_pytorch_model):
     def __init__(self):
         self.name = 'rigid wasabi'
+        self.version = '0.1'
+        self.feature_type = MapUnitType.POLYGON
         self.checkpoint = '/projects/bbym/shared/models/rigid_wasabi/SWIN_jaccard.ckpt'
         self.args = SimpleNamespace(model='swin', superpixel='', edge=False)
+        self.est_patches_per_sec = 250 # seconds
         
         # Modifiable parameters
         self.device = torch.device("cuda")
@@ -43,7 +48,7 @@ class rigid_wasabi_model(pipeline_pytorch_model):
         return data
     
     # @override
-    def inference(self, image, legend_images):
+    def inference(self, image, legend_images, data_id=-1):
         """Image data is in CHW format. legend_images is a dictionary of label to map_unit label images in CHW format."""
 
         # Get the size of the map
@@ -68,12 +73,12 @@ class rigid_wasabi_model(pipeline_pytorch_model):
         map_patches = torch.Tensor(map_patches).to(self.device)
         map_patches = self.my_norm(map_patches)
 
-        log.debug(f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
+        # pipeline_manager.log(logging.DEBUG, f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
         map_prediction = np.zeros((1, map_height, map_width), dtype=np.float32)
         map_confidence = np.zeros((1, map_height, map_width), dtype=np.float32)
         legend_index = 1
         for label, legend_img in legend_images.items():
-            log.debug(f'\t\tInferencing legend: {label}')
+            # pipeline_manager.log(logging.DEBUG, f'\t\tInferencing legend: {label}')
             lgd_stime = time()
 
             # Reshape maps with 1 channel legends (greyscale) to 3 channels for inference
@@ -111,7 +116,7 @@ class rigid_wasabi_model(pipeline_pytorch_model):
 
             legend_index += 1
             lgd_time = time() - lgd_stime
-            log.debug("\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
+            # pipeline_manager.log(logging.DEBUG, "\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
             
         # Minimum confidence threshold for a prediction
         map_prediction[map_confidence < 0.333] = 0

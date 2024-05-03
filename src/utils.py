@@ -1,6 +1,8 @@
+import re
 import os
 import sys
 import logging
+import numpy as np
 from rich.progress import Progress
 
 # ANSI Escape Codes
@@ -86,7 +88,18 @@ def start_logger(logger_name, filepath, log_level=logging.INFO, console_log_leve
     
     return log
 
+def swap_console_handler(log, handler):
+    orig_handler = log.handlers[1]
+    handler.setLevel(orig_handler.level)
+    handler.setFormatter(orig_handler.formatter)
+    log.handlers[1] = handler
+    return orig_handler
+
 def boundingBox(array):
+    array = np.array(array).astype(int)
     min_xy = [min(array, key=lambda x: (x[0]))[0], min(array, key=lambda x: (x[1]))[1]]
     max_xy = [max(array, key=lambda x: (x[0]))[0], max(array, key=lambda x: (x[1]))[1]]
     return [min_xy, max_xy]
+
+def sanitize_filename(filename):
+    return re.sub(r'[/\\?%*:|\"<>\x7F\x00-\x1F]', '-', filename).strip().replace(' ', '_')
