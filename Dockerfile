@@ -18,6 +18,7 @@ WORKDIR /src
 VOLUME /data, /output, /legends, /layouts, /validation, /feedback, /checkpoints
 
 # setup environment variables
+ARG CDR_SYSTEM_VERSION="unknown"
 ENV MODEL="golden_muscat" \
     FEATURE_TYPE="polygon" \
     DATA_FOLDER="" \
@@ -27,6 +28,8 @@ ENV MODEL="golden_muscat" \
     VALIDATION_FOLDER="" \
     FEEDBACK_FOLDER="" \
     CHECKPOINTS_FOLDER="" \
+    CDR_SYSTEM="UIUC" \
+    CDR_SYSTEM_VERSION="${CDR_SYSTEM_VERSION}" \
     AMQP=""
 
 # install application
