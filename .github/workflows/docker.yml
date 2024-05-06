@@ -99,3 +99,5 @@ jobs:
           cache-to: type=registry,ref=ncsa/criticalmaas-pipeline:buildcache,mode=max
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            CDR_SYSTEM_VERSION=${{ steps.meta.outputs.version }}

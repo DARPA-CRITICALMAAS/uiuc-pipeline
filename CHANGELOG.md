@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.4.1] - 2024-05-06
+
+### Changed
+
+- docker image will have the CDR_SYSTEM_VERSION set automatically based on tag/branch/pr
+
+## [0.4.0] - 2024-05-02
+
+### Added
+- segmentation data from CDR
+- cog_id to cdr_json output
+- `--cdr_system`  and `--cdr_system_version` args to set system and system_version in the cdr output respectively
+- `--output_types` argument to pipeline, accepts cdr_json, geopackage, raster_masks. Default is cdr_json, geopackage
+
+### Changed
+- Refactor for multiprocessing workers
+- Multi GPU support
+- Bug fixes discovered during soak testing
+
 ## [0.3.0] - 2024-04-20
 
 ### Added
