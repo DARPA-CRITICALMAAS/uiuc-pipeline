@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - docker image will have the CDR_SYSTEM_VERSION set automatically based on tag/branch/pr
 
+### Fixed
+
+- saving raster for point features
+
 ## [0.4.0] - 2024-05-02
 
 ### Added

@@ -227,8 +227,23 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
     if 'raster_masks' in output_types:
         legend_index = 1
         for feature in map_data.legend.features:
-            feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
-            feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
+            pipeline_manager.log(logging.DEBUG, f'Saving raster_mask for {map_data.name}, {feature.label} {feature.type}')
+            if feature.type == MapUnitType.LINE:
+                continue
+            if feature.type == MapUnitType.POINT:
+                if map_data.point_segmentation_mask is None:
+                    pipeline_manager.log(logging.WARNING, f"Can\'t save feature {feature.label}. No predicted point_segmentation mask present.")
+                    continue
+                feature_mask = np.zeros_like(map_data.point_segmentation_mask, dtype=np.uint8)
+                feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
+                #filepath = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_{feature.label}.tif'))
+                #io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
+            if feature.type == MapUnitType.POLYGON:
+                if map_data.poly_segmentation_mask is None:
+                    pipeline_manager.log(logging.WARNING, f"Can\'t save feature {feature.label}. No predicted poly_segmentation mask present.")
+                    continue
+                feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
+                feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
             filepath = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_{feature.label}.tif'))
             io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
             legend_index += 1
