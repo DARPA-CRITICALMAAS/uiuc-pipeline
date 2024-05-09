@@ -4,14 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.4.2] - 2024-05-09
+
+### Changed
+- add model to cdr_system (for example uiuc_golden_muscat) when saving to cdr
+
 ## [0.4.1] - 2024-05-06
 
 ### Changed
-
 - docker image will have the CDR_SYSTEM_VERSION set automatically based on tag/branch/pr
 
 ### Fixed
-
 - saving raster for point features
 
 ## [0.4.0] - 2024-05-02
