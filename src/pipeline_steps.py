@@ -185,6 +185,12 @@ def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
     model_provenance = Provenance(name=model_name, version=model_version)
     if map_data.point_segmentation_mask is not None:
         map_data.generate_point_geometry(model_provenance)
+        # Scrub leading 0.0
+        # TODO: put this fix into cmaas_util
+        for feature in map_data.legend.features:
+            if feature.segmentation is not None:
+                feature.segmentation.geometry = [[pt[0][1:]] for pt in feature.segmentation.geometry]
+
     if map_data.poly_segmentation_mask is not None:
         map_data.generate_poly_geometry(model_provenance)
     total_occurances = 0 
@@ -206,6 +212,10 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
         cog_id = None
         if map_data.cog_id is not None:
             cog_id = map_data.cog_id
+        else:
+            # setting cog_id to string for "local" processing
+            # TODO: Set this default in cmaas_utils, or perhaps add and overrige --cog_id to pipeline.py
+            cog_id = "-1"
         cdr_schema = cdr.exportMapToCDR(map_data, cog_id=cog_id, system=system, system_version=system_version)
         cdr_filename = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_cdr.json'))
         io.saveCDRFeatureResults(cdr_filename, cdr_schema)
