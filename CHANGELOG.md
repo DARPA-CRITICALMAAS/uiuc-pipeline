@@ -3,25 +3,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
-## [0.4.3] - 2024-05-09
+
+## [0.4.1] - 2024-05-09
 
 ### Changed
 - When saving cdr_json, make `cog_id` default to string "-1"
-
-### Fixed
-- Point features had a leading zero, e.g. [0.0, x, y]. Striped out the zero to make [x,y]
-
-## [0.4.2] - 2024-05-09
-
-### Changed
 - add model to cdr_system (for example uiuc_golden_muscat) when saving to cdr
-
-## [0.4.1] - 2024-05-06
-
-### Changed
 - docker image will have the CDR_SYSTEM_VERSION set automatically based on tag/branch/pr
 
 ### Fixed
+- Point features had a leading zero, e.g. [0.0, x, y]. Striped out the zero to make [x,y]
 - saving raster for point features
 
 ## [0.4.0] - 2024-05-02
