@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.4.2] - 2024-05-10
+
+### Changed
+- When saving cdr_json system_name is not changed, version has model appended
+
 ## [0.4.1] - 2024-05-09
 
 ### Changed
