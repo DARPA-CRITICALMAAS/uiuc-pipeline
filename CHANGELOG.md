@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.4.3] - 2024-05-10
+
+### Changed
+- When saving cdr_json it now uses `<name>-<model>:<version>` with just `-` and lower case.
+
 ## [0.4.2] - 2024-05-10
 
 ### Changed
