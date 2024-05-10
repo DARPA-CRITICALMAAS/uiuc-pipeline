@@ -365,8 +365,8 @@ def construct_pipeline(args):
     infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
     geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
     # Save Output
-    cdr_system_model = f"{args.cdr_system}_{args.model}"
-    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, cdr_system_model, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
+    cdr_system_model = f"{args.cdr_system_version}_{args.model}"
+    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, args.cdr_system, cdr_system_model), display='Saving Output', workers=infer_workers*2)
     # Validation
     if args.validation: 
         valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
@@ -407,8 +407,8 @@ def construct_amqp_pipeline(args):
     infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
     geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
     # Save Output
-    cdr_system_model = f"{args.cdr_system}_{args.model}"
-    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, cdr_system_model, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
+    cdr_system_model = f"{args.cdr_system_version}_{args.model}"
+    save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, args.cdr_system, cdr_system_model), display='Saving Output', workers=infer_workers*2)
     # Validation
     if args.validation: 
         valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
