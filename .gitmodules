@@ -1,18 +1,18 @@
 [submodule "golden-muscat"]
 	path = submodules/models/golden_muscat
-	url = https://github.com/xiyuez2/Darpa_Unet
+	url = git@github.com:xiyuez2/Darpa_Unet.git
 [submodule "submodules/models/rigid_wasabi"]
 	path = submodules/models/rigid_wasabi
-	url = https://github.com/xiyuez2/Darpa_Unet.git
+	url = git@github.com:xiyuez2/Darpa_Unet.git
 [submodule "submodules/models/blaring_foundry"]
 	path = submodules/models/blaring_foundry
-	url = https://github.com/xiyuez2/Darpa_Unet.git
+	url = git@github.com:xiyuez2/Darpa_Unet.git
 [submodule "submodules/models/drab_volcano"]
 	path = submodules/models/drab_volcano
-	url = https://github.com/Dongjiahua/DARPA_torch.git
+	url = git@github.com:Dongjiahua/DARPA_torch.git
 [submodule "submodules/legend_extraction"]
 	path = submodules/legend_extraction
-	url = https://github.com/DARPA-CRITICALMAAS/uiuc-legend-extraction
+	url = git@github.com:DARPA-CRITICALMAAS/uiuc-legend-extraction.git
 [submodule "submodules/validation"]
 	path = submodules/validation
-	url = https://github.com/DARPA-CRITICALMAAS/uiuc-validation
+	url = git@github.com:DARPA-CRITICALMAAS/uiuc-validation.git
