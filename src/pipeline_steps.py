@@ -179,6 +179,19 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
     if model.feature_type == MapUnitType.POLYGON:
         map_data.poly_segmentation_mask = result_mask
 
+    # Drab volcano only : Filter out features that were not present
+    if model.name == 'drab volcano':
+        legend_index = 1
+        features_present = []
+        for feature in map_data.legend.features:
+            if np.any(map_data.point_segmentation_mask == legend_index):
+                features_present.append(feature)
+            legend_index += 1
+        # Set legend to only features that had predictions
+        map_data.legend.features = features_present
+        pipeline_manager.log_to_monitor(data_id, {'Map Units': f'{len(features_present)} ({len(features_present)} {model.feature_type.to_str().capitalize()}s)'})
+        pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Drab Volcano predicted {len(features_present)}/48 features', pid=mp.current_process().pid)
+
     return map_data
 
 def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
@@ -293,9 +306,18 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, feedback_dir, use_us
         true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{feature.label.replace(" ","_")}_{feature.type}.tif')
         # Skip features that don't have a true mask available
         if not os.path.exists(true_mask_path):
-            pipeline_manager.log(logging.WARNING, f'{map_data.name} - Can\'t validate feature {feature.label}. No true segmentation mask found at {true_mask_path}.', pid=mp.current_process().pid)
-            results_df.loc[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.label}
-            continue
+            alias_found = False
+            if feature.aliases is not None:
+                for alias in feature.aliases:
+                    true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{alias.replace(" ","_")}_{feature.type}.tif')
+                    if os.path.exists(true_mask_path):
+                        pipeline_manager.log(logging.WARNING, f'{map_data.name} - Using alias {alias} for feature {feature.label}', pid=mp.current_process().pid)
+                        alias_found = True
+                        break
+            if not alias_found:
+                pipeline_manager.log(logging.WARNING, f'{map_data.name} - Can\'t validate feature {feature.label}. No true segmentation mask found at {true_mask_path}.', pid=mp.current_process().pid)
+                results_df.loc[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.label}
+                continue
         true_mask, _, _ = io.loadGeoTiff(true_mask_path)
 
         # Create feedback image if needed
