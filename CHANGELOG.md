@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Implement one-pass variance computation in golden_muscat inference code
+
 ## [0.4.2] - 2024-05-10
 
 ### Changed
