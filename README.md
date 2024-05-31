@@ -6,11 +6,33 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
 <details>
 <summary> Installing </summary>
 
+  <details style="margin-left: 20px;">
+  <summary> For Users </summary>
+
+  For model inference, you will need to pull the container image and run the model using Apptainer.
+
+  ```bash
+  apptainer pull -F criticalmaas-pipeline_latest.sif docker://ncsa/criticalmaas-pipeline:latest
+  
+  apptainer run --nv -B /projects/bbym/saxton/MockValData:/data -B ./feedback:/feedback -B ./logs:/logs -B ./output:/output ./criticalmaas-pipeline_latest.sif -v --data /data/validation --output /output --legends /data/validation --log /logs/log.log --model flat_iceberg --validation /data/validation_labels --output_types raster_masks
+  ```
+
+  **Note that `latest` can be replaced with `pr-#` as per the user preference of version.* \
+  *Make sure to change apptainer run command accordingly.*
+  ```bash
+  # here, instead of latest, we are using pr-6
+  apptainer pull -F criticalmaas-pipeline_pr-6.sif docker://ncsa/criticalmaas-pipeline:pr-6
+  ```
+
+  </details>
+
+  <details style="margin-left: 20px;">
+  <summary> For Developers </summary>
+
   To get started with this pipeline you will need to clone the repository. We recommend using python venv here to keep the working environment clean.
 
   ```bash
   git clone https://github.com/DARPA-CRITICALMAAS/uiuc-pipeline.git
-
   cd uiuc-pipeline
   ```
 
@@ -28,7 +50,7 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
   git submodule update
   ```
 
-  We now create new conda and venv environments and install the [requirements.txt](https://git.ncsa.illinois.edu/criticalmaas/pipeline/-/blob/abode_pipeline/requirements.txt).
+  We now create new conda and venv environments and install the [requirements.txt](https://github.com/DARPA-CRITICALMAAS/uiuc-pipeline/blob/readme-update/requirements.txt).
 
   ```bash
   conda create --name CMAAS_py_3.10 python=3.10
@@ -39,8 +61,7 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
   pip install -r requirements.txt
   ```
 
-
-
+  </details>
 </details>
 
 <details>
