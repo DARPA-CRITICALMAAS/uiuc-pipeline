@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Chnaged
+- pinned matplotlib version to 3.8.4
+- updated validation submodule head
+
 ## [0.4.2] - 2024-05-10
 
 ### Changed
