@@ -9,8 +9,7 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
   To get started with this pipeline you will need to clone the repository. We recommend using python venv here to keep the working environment clean.
 
   ```bash
-  git clone git@git.ncsa.illinois.edu:criticalmaas/pipeline.git
-  or git clone https://github.com/DARPA-CRITICALMAAS/uiuc-pipeline.git
+  git clone https://github.com/DARPA-CRITICALMAAS/uiuc-pipeline.git
 
   cd uiuc-pipeline
   ```
@@ -32,8 +31,8 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
   We now create new conda and venv environments and install the [requirements.txt](https://git.ncsa.illinois.edu/criticalmaas/pipeline/-/blob/abode_pipeline/requirements.txt).
 
   ```bash
-  conda create --name CMAAS_test python=3.10
-  conda activate CMAAS_test
+  conda create --name CMAAS_py_3.10 python=3.10
+  conda activate CMAAS_py_3.10
   python3 -m venv venv
   source venv/bin/activate
   # submodule must be updated before installing the requirements
