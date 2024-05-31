@@ -4,8 +4,9 @@
   "shapes": [
     {
         "label": "1_pt",
-        "aliases" : [
-            "gravel_pit_pt"
+        "aliases": [
+            "gravel_pit_pt",
+            "Gravel_or_Borrow_Pit_pt"
         ],
         "points": [
           [
@@ -20,7 +21,11 @@
     },
     {
         "label": "2_pt",
-        "points": [
+        "aliases": [
+            "Mine_Shaft_pt",
+            "mine_shaft_pt"
+        ],
+        "points" : [
           [
             0.0,
             0.0
@@ -35,8 +40,10 @@
         "label": "3_pt",
         "aliases" : [
             "Prospect_pt",
+            "prospect_pt",
             "prospect_pit_iron_pt",
-            "Uranium_prospect_pt"
+            "Uranium_prospect_pt",
+            "Prospect_Pit_pt"
         ],
         "points": [
           [
@@ -51,6 +58,9 @@
     },
     {
         "label": "4_pt",
+        "aliases": [
+            "Adit_pt"
+        ],
         "points": [
           [
             0.0,
@@ -68,7 +78,8 @@
             "Cu_or_U_mine_pt",
             "mine_pt",
             "rock_quarry_pt",
-            "Uranium_mine_pt"
+            "Uranium_mine_pt",
+            "Mine_or_Quarry_pt"
         ],
         "points": [
           [
@@ -87,6 +98,7 @@
             "bedding_horiz_pt",
             "horizon_bedding_pt",
             "Horizontal_bedding_pt",
+            "horizontal_bedding_pt",
             "bedding_horizontal_pt",
             "horizbed_pt",
             "horizontal_pt",
@@ -121,7 +133,8 @@
             "Strike_and_dip_of_beds_pt",
             "strike_dip_bedding_pt",
             "strikedip_pt",
-            "Inclined_pt"
+            "Inclined_pt",
+            "top_of_bed_pt"
         ],
         "points": [
           [
@@ -160,7 +173,11 @@
             "breccia_pipe_pt",
             "C14_or_Argon_sample_pt",
             "collapse_structure_pt",
-            "paleomag_sample_pt"
+            "paleomag_sample_pt",
+            "loc_strat_section_pt",
+            "Crystalline_rocks_pt",
+            "coll_breccia_pipe_pt",
+            "sample_locality_pt"
         ],
         "points": [
           [
@@ -178,7 +195,9 @@
         "aliases" : [
             "Direction_of_glacier_flow_across_topographic_divide_pt",
             "fluvial_transport_pt",
-            "Mineral_Lineation_pt"
+            "Mineral_Lineation_pt",
+            "direction_of_ice_mov_pt",
+            "lineation_pt"
         ],
         "points": [
           [
@@ -279,7 +298,8 @@
         "label": "joint_pt",
         "aliases" : [
             "inclin_shear_frac_pt",
-            "joint_inclined_pt"
+            "joint_inclined_pt",
+            "fault_strike_dip_pt"
         ],
         "points": [
           [
@@ -328,7 +348,10 @@
         "label": "triangle_pt",
         "aliases" : [
             "sinkhole_pt",
-            "Ar_Ar_sample_pt"
+            "Ar_Ar_sample_pt",
+            "station_pt",
+            "C14_pt",
+            "C14_age_pt"
         ],
         "points": [
           [
@@ -391,7 +414,8 @@
         "aliases" : [
             "foliation_vertical_pt",
             "met_vert_foliation_pt",
-            "Vertical_Late_Foliat_pt"
+            "Vertical_Late_Foliat_pt",
+            "vertical_foliation_pt"
         ],
         "points": [
           [
@@ -729,6 +753,9 @@
     },
     {
         "label": "volcanic_vent_pt",
+        "aliases" : [
+            "teepee_butte_pt"
+        ],
         "points": [
           [
             0.0,
@@ -742,6 +769,9 @@
     },
     {
         "label": "empty_circle_pt",
+        "aliases": [
+            "Saprolite_pt"
+        ],
         "points": [
           [
             0.0,
