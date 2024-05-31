@@ -79,6 +79,12 @@ class golden_muscat_model(pipeline_pytorch_model):
         map_prediction = np.zeros((1, map_height, map_width), dtype=np.float32)
         map_confidence = np.zeros((1, map_height, map_width), dtype=np.float32)
         legend_index = 1
+
+        # single-pass variance computation : https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance 
+        mean_map = np.zeros((map_height, map_width), dtype=np.float32)
+        M2_map = np.zeros((map_height, map_width), dtype=np.float32)
+        n_map = np.zeros((map_height, map_width), dtype=int)
+        
         for label, legend_img in legend_images.items():
             # Debugging GPU memory usage
             # device_num = 0
@@ -109,7 +115,7 @@ class golden_muscat_model(pipeline_pytorch_model):
                     prediction = self.model.model(map_patches[i:i+self.batch_size], legend_patches[:len(map_patches[i:i+self.batch_size])])
                     prediction = torch.softmax(prediction, dim=1)[:,-1].cpu().numpy().astype(np.float32)
                     prediction_patches.append(prediction)
-                    
+
             # unpatch
             prediction_patches = np.concatenate(prediction_patches, axis=0)
             prediction_patches = prediction_patches.reshape([1, cols, rows, 1, self.patch_size, self.patch_size])
@@ -119,12 +125,25 @@ class golden_muscat_model(pipeline_pytorch_model):
             # Add legend to prediction mask
             map_prediction[prediction_image >= map_confidence] = legend_index
             map_confidence = np.maximum(map_confidence, prediction_image)
-            
+
+            # single pass variance computation
+            n_map += 1
+            delta = prediction_image[0] - mean_map
+            mean_map += delta / n_map
+            delta2 = prediction_image[0] - mean_map
+            M2_map += delta * delta2
+
             gc.collect() # This is needed otherwise gpu memory is not freed up on each loop
 
             legend_index += 1
             lgd_time = time() - lgd_stime
             # pipeline_manager.log(logging.DEBUG, "\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
+
+        # single-pass variance compute (this is sample variance), for population variance use n instead of n-1
+        variance_map = np.zeros((map_height, map_width), dtype=np.float32)
+        valid_pixels_mask = n_map > 1
+        variance_map[valid_pixels_mask] = M2_map[valid_pixels_mask] / (n_map[valid_pixels_mask] - 1)
+        
 
         # Minimum confidence threshold for a prediction
         map_prediction[map_confidence < 0.333] = 0
