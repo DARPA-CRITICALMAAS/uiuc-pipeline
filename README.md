@@ -6,8 +6,8 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
 <details>
 <summary> Installing </summary>
 
-  <details style="margin-left: 20px;">
-  <summary> For Users </summary>
+  <blockquote>
+  <details><summary> For Users </summary>
 
   For model inference, you will need to pull the container image and run the model using Apptainer.
 
@@ -18,16 +18,15 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
   ```
 
   **Note that `latest` can be replaced with `pr-#` as per the user preference of version.* \
-  *Make sure to change apptainer run command accordingly.*
+  *Make sure to change `./criticalmaas-pipeline_{latest}.sif` in the apptainer run command accordingly.*
   ```bash
   # here, instead of latest, we are using pr-6
   apptainer pull -F criticalmaas-pipeline_pr-6.sif docker://ncsa/criticalmaas-pipeline:pr-6
   ```
-
   </details>
+  
 
-  <details style="margin-left: 20px;">
-  <summary> For Developers </summary>
+  <details><summary> For Developers </summary>
 
   To get started with this pipeline you will need to clone the repository. We recommend using python venv here to keep the working environment clean.
 
@@ -62,7 +61,9 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
   ```
 
   </details>
+  </blockquote>
 </details>
+
 
 <details>
 <summary> Understanding Pipeline Inputs </summary>
