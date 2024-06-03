@@ -33,7 +33,7 @@ nvitop
 pipdeptree
 tqdm
 rich>13.0
-matplotlib
+matplotlib==3.8.4
 
 ### Submodule Dependencies
 # Legend-extraction
