@@ -73,15 +73,14 @@ def gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend
         map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
     else:
         # Mask legend area before prediction.
-        # if map_data.layout is not None and map_data.layout.polygon_legend is not None:
-        #     image = map_data.image.transpose(1,2,0).copy()
-        #     mask = np.zeros_like(image)
-        #     cv2.fillPoly(mask, pts=[map_data.layout.polygon_legend], color=(255,255,255))
-        #     image = cv2.bitwise_and(image, mask)
-        #     image = image.transpose(2,0,1)
-        # else:
-        #     image = map_data.image
-        image = map_data.image
+        if map_data.layout is not None and map_data.layout.polygon_legend is not None:
+            image = map_data.image.transpose(1,2,0).copy()
+            mask = np.zeros_like(image)
+            cv2.fillPoly(mask, pts=[map_data.layout.polygon_legend], color=(255,255,255))
+            image = cv2.bitwise_and(image, mask)
+            image = image.transpose(2,0,1)
+        else:
+            image = map_data.image
 
         # Generate legend if not precomputed
         if map_data.legend is None:
