@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- updated README.md to accommodate new users and developers
 - When saving cdr_json it now uses `<name>-<model>:<version>` with just `-` and lower case.
 - pinned matplotlib version to 3.8.4
 - updated validation submodule head
+
 
 ## [0.4.2] - 2024-05-10
 
