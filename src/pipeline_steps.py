@@ -240,7 +240,9 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
             if map_data.georef.crs is not None and map_data.georef.transform is not None:
                 coord_type = 'georeferenced'
         for feature in map_data.legend.features:
-            feature.label = sanitize_filename(feature.label) # Need to sanitize feature names before saving geopackage
+            # pipeline_manager.log(logging.WARNING, f'{map_data.name} - Feature label before sanitization: {feature.label}')
+            feature.label = sanitize_filename(feature.label).replace(' ', '_') # Need to sanitize feature names before saving geopackage
+            # pipeline_manager.log(logging.WARNING, f'{map_data.name} - Feature label after sanitization: {feature.label}')
         io.saveGeoPackage(gpkg_filename, map_data, coord_type)
         # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
 
