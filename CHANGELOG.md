@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - When saving cdr_json it now uses `<name>-<model>:<version>` with just `-` and lower case.
 - pinned matplotlib version to 3.8.4
 - updated validation submodule head
-
+- Changed filename sanitization to only allow alphanumeric characters and ' ', '-', '_' in names
+- Added polygon legend mask to legend extraction step
 
 ## [0.4.2] - 2024-05-10
 

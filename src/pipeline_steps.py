@@ -1,3 +1,4 @@
+import cv2
 import logging
 import numpy as np
 import cmaas_utils.io as io
@@ -71,10 +72,20 @@ def gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend
     if drab_volcano_legend:
         map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
     else:
+        # Mask legend area before prediction.
+        if map_data.layout is not None and map_data.layout.polygon_legend is not None:
+            image = map_data.image.transpose(1,2,0).copy()
+            mask = np.zeros_like(image)
+            cv2.fillPoly(mask, pts=[map_data.layout.polygon_legend], color=(255,255,255))
+            image = cv2.bitwise_and(image, mask)
+            image = image.transpose(2,0,1)
+        else:
+            image = map_data.image
+
         # Generate legend if not precomputed
         if map_data.legend is None:
             pipeline_manager.log(logging.DEBUG, f'{map_data.name} - No legend data found, generating legend', pid=mp.current_process().pid)
-            lgd = extractLegends(map_data.image.transpose(1,2,0))
+            lgd = extractLegends(image.transpose(1,2,0))
             map_data.legend = convertLegendtoCMASS(lgd)
 
     # Count distribution of map units for log.
@@ -229,7 +240,9 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
             if map_data.georef.crs is not None and map_data.georef.transform is not None:
                 coord_type = 'georeferenced'
         for feature in map_data.legend.features:
-            feature.label = sanitize_filename(feature.label) # Need to sanitize feature names before saving geopackage
+            # pipeline_manager.log(logging.WARNING, f'{map_data.name} - Feature label before sanitization: {feature.label}')
+            feature.label = sanitize_filename(feature.label).replace(' ', '_') # Need to sanitize feature names before saving geopackage
+            # pipeline_manager.log(logging.WARNING, f'{map_data.name} - Feature label after sanitization: {feature.label}')
         io.saveGeoPackage(gpkg_filename, map_data, coord_type)
         # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
 
