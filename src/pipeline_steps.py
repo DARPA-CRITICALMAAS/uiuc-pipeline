@@ -267,7 +267,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
                     continue
                 feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
                 feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
-            filepath = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_{feature.label}.tif'))
+            filepath = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_{feature.label}_{feature.type}.tif'))
             io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
             legend_index += 1
     return map_data.name

@@ -102,4 +102,4 @@ def boundingBox(array):
     return [min_xy, max_xy]
 
 def sanitize_filename(filename, repl='□'):
-    return re.sub('[^0-9a-zA-Z _-]+', repl, filename).strip().replace(' ', '_')
+    return re.sub('[^0-9a-zA-Z ._-]+', repl, filename).strip().replace(' ', '_')
