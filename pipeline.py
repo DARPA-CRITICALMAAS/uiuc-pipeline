@@ -369,7 +369,7 @@ def construct_pipeline(args):
     save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, cdr_system_model, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
     # Validation
     if args.validation: 
-        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
+        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.output, args.feedback), display='Validating Output', workers=infer_workers*2)
 
     return p, input_stream
 
@@ -411,7 +411,7 @@ def construct_amqp_pipeline(args):
     save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, cdr_system_model, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
     # Validation
     if args.validation: 
-        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.feedback), display='Validating Output', workers=infer_workers*2)
+        valid_step = p.add_step(func=pipeline_steps.validation, args=(geom_step.output(), args.validation, args.output, args.feedback), display='Validating Output', workers=infer_workers*2)
 
     return p, input_stream, save_step.output()
 
