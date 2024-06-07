@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - updated validation submodule head
 - Changed filename sanitization to only allow alphanumeric characters and ' ', '-', '_' in names
 - Added polygon legend mask to legend extraction step
+- Added support for validating drab_volcano results
+- Updated drab_volcano alias list
+- Updated validation submodule head
+- Updated validation pipeline step
 
 ## [0.4.2] - 2024-05-10
 
