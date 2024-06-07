@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- updated README.md to accommodate new users and developers
+- When saving cdr_json it now uses `<name>-<model>:<version>` with just `-` and lower case.
+- pinned matplotlib version to 3.8.4
+- updated validation submodule head
+- Changed filename sanitization to only allow alphanumeric characters and ' ', '-', '_' in names
+- Added polygon legend mask to legend extraction step
+
 ## [0.4.2] - 2024-05-10
 
 ### Changed

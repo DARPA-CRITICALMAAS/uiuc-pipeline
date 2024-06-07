@@ -101,5 +101,5 @@ def boundingBox(array):
     max_xy = [max(array, key=lambda x: (x[0]))[0], max(array, key=lambda x: (x[1]))[1]]
     return [min_xy, max_xy]
 
-def sanitize_filename(filename):
-    return re.sub(r'[/\\?%*:|\"<>\x7F\x00-\x1F]', '-', filename).strip().replace(' ', '_')
+def sanitize_filename(filename, repl='□'):
+    return re.sub('[^0-9a-zA-Z ._-]+', repl, filename).strip().replace(' ', '_')

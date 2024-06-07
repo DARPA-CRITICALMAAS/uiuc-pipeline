@@ -6,27 +6,64 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
 <details>
 <summary> Installing </summary>
 
-  To get started with this pipeline you will need to clone the repository and and install [requirements.txt](https://git.ncsa.illinois.edu/criticalmaas/pipeline/-/blob/abode_pipeline/requirements.txt). We recommend using python venv here to keep the working environment clean.
+  <blockquote>
+  <details><summary> For Users </summary>
+
+  For model inference, you will need to pull the container image and run the model using Apptainer.
 
   ```bash
-  # If you are on hydro you will need to load the python and cuda module.
-  # module load python/3.9.13 cuda/11.7.0 
-
-  git clone git@git.ncsa.illinois.edu:criticalmaas/pipeline.git
-  cd pipeline_inference
-  python3 -m venv venv
-  source ./venv/bin/activate
-  pip install -r requirements.txt
+  apptainer pull -F criticalmaas-pipeline_latest.sif docker://ncsa/criticalmaas-pipeline:latest
+  
+  apptainer run --nv -B /projects/bbym/saxton/MockValData:/data -B ./feedback:/feedback -B ./logs:/logs -B ./output:/output ./criticalmaas-pipeline_latest.sif -v --data /data/validation --output /output --legends /data/validation --log /logs/log.log --model flat_iceberg --validation /data/validation_labels --output_types raster_masks
   ```
 
-  This repository also makes use of submodules which will need to be initialized.
+  **Note that `latest` can be replaced with `pr-#` as per the user preference of version.* \
+  *Make sure to change `./criticalmaas-pipeline_{latest}.sif` in the apptainer run command accordingly.*
+  ```bash
+  # here, instead of latest, we are using pr-6
+  apptainer pull -F criticalmaas-pipeline_pr-6.sif docker://ncsa/criticalmaas-pipeline:pr-6
+  ```
+  </details>
+  
+
+  <details><summary> For Developers </summary>
+
+  To get started with this pipeline you will need to clone the repository. We recommend using python venv here to keep the working environment clean.
+
+  ```bash
+  git clone https://github.com/DARPA-CRITICALMAAS/uiuc-pipeline.git
+  cd uiuc-pipeline
+  ```
+
+  If you are on hydro for the first time, you will need to load the anaconda3_gpu module and create a new conda environment. If conda is already installed on your system, you can skip these two lines.
+
+  ```bash
+  module load anaconda3_gpu
+  conda init
+  ```
+
+  This repository also makes use of submodules which need to be initialized and updated.
 
   ```bash
   git submodule init
   git submodule update
   ```
 
+  We now create new conda and venv environments and install the [requirements.txt](https://github.com/DARPA-CRITICALMAAS/uiuc-pipeline/blob/readme-update/requirements.txt).
+
+  ```bash
+  conda create --name CMAAS_py_3.10 python=3.10
+  conda activate CMAAS_py_3.10
+  python3 -m venv venv
+  source venv/bin/activate
+  # submodule must be updated before installing the requirements
+  pip install -r requirements.txt
+  ```
+
+  </details>
+  </blockquote>
 </details>
+
 
 <details>
 <summary> Understanding Pipeline Inputs </summary>
@@ -79,7 +116,7 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
 
   The list of available models can be found [below](#available-models) with the release-tag being what you want to use for the argument.
 
-  Note* You must have a GPU available to run pipeline.py
+  _*Note that you must have a GPU available to run pipeline.py_
 
   ```bash
   # Example call to pipeline.py
@@ -107,8 +144,8 @@ This is the internal UIUC git repository for the DARPA CMAAS inference pipeline.
   ```
   and that will start the job. We can view our pipelines progess by looking at `logs/job_%yourjobid%.log`. The slurm logs can also be found at `logs/slurm/%yourjobid%.e` if you have any errors.
 
-  *Hint `tail -f logs/job_%yourjobid%.log` can be very useful for viewing these logs.
-  You can also use `nvitop` when on the node that is running the job to view GPU statistics in real-time.
+  **Hint `tail -f logs/job_%yourjobid%.log` can be very useful for viewing these logs.
+  You can also use `nvitop` when on the node that is running the job to view GPU statistics in real-time.*
 
   **Please note that our job script assumes that you are using venv to setup your environment. If you are using another python environment manager, E.g. Conda or virtualenvwrapper, you will need to adapt the start_pipeline.sh script to your setup.*
 
