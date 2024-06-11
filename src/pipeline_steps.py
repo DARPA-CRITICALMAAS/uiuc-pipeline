@@ -88,6 +88,13 @@ def gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend
             lgd = extractLegends(image.transpose(1,2,0))
             map_data.legend = convertLegendtoCMASS(lgd)
 
+    # Reduce duplicates
+    legend_features = {}
+    for feature in map_data.legend.features:
+        legend_features[feature.label] = feature
+
+    map_data.legend.features = list(legend_features.values())
+
     # Count distribution of map units for log.
     pt, ln, py, un = 0,0,0,0
     for feature in map_data.legend.features:
