@@ -305,6 +305,12 @@ def main():
         os.makedirs(args.output)
     if args.feedback is not None and not os.path.exists(args.feedback):
         os.makedirs(args.feedback)
+        
+    # Delete old validation result file if it exists
+    if args.validation:
+        full_csv_path = os.path.join(args.output, '#validation_scores.csv')
+        if os.path.exists(full_csv_path):
+            os.remove(full_csv_path)
 
     if args.amqp:
         run_in_amqp_mode(args)
