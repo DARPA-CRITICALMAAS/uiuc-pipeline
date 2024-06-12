@@ -340,6 +340,7 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, output_dir, feedback
             if not alias_found:
                 pipeline_manager.log(logging.WARNING, f'{map_data.name} - Can\'t validate feature {feature.label}. No true segmentation mask found at {true_mask_path}.', pid=mp.current_process().pid)
                 results_df.loc[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.label}
+                legend_index += 1
                 continue
         true_mask, _, _ = io.loadGeoTiff(true_mask_path)
 
