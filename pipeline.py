@@ -330,7 +330,37 @@ def run_in_local_mode(args):
         log.warning(f'Remaining maps to be processed :\n{remaining_maps}')
         log.exception('Pipeline encounter unhandled exception. Stopping Pipeline')
         exit(1)
+
+    # Build a graph of validation scores after completing the pipeline
+    if args.validation:
+        create_validation_result_plot(args.output, args.model)
     return 
+
+def create_validation_result_plot(output_dir:str, model_name:str):
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    full_csv_path = os.path.join(output_dir, f'#validation_scores.csv')
+    raw_df = pd.read_csv(full_csv_path)
+    trim_df = raw_df[raw_df['Feature'].notna()]
+    mean_df = trim_df.fillna(0)
+    mean_df = mean_df.dropna(axis=1)
+    mean_df = mean_df[['F1 Score', 'Recall', 'Precision']]
+
+    log.info(f'Average of Validation Results : F1 Score {mean_df["F1 Score"].mean():.3f}, Recall {mean_df["Recall"].mean():.3f}, Precision {mean_df["Precision"].mean():.3f}')
+    log.info(f'Median of Validation Results : F1 Score {mean_df["F1 Score"].median():.3f}, Recall {mean_df["Recall"].median():.3f}, Precision {mean_df["Precision"].median():.3f}')
+
+    fig, ax = plt.subplots()
+    ax.plot(range(len(mean_df)),sorted(mean_df['F1 Score']))
+    ax.axvline(x=len(mean_df)/2, color = 'r')
+    ax.set(title=f'{model_name} F1 Scores', xlabel='', ylabel='F1 Score')
+    ax.grid(visible=True, which='major', axis='y')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.legend({f'Mean : {mean_df["F1 Score"].mean():.3f}' : '', f'Median : {mean_df["F1 Score"].median():.3f}' : ''})
+    plot_path = os.path.join(output_dir, '#validation_plot.png')
+    fig.savefig(plot_path, dpi=150)
 
 def construct_pipeline(args):
     from src.pipeline_manager import pipeline_manager
@@ -551,6 +581,10 @@ def run_in_amqp_mode(args):
         log.warning(f'Completed these maps before failure :\n{completed_maps}')
         log.warning(f'Remaining maps to be processed :\n{active_maps.keys()}')
         pipeline.stop() # This is not a hard kill, it will wait for the pipeline to finish
+    
+    # Build a graph of validation scores after completing the pipeline
+    if args.validation:
+        create_validation_result_plot(args.output, args.model)
     return
 
 if __name__=='__main__':
