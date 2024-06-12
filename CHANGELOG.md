@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Updated validation submodule head
 - Updated validation pipeline step
 - Fixed bug with duplicate legends in maps causing 0 validation scores for some legend items
+- Added graph of validation scores for full dataset
 
 ## [0.4.2] - 2024-05-10
 
