@@ -88,6 +88,13 @@ def gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend
             lgd = extractLegends(image.transpose(1,2,0))
             map_data.legend = convertLegendtoCMASS(lgd)
 
+    # Reduce duplicates
+    legend_features = {}
+    for feature in map_data.legend.features:
+        legend_features[feature.label] = feature
+
+    map_data.legend.features = list(legend_features.values())
+
     # Count distribution of map units for log.
     pt, ln, py, un = 0,0,0,0
     for feature in map_data.legend.features:
@@ -333,6 +340,7 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, output_dir, feedback
             if not alias_found:
                 pipeline_manager.log(logging.WARNING, f'{map_data.name} - Can\'t validate feature {feature.label}. No true segmentation mask found at {true_mask_path}.', pid=mp.current_process().pid)
                 results_df.loc[len(results_df)] = {'Map' : map_data.name, 'Feature' : feature.label}
+                legend_index += 1
                 continue
         true_mask, _, _ = io.loadGeoTiff(true_mask_path)
 
