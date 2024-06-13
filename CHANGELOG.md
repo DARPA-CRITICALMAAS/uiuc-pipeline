@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 ### Changed
+
+
+## [0.4.2] - 2024-06-13
+
+### Changed
 - updated README.md to accommodate new users and developers
 - When saving cdr_json it now uses `<name>-<model>:<version>` with just `-` and lower case.
 - pinned matplotlib version to 3.8.4
@@ -19,10 +24,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Updated validation pipeline step
 - Fixed bug with duplicate legends in maps causing 0 validation scores for some legend items
 - Added graph of validation scores for full dataset
-
-## [0.4.2] - 2024-05-10
-
-### Changed
 - When saving cdr_json system_name is not changed, version has model appended
 
 ## [0.4.1] - 2024-05-09
