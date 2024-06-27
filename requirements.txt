@@ -14,6 +14,7 @@ charset-normalizer==3.3.2
 click==8.1.7
 click-plugins==1.1.1
 cligj==0.7.2
+--extra-index-url https://test.pypi.org/simple/
 cmaas_utils==0.1.9
 contourpy==1.2.1
 cycler==0.12.1
