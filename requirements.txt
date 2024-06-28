@@ -1,5 +1,6 @@
 # Core
 numpy>1.21,<2
+pip<24
 rasterio>=1.3.9
 geopandas
 --extra-index-url https://test.pypi.org/simple/
