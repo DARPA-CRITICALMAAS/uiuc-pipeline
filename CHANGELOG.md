@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 ### Changed
-
+- Pinned numpy < 2
 
 ## [0.4.2] - 2024-06-13
 
