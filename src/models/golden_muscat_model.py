@@ -20,9 +20,9 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 class golden_muscat_model(pipeline_pytorch_model):
     def __init__(self):
         self.name = 'golden muscat'
-        self.version = '0.1'
+        self.version = '0.3'
         self.feature_type = MapUnitType.POLYGON
-        self._checkpoint = 'golden_muscat/jaccard.ckpt'
+        self._checkpoint = 'golden_muscat-0.3.ckpt'
         self._args = SimpleNamespace(model='Unet', edge=False, superpixel = '')
         self.est_patches_per_sec = 280 # Only used for estimating inference time
 

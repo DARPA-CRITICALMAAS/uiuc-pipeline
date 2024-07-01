@@ -26,7 +26,7 @@ class flat_iceberg_model(pipeline_pytorch_model):
         self.name = 'flat iceberg'
         self.version = '0.1'
         self.feature_type = MapUnitType.POINT
-        self.checkpoint = 'flat-iceberg/best.pt'
+        self.checkpoint = 'flat_iceberg-0.1.pt'
         self.est_patches_per_sec = 110 # Only used for estimating inference time
     
         # Modifiable parameters

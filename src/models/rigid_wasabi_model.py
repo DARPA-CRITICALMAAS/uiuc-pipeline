@@ -22,7 +22,7 @@ class rigid_wasabi_model(pipeline_pytorch_model):
         self.name = 'rigid wasabi'
         self.version = '0.1'
         self.feature_type = MapUnitType.POLYGON
-        self.checkpoint = 'rigid_wasabi/SWIN_jaccard.ckpt'
+        self.checkpoint = 'rigid_wasabi-0.1.ckpt'
         self.args = SimpleNamespace(model='swin', superpixel='', edge=False)
         self.est_patches_per_sec = 250 # seconds
         
