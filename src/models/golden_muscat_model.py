@@ -1,3 +1,4 @@
+import os
 import gc
 import logging
 import numpy as np
@@ -19,9 +20,9 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 class golden_muscat_model(pipeline_pytorch_model):
     def __init__(self):
         self.name = 'golden muscat'
-        self.version = '0.1'
+        self.version = '0.3'
         self.feature_type = MapUnitType.POLYGON
-        self._checkpoint = '/projects/bbym/shared/models/golden_muscat/jaccard.ckpt'
+        self._checkpoint = 'golden_muscat-0.3.ckpt'
         self._args = SimpleNamespace(model='Unet', edge=False, superpixel = '')
         self.est_patches_per_sec = 280 # Only used for estimating inference time
 
@@ -34,8 +35,9 @@ class golden_muscat_model(pipeline_pytorch_model):
         self.unpatch_mode = 'discard'
 
     #@override
-    def load_model(self):
-        self.model = SegmentationModel.load_from_checkpoint(checkpoint_path=self._checkpoint, args=self._args)
+    def load_model(self, model_dir):
+        model_path = os.path.join(model_dir, self._checkpoint) 
+        self.model = SegmentationModel.load_from_checkpoint(checkpoint_path=model_path, args=self._args)
         self.model.eval()
 
         return self.model

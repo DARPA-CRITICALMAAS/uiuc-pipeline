@@ -1,3 +1,4 @@
+import os
 import gc
 import cv2
 #import nvtx
@@ -25,7 +26,7 @@ class flat_iceberg_model(pipeline_pytorch_model):
         self.name = 'flat iceberg'
         self.version = '0.1'
         self.feature_type = MapUnitType.POINT
-        self.checkpoint = '/projects/bbym/shared/models/flat-iceberg/best.pt'
+        self.checkpoint = 'flat_iceberg-0.1.ckpt'
         self.est_patches_per_sec = 110 # Only used for estimating inference time
     
         # Modifiable parameters
@@ -36,9 +37,10 @@ class flat_iceberg_model(pipeline_pytorch_model):
         self.unpatch_mode = 'discard'
 
     # @override
-    def load_model(self):
+    def load_model(self, model_dir):
+        model_path = os.path.join(model_dir, self._checkpoint) 
         self.model = OneshotYOLO()
-        self.model.load(self.checkpoint)
+        self.model.load(model_path)
         self.model.eval()
 
     # @override
