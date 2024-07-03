@@ -221,7 +221,7 @@ def parse_command_line():
     optional_args.add_argument('--checkpoint_dir',
                         type=parse_directory,
                         default=default_checkpoint_dir, # Set right before args
-                        help='Option to override the default checkpoint directory for the model. Defaults to the models default checkpoint directory')
+                        help=f'Option to override the default checkpoint directory containing the model\'s checkpoint files. Default is "{default_checkpoint_dir}"')
     optional_args.add_argument('--log',
                         default='logs/Latest.log',
                         help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
