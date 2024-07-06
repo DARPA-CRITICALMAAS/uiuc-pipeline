@@ -49,6 +49,10 @@ def load_pipeline_model(model_dir : str, model_name : str, override_batch_size=N
         from src.models.drab_volcano_model import drab_volcano_model
         model = drab_volcano_model()
     
+    if not os.path.exists(os.path.join(model_dir, model._checkpoint)):
+        msg = f'Could not load {model_name}. Model checkpoint file "{model._checkpoint}" not found in model directory "{model_dir}"'
+        log.error(msg)
+        raise FileNotFoundError(msg)
     model.load_model(model_dir)
     if override_batch_size:
         model.batch_size = override_batch_size
@@ -335,17 +339,19 @@ def main():
 def run_in_local_mode(args):
     remaining_maps = copy.deepcopy(args.data)
     completed_maps = []
+    pipeline = None
     try:
         pipeline, _ = construct_pipeline(args)
         pipeline.set_inactivity_timeout(3)
         pipeline.start()
         pipeline.monitor()
     except:
-        for idx in pipeline._monitor.completed_items:
-            completed_maps.append(args.data[idx])
-            remaining_maps.remove(args.data[idx])
-        log.warning(f'Completed these maps before failure :\n{completed_maps}')
-        log.warning(f'Remaining maps to be processed :\n{remaining_maps}')
+        if pipeline is not None:
+            for idx in pipeline._monitor.completed_items:
+                completed_maps.append(args.data[idx])
+                remaining_maps.remove(args.data[idx])
+            log.warning(f'Completed these maps before failure :\n{completed_maps}')
+            log.warning(f'Remaining maps to be processed :\n{remaining_maps}')
         log.exception('Pipeline encounter unhandled exception. Stopping Pipeline')
         exit(1)
 
