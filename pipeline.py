@@ -26,7 +26,7 @@ AVAILABLE_MODELS = [
 
 # Lazy load only the model we are going to use
 from src.models.pipeline_model import pipeline_model
-def load_pipeline_model(model_name : str, override_batch_size=None) -> pipeline_model :
+def load_pipeline_model(model_dir : str, model_name : str, override_batch_size=None) -> pipeline_model :
     """Utility function to only import and load the model we are going to use. Returns loaded model"""
     log.info(f'Loading model {model_name}')
     model_stime = time()
@@ -49,7 +49,11 @@ def load_pipeline_model(model_name : str, override_batch_size=None) -> pipeline_
         from src.models.drab_volcano_model import drab_volcano_model
         model = drab_volcano_model()
     
-    model.load_model()
+    if not os.path.exists(os.path.join(model_dir, model._checkpoint)):
+        msg = f'Could not load {model_name}. Model checkpoint file "{model._checkpoint}" not found in model directory "{model_dir}"'
+        log.error(msg)
+        raise FileNotFoundError(msg)
+    model.load_model(model_dir)
     if override_batch_size:
         model.batch_size = override_batch_size
 
@@ -144,6 +148,14 @@ def parse_command_line():
                     msg += '\n\t* {}'.format(t)
                 raise argparse.ArgumentTypeError(msg)
         return data
+    
+    # Set the default checkpoint directory based on the system.
+    hostname = os.uname()[1]
+    default_checkpoint_dir = 'checkpoints'
+    if 'rails' in hostname:
+        default_checkpoint_dir = '/projects/bcxi/shared/models/'
+    if 'hydro' in hostname:
+        default_checkpoint_dir = '/projects/bbym/shared/models/'
 
     parser = argparse.ArgumentParser(description='', add_help=False)
     # Required Arguments
@@ -207,9 +219,13 @@ def parse_command_line():
                         default=60,
                         help='Number of seconds to wait for new messages before exiting amqp mode.')
     optional_args.add_argument('--gpu',
-                       type=parse_gpu,
-                       default=None,
-                       help='Option to target a specific device for inference, when not present pipeline will use all available gpus. NOTE this is NOT the number of GPUs that will be used but rather which one to use')
+                        type=parse_gpu,
+                        default=None,
+                        help='Option to target a specific device for inference, when not present pipeline will use all available gpus. NOTE this is NOT the number of GPUs that will be used but rather which one to use')
+    optional_args.add_argument('--checkpoint_dir',
+                        type=parse_directory,
+                        default=default_checkpoint_dir, # Set right before args
+                        help=f'Option to override the default checkpoint directory containing the model\'s checkpoint files. Default is "{default_checkpoint_dir}"')
     optional_args.add_argument('--log',
                         default='logs/Latest.log',
                         help='Option to set the file logging will output to. Defaults to "logs/Latest.log"')
@@ -323,17 +339,19 @@ def main():
 def run_in_local_mode(args):
     remaining_maps = copy.deepcopy(args.data)
     completed_maps = []
+    pipeline = None
     try:
         pipeline, _ = construct_pipeline(args)
         pipeline.set_inactivity_timeout(3)
         pipeline.start()
         pipeline.monitor()
     except:
-        for idx in pipeline._monitor.completed_items:
-            completed_maps.append(args.data[idx])
-            remaining_maps.remove(args.data[idx])
-        log.warning(f'Completed these maps before failure :\n{completed_maps}')
-        log.warning(f'Remaining maps to be processed :\n{remaining_maps}')
+        if pipeline is not None:
+            for idx in pipeline._monitor.completed_items:
+                completed_maps.append(args.data[idx])
+                remaining_maps.remove(args.data[idx])
+            log.warning(f'Completed these maps before failure :\n{completed_maps}')
+            log.warning(f'Remaining maps to be processed :\n{remaining_maps}')
         log.exception('Pipeline encounter unhandled exception. Stopping Pipeline')
         exit(1)
 
@@ -382,7 +400,7 @@ def construct_pipeline(args):
 
 
     p = pipeline_manager()
-    model = load_pipeline_model(args.model, override_batch_size=args.batch_size)
+    model = load_pipeline_model(args.checkpoint_dir, args.model, override_batch_size=args.batch_size)
     drab_volcano_legend = False
     if model.name == 'drab volcano':
         log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')
@@ -423,7 +441,7 @@ def construct_amqp_pipeline(args):
 
     # For amqp we just want to write to file.
     p = pipeline_manager(monitor=file_monitor())
-    model = load_pipeline_model(args.model, override_batch_size=args.batch_size)
+    model = load_pipeline_model(args.checkpoint_dir, args.model, override_batch_size=args.batch_size)
     drab_volcano_legend = False
     if model.name == 'drab volcano':
         log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')

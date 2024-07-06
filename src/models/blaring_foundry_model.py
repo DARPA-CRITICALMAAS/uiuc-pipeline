@@ -1,3 +1,4 @@
+import os
 import gc
 import logging
 import numpy as np
@@ -21,8 +22,8 @@ class blaring_foundry_model(pipeline_pytorch_model):
         self.name = 'blaring foundry'
         self.version = '0.1'
         self.feature_type = MapUnitType.POLYGON
-        self._checkpoint = '/projects/bbym/shared/models/blaring_foundry/spixel_unet.ckpt'
-        self._args = SimpleNamespace(model='spUnet', edge=False, sp_sz=2, sp_pretrain=True, sp_ckpt = '/projects/bbym/shared/models/blaring_foundry/spixel_bsd_sz_2.tar')
+        self._checkpoint = 'blaring_foundry-0.1.ckpt'
+        self._args = SimpleNamespace(model='spUnet', edge=False, sp_sz=2, sp_pretrain=True, sp_ckpt = 'blaring_foundry-spixel_bsd_sz_2.tar')
         self.est_patches_per_sec = 140 # Only used for estimating inference time
 
         # Modifiable parameters
@@ -33,8 +34,10 @@ class blaring_foundry_model(pipeline_pytorch_model):
         self.unpatch_mode = 'discard'
 
     #@override
-    def load_model(self):
-        self.model = SegmentationModel.load_from_checkpoint(checkpoint_path=self._checkpoint, args=self._args)
+    def load_model(self, model_dir):
+        model_path = os.path.join(model_dir, self._checkpoint) 
+        self._args.sp_ckpt = os.path.join(model_dir, self._args.sp_ckpt)
+        self.model = SegmentationModel.load_from_checkpoint(checkpoint_path=model_path, args=self._args)
         self.model.eval()
 
         return self.model

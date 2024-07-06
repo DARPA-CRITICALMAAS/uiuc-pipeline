@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 - Pinned numpy < 2
+- Added `--checkpoint_dir` option to specify what directory to use for loading model checkpoints
+- Changed the checkpoint directories structure and update paths in model interface files accordingly
+
 
 ## [0.4.2] - 2024-06-13
 

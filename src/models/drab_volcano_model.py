@@ -1,3 +1,4 @@
+import os
 import gc
 import json
 import logging
@@ -23,7 +24,7 @@ class drab_volcano_model(pipeline_pytorch_model):
         self.name = 'drab volcano'
         self.version = '0.1'
         self.feature_type = MapUnitType.POINT
-        self.checkpoint = '/projects/bbym/shared/models/drab-volcano/best.pt'
+        self.checkpoint = 'drab_volcano-0.1.ckpt'
         self.label_name_path = 'submodules/models/drab_volcano/config/legend_name2class.json'
         self.est_patches_per_sec = 4500 # Ignore the number is not actually patches per sec for this model as its multi-class
 
@@ -35,9 +36,10 @@ class drab_volcano_model(pipeline_pytorch_model):
         self.unpatch_mode = 'discard'
 
     # @override
-    def load_model(self):
+    def load_model(self, model_dir):
+        model_path = os.path.join(model_dir, self._checkpoint) 
         self.model = MulticlassYOLO()
-        self.model.load(self.checkpoint)
+        self.model.load(model_path)
         self.model.eval()
 
         label_names = json.load(open(self.label_name_path))

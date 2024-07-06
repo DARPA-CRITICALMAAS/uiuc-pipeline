@@ -1,5 +1,4 @@
 import gc
-import cv2
 import torch
 import logging
 import numpy as np
@@ -8,7 +7,6 @@ from time import time
 from torchvision import transforms
 from patchify import patchify
 
-from src.pipeline_manager import pipeline_manager
 from src.patching import unpatch_img
 from .pipeline_model import pipeline_model
 
@@ -17,9 +15,11 @@ log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 class pipeline_pytorch_model(pipeline_model):
     def __init__(self):
         super().__init__()
-        self.name = 'base pipeline pytorch model'
+        # Required parameters
+        self.name = 'base pytorch model'
         self.version = '0.1'
         self.feature_type = None
+        self.model = None
 
         # Modifiable parameters
         self.device = torch.device("cuda")
@@ -27,15 +27,13 @@ class pipeline_pytorch_model(pipeline_model):
         self.patch_size = 256
         self.patch_overlap = 64
         self.unpatch_mode = 'discard'
+        self.est_patches_per_sec = 100
 
-    def norm(self, data):
-        data = data / 255.0
-        mean = torch.tensor([0.485, 0.456, 0.406]).to(self.device)[None, :, None, None].expand(*data.shape)
-        std = torch.tensor([0.229, 0.224, 0.225]).to(self.device)[None, :, None, None].expand(*data.shape)
-        data = (data - mean)/std
-        return data
+    # Need to override this method
+    def load_model(self):
+        raise NotImplementedError
 
-    # @override
+    # Optional to override this method
     def inference(self, image, legend_images, data_id=-1):
         """Image data is in CHW format. legend_images is a dictionary of label to map_unit label images in CHW format."""         
 
@@ -110,3 +108,10 @@ class pipeline_pytorch_model(pipeline_model):
         map_prediction[map_confidence < 0.333] = 0
 
         return map_prediction
+    
+    def norm(self, data):
+        data = data / 255.0
+        mean = torch.tensor([0.485, 0.456, 0.406]).to(self.device)[None, :, None, None].expand(*data.shape)
+        std = torch.tensor([0.229, 0.224, 0.225]).to(self.device)[None, :, None, None].expand(*data.shape)
+        data = (data - mean)/std
+        return data
