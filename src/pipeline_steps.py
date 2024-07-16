@@ -41,8 +41,8 @@ def amqp_load_data(data_id, cog_tuple):
     else:
         pipeline_manager.log_to_monitor(data_id, {'Name': map_name})
     # Load CDR data
-    fr = io.loadCDRFeatureResults(cdr_json_path)
-    map_data = cdr.importCDRFeatureResults(fr)
+    with open(cdr_json_path, 'r') as fh:
+        map_data = CMAAS_Map.parse_raw(fh.read())
     map_data.name = map_name
     map_data.cog_id = cog_id
     map_data.layout = tmp_fix_layout(map_data.layout)
