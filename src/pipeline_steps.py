@@ -404,17 +404,17 @@ def test_step(data_id, filename):
     sleep(1)
     return filename
 
-def tmp_fix_layout(layout : Layout):
+def tmp_fix_layout(layout):
     if layout.map is not None:
-        layout.map = np.array(layout.map)
+        layout.map = np.array(layout.map).squeeze().astype(int)
     if layout.polygon_legend is not None:
-        layout.polygon_legend = np.array(layout.polygon_legend)
+        layout.polygon_legend = np.array(layout.polygon_legend).squeeze().astype(int)
     if layout.point_legend is not None:
-        layout.point_legend = np.array(layout.point_legend)
+        layout.point_legend = np.array(layout.point_legend).squeeze().astype(int)
     if layout.line_legend is not None:
-        layout.line_legend = np.array(layout.line_legend)
+        layout.line_legend = np.array(layout.line_legend).squeeze().astype(int)
     if layout.cross_section is not None:
-        layout.cross_section = np.array(layout.cross_section)
+        layout.cross_section = np.array(layout.cross_section).squeeze().astype(int)
     if layout.correlation_diagram is not None:
-        layout.correlation_diagram = np.array(layout.correlation_diagram)
+        layout.correlation_diagram = np.array(layout.correlation_diagram).squeeze().astype(int)
     return layout
