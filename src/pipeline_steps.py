@@ -41,8 +41,8 @@ def amqp_load_data(data_id, cog_tuple):
     else:
         pipeline_manager.log_to_monitor(data_id, {'Name': map_name})
     # Load CDR data
-    fr = io.loadCDRFeatureResults(cdr_json_path)
-    map_data = cdr.importCDRFeatureResults(fr)
+    with open(cdr_json_path, 'r') as fh:
+        map_data = CMAAS_Map.parse_raw(fh.read())
     map_data.name = map_name
     map_data.cog_id = cog_id
     map_data.layout = tmp_fix_layout(map_data.layout)
@@ -69,21 +69,21 @@ def gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend
             features.append(MapUnit(type=MapUnitType.POLYGON, label=feature['label'], bounding_box=feature['points']))
         return Legend(provenance=Provenance(name='UIUC Heuristic Model', version='0.1'), features=features)
 
-    if drab_volcano_legend:
-        map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
-    else:
-        # Mask legend area before prediction.
-        if map_data.layout is not None and map_data.layout.polygon_legend is not None:
-            image = map_data.image.transpose(1,2,0).copy()
-            mask = np.zeros_like(image)
-            cv2.fillPoly(mask, pts=[map_data.layout.polygon_legend], color=(255,255,255))
-            image = cv2.bitwise_and(image, mask)
-            image = image.transpose(2,0,1)
+    if map_data.legend is None:
+        if drab_volcano_legend:
+            map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
         else:
-            image = map_data.image
+            # Mask legend area before prediction.
+            if map_data.layout is not None and map_data.layout.polygon_legend is not None:
+                image = map_data.image.transpose(1,2,0).copy()
+                mask = np.zeros_like(image)
+                cv2.fillPoly(mask, pts=[map_data.layout.polygon_legend], color=(255,255,255))
+                image = cv2.bitwise_and(image, mask)
+                image = image.transpose(2,0,1)
+            else:
+                image = map_data.image
 
-        # Generate legend if not precomputed
-        if map_data.legend is None:
+            # Generate legend
             pipeline_manager.log(logging.DEBUG, f'{map_data.name} - No legend data found, generating legend', pid=mp.current_process().pid)
             lgd = extractLegends(image.transpose(1,2,0))
             map_data.legend = convertLegendtoCMASS(lgd)
@@ -404,17 +404,17 @@ def test_step(data_id, filename):
     sleep(1)
     return filename
 
-def tmp_fix_layout(layout : Layout):
+def tmp_fix_layout(layout):
     if layout.map is not None:
-        layout.map = layout.map[0]
+        layout.map = np.array(layout.map).squeeze().astype(int)
     if layout.polygon_legend is not None:
-        layout.polygon_legend = layout.polygon_legend[0]
+        layout.polygon_legend = np.array(layout.polygon_legend).squeeze().astype(int)
     if layout.point_legend is not None:
-        layout.point_legend = layout.point_legend[0]
+        layout.point_legend = np.array(layout.point_legend).squeeze().astype(int)
     if layout.line_legend is not None:
-        layout.line_legend = layout.line_legend[0]
+        layout.line_legend = np.array(layout.line_legend).squeeze().astype(int)
     if layout.cross_section is not None:
-        layout.cross_section = layout.cross_section[0]
+        layout.cross_section = np.array(layout.cross_section).squeeze().astype(int)
     if layout.correlation_diagram is not None:
-        layout.correlation_diagram = layout.correlation_diagram[0]
+        layout.correlation_diagram = np.array(layout.correlation_diagram).squeeze().astype(int)
     return layout
