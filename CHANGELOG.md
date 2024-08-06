@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.3] - 2024-08-06
+
 ### Changed
 - Changed json format of cdr data for amqp mode to support legend items
 - Pinned numpy < 2
