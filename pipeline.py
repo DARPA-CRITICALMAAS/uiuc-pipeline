@@ -387,6 +387,7 @@ def create_validation_result_plot(output_dir:str, model_name:str):
     fig.savefig(plot_path, dpi=150)
 
 def construct_pipeline(args):
+    from src.models.legend_extraction_model import yolo_legend_model
     from src.pipeline_manager import pipeline_manager
     from src.pipeline_communication import parameter_data_stream
     import src.pipeline_steps as pipeline_steps
@@ -400,9 +401,11 @@ def construct_pipeline(args):
 
 
     p = pipeline_manager()
-    model = load_pipeline_model(args.checkpoint_dir, args.model, override_batch_size=args.batch_size)
+    legend_model = yolo_legend_model()
+    legend_model.load_model(args.checkpoint_dir)
+    segmentation_model = load_pipeline_model(args.checkpoint_dir, args.model, override_batch_size=args.batch_size)
     drab_volcano_legend = False
-    if model.name == 'drab volcano':
+    if segmentation_model.name == 'drab volcano':
         log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')
         drab_volcano_legend = True
     
@@ -411,13 +414,13 @@ def construct_pipeline(args):
     # Data Loading and preprocessing
     load_step = p.add_step(func=pipeline_steps.load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
-    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), args.max_legends, drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
+    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), legend_model, args.max_legends, drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
 
     if args.feedback:
         legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
     # Segmentation Inference
-    infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
-    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
+    infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), segmentation_model, devices), display='Segmenting Map Units', workers=infer_workers)
+    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), segmentation_model.name, segmentation_model.version), display='Generating Vector Geometry', workers=infer_workers*2)
     # Save Output
     cdr_system_model = f"{args.cdr_system}-{args.model}".replace('_', '-').lower()
     save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, cdr_system_model, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
@@ -428,6 +431,7 @@ def construct_pipeline(args):
     return p, input_stream
 
 def construct_amqp_pipeline(args):
+    from src.models.legend_extraction_model import yolo_legend_model
     from src.pipeline_manager import pipeline_manager, file_monitor
     from src.pipeline_communication import parameter_data_stream
     import src.pipeline_steps as pipeline_steps
@@ -441,9 +445,11 @@ def construct_amqp_pipeline(args):
 
     # For amqp we just want to write to file.
     p = pipeline_manager(monitor=file_monitor())
-    model = load_pipeline_model(args.checkpoint_dir, args.model, override_batch_size=args.batch_size)
+    legend_model = yolo_legend_model()
+    legend_model.load_model(args.checkpoint_dir)
+    segmentation_model = load_pipeline_model(args.checkpoint_dir, args.model, override_batch_size=args.batch_size)
     drab_volcano_legend = False
-    if model.name == 'drab volcano':
+    if segmentation_model.name == 'drab volcano':
         log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')
         drab_volcano_legend = True
     
@@ -453,13 +459,13 @@ def construct_amqp_pipeline(args):
     # Data Loading and preprocessing
     load_step = p.add_step(func=pipeline_steps.amqp_load_data, args=(input_stream,), display='Loading Data', workers=infer_workers)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
-    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), args.max_legends, drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
+    legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), legend_model, args.max_legends, drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
 
     if args.feedback:
         legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
     # Segmentation Inference
-    infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), model, devices), display='Segmenting Map Units', workers=infer_workers)
-    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), model.name, model.version), display='Generating Vector Geometry', workers=infer_workers*2)
+    infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), segmentation_model, devices), display='Segmenting Map Units', workers=infer_workers)
+    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(), segmentation_model.name, segmentation_model.version), display='Generating Vector Geometry', workers=infer_workers*2)
     # Save Output
     cdr_system_model = f"{args.cdr_system}-{args.model}".replace('_', '-').lower()
     save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, cdr_system_model, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)

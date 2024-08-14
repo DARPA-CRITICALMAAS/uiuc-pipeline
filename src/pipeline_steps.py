@@ -4,6 +4,7 @@ import numpy as np
 import cmaas_utils.io as io
 import cmaas_utils.cdr as cdr
 from cmaas_utils.types import CMAAS_Map, GeoReference, Layout, MapUnitType, Provenance
+import src.utils as utils
 from src.utils import boundingBox, sanitize_filename
 from src.pipeline_manager import pipeline_manager
 from time import time
@@ -60,7 +61,47 @@ def gen_layout(data_id, map_data:CMAAS_Map):
         pass
     return map_data
 
-def gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend:bool=False):
+def gen_legend(data_id, map_data:CMAAS_Map, model, max_legends=300, drab_volcano_legend:bool=False):
+    # Generate legend if not precomputed
+    if map_data.legend is None:
+        if drab_volcano_legend:
+            map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
+        else:
+            pipeline_manager.log(logging.DEBUG, f'{map_data.name} - No legend data found, generating legend', pid=mp.current_process().pid)
+            
+            
+            # Generate legend
+            map_data.legend = model.inference(map_data.image, map_data.layout, data_id=data_id)
+
+    # Reduce duplicates
+    legend_features = {}
+    for feature in map_data.legend.features:
+        legend_features[feature.label] = feature
+
+    map_data.legend.features = list(legend_features.values())
+
+    # TMP solution for maps with too many features (most likely from bad legend extraction)
+    if len(map_data.legend.features) > max_legends:
+        raise Exception(f'{map_data.name} - Too many features found in legend. Found {len(map_data.legend.features)} features. Max is {max_legends}')
+
+    # Count distribution of map units for log.
+    pt, ln, py, un = 0,0,0,0
+    for feature in map_data.legend.features:
+        if feature.type == MapUnitType.POINT:
+            pt += 1
+        if feature.type == MapUnitType.LINE:
+            ln += 1
+        if feature.type == MapUnitType.POLYGON:
+            py += 1
+        if feature.type == MapUnitType.UNKNOWN:
+            un += 1
+    
+    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Found {len(map_data.legend.features)} Total map units. ({pt} pt, {ln} ln, {py} poly, {un} unknown)', pid=mp.current_process().pid)
+    pipeline_manager.log_to_monitor(data_id, {'Map Units': len(map_data.legend.features)})
+    
+    return map_data
+
+def old_gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend:bool=False):
     from submodules.legend_extraction.src.extraction import extractLegends
     def convertLegendtoCMASS(legend):
         from cmaas_utils.types import Legend, MapUnit
@@ -123,7 +164,7 @@ def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_m
     # Cutout map unit labels from image
     legend_images = {}
     for feature in map_data.legend.features:
-        min_pt, max_pt = boundingBox(feature.bounding_box) # Need this as points order can be reverse or could have quad
+        min_pt, max_pt = boundingBox(feature.label_bbox) # Need this as points order can be reverse or could have quad
         legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
 
     # Save preview of legend labels
@@ -160,7 +201,7 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
     legend_images = {}
     for feature in map_data.legend.features:
         if feature.type == model.feature_type:
-            min_pt, max_pt = boundingBox(feature.bounding_box) # Need this as points order can be reverse or could have quad
+            min_pt, max_pt = boundingBox(feature.label_bbox) # Need this as points order can be reverse or could have quad
             legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
         # else:
         #     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Skipping inference for {feature.label} as it is not a {model.feature_type.name} feature', pid=mp.current_process().pid)

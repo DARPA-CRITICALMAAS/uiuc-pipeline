@@ -16,3 +16,6 @@
 [submodule "submodules/validation"]
 	path = submodules/validation
 	url = https://github.com/DARPA-CRITICALMAAS/uiuc-validation
+[submodule "submodules/models/yolo_legend"]
+	path = submodules/models/yolo_legend
+	url = https://github.com/abodeuis/yolo_legend_model
