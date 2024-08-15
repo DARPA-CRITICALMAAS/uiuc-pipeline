@@ -169,6 +169,10 @@ def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_m
 
     # Save preview of legend labels
     if len(legend_images) > 0:
+        if feedback_dir:
+            os.makedirs(os.path.join(feedback_dir, map_data.name), exist_ok=True)
+            with open(os.path.join(feedback_dir, map_data.name, sanitize_filename(map_data.name + '_legend.json')), 'w') as fh:
+                fh.write(map_data.legend.model_dump_json())
         if legend_feedback_mode == 'individual_images':
             legend_save_path = os.path.join(feedback_dir, map_data.name, sanitize_filename('lgd_' + map_data.name + '_' + feature.label + '.tif'))
             io.saveGeoTiff(legend_save_path, legend_images[feature.label], None, None)

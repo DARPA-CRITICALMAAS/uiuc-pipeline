@@ -342,7 +342,7 @@ def run_in_local_mode(args):
     pipeline = None
     try:
         pipeline, _ = construct_pipeline(args)
-        pipeline.set_inactivity_timeout(3)
+        pipeline.set_inactivity_timeout(5)
         pipeline.start()
         pipeline.monitor()
     except:
@@ -364,6 +364,9 @@ def create_validation_result_plot(output_dir:str, model_name:str):
     import pandas as pd
     import matplotlib.pyplot as plt
     full_csv_path = os.path.join(output_dir, f'#validation_scores.csv')
+    if not os.path.exists(full_csv_path):
+        log.warning(f'Validation results file not found at "{full_csv_path}". Skipping validation result plot')
+        return
     raw_df = pd.read_csv(full_csv_path)
     trim_df = raw_df[raw_df['Feature'].notna()]
     mean_df = trim_df.fillna(0)
