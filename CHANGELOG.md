@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 - Changed pipeline to use ML model for legend detection instead of heursitic method.
-- Updated cmaas_utils to 0.1.11, need to update package to run.
+- Updated cmaas_utils to 0.1.12, need to update package to run.
 
 
 ## [0.4.3] - 2024-08-06
