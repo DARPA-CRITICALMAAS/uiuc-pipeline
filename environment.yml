@@ -1,0 +1,50 @@
+name: pipeline
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - cudatoolkit=11.8
+
+  - plyfile
+  - pip<24
+  - numpy>1.21,<2
+  - pip:
+      - rasterio>=1.3.9
+      - geopandas
+      - --extra-index-url https://test.pypi.org/simple/
+      - cmaas_utils==0.1.9
+      
+      - pika
+      - pyyaml!=6.0.0,!=5.4.0,!=5.4.1
+      - h5image
+      - -e submodules/models/drab_volcano/yolo_src/
+      - git+https://github.com/DARPA-CRITICALMAAS/cdr_schemas.git@v0.4.2
+
+      - opencv_python>4.8
+      - pillow>9.0
+      - pytorch_lightning
+      - patchify>0.2
+
+      - adamp
+      - einops
+      - timm
+      - ultralytics
+
+      - nvtx
+      - nvitop
+      - pipdeptree
+      - tqdm
+      - rich>13.0
+      - matplotlib==3.8.4
+
+
+      - --extra-index-url https://pypi.nvidia.com
+      - torch>=2.1.0 
+      - tensorrt>=8.6.1
+      - easyocr>=1.7.1
+      - pandas>=2.1.3
+      - joblib
+
+      - h5py
