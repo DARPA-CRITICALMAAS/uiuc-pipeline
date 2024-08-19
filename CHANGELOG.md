@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.4] - 2024-08-19
+
 ### Added
 - Adding icy-resin model.
 - ML based map unit detection model Yolo_Legends
