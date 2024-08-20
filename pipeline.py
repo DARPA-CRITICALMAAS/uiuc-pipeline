@@ -22,7 +22,7 @@ AVAILABLE_MODELS = [
     'blaring_foundry',
     'flat_iceberg',
     'drab_volcano',
-    'icy-resin'
+    'icy_resin'
 ]
 
 # Lazy load only the model we are going to use
@@ -49,7 +49,7 @@ def load_pipeline_model(model_dir : str, model_name : str, override_batch_size=N
     if model_name == 'drab_volcano':
         from src.models.drab_volcano_model import drab_volcano_model
         model = drab_volcano_model()
-    if model_name == 'icy-resin':
+    if model_name == 'icy_resin':
         from src.models.icy_resin_model import icy_resin_model
         model = icy_resin_model()
     if not os.path.exists(os.path.join(model_dir, model._checkpoint)):
