@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.5] - 2024-08-20
+
+### Changed
+- Update cmass_util to 0.1.14
+- Changed ice-resin to icy_resin
+
 ## [0.4.4] - 2024-08-19
 
 ### Added
