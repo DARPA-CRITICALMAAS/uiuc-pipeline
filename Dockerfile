@@ -13,6 +13,8 @@ COPY requirements.txt /src/requirements.txt
 RUN sed -i 's#^\(-e .*\)$#\#\1#' /src/requirements.txt && \
     pip install --no-cache -r /src/requirements.txt
 
+RUN pip install --no-cache -i https://test.pypi.org/simple/ cmaas-utils==0.1.13
+
 # setup folders
 WORKDIR /src
 VOLUME /data, /output, /legends, /layouts, /validation, /feedback, /checkpoints
