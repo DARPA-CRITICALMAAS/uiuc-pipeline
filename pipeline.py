@@ -521,7 +521,7 @@ def run_in_amqp_mode(args):
 
     # Append tmp to output directory
     output_root = args.output
-    args.output = os.path.join(args.output, 'tmp')
+    args.output = os.path.join(args.output, args.model, 'tmp')
     os.makedirs(args.output, exist_ok=True)
 
     # Create Pipeline
