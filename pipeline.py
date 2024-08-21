@@ -22,7 +22,7 @@ AVAILABLE_MODELS = [
     'blaring_foundry',
     'flat_iceberg',
     'drab_volcano',
-    'icy-resin'
+    'icy_resin'
 ]
 
 # Lazy load only the model we are going to use
@@ -49,7 +49,7 @@ def load_pipeline_model(model_dir : str, model_name : str, override_batch_size=N
     if model_name == 'drab_volcano':
         from src.models.drab_volcano_model import drab_volcano_model
         model = drab_volcano_model()
-    if model_name == 'icy-resin':
+    if model_name == 'icy_resin':
         from src.models.icy_resin_model import icy_resin_model
         model = icy_resin_model()
     if not os.path.exists(os.path.join(model_dir, model._checkpoint)):
@@ -551,6 +551,13 @@ def run_in_amqp_mode(args):
                     json_path = os.path.join(args.data, data['json_filename'])
                     map_name = os.path.splitext(os.path.basename(image_path))[0]
                     log.debug(f'RabbitMQ - {map_name} - Recieved cog')
+                    if map_name in active_maps:
+                        log.warning(f'RabbitMQ - {map_name} - Map already in pipeline, skipping')
+                        map_handle = {'method':method, 'properties':properties, 'data':data, 'id':data_id}
+                        map_handle['data']['exception'] = f'{map_name} - Map already in pipeline, skipping'
+                        channel.basic_publish(exchange='', routing_key=ERROR_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
+                        channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
+                        continue
                     active_maps[map_name] = {'method':method, 'properties':properties, 'data':data, 'id':data_id} # Keep track of maps we are working on.
                     input_data = (data['cog_id'], image_path, json_path)
                     input_stream.append(input_data)
