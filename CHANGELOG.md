@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.6] - 2024-08-28
+- Adding seasoned-lynx model.
+
 ## [0.4.5] - 2024-08-20
 
 ### Changed
