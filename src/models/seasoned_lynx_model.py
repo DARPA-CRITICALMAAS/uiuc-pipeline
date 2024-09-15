@@ -14,6 +14,8 @@ from src.pipeline_manager import pipeline_manager
 from .pipeline_pytorch_model import pipeline_pytorch_model
 from cmaas_utils.types import MapUnitType
 
+from sklearn.cluster import KMeans
+
 import sys
 submodule_path = os.path.abspath('/u/dkwark/uiuc-pipeline/submodules/models/seasoned_lynx')
 if submodule_path not in sys.path:
@@ -29,26 +31,29 @@ from transformers import AutoImageProcessor, CLIPProcessor
 
 log = logging.getLogger('DARPA_CMAAS_PIPELINE')
 
+
 class seasoned_lynx_model(pipeline_pytorch_model):
-    def __init__(self):
+    def __init__(self, patch_size=1024):
         self.name = 'seasoned_lynx'
-        self.version = '0.1'
         self.feature_type = MapUnitType.POLYGON
-        self._checkpoint = 'seasoned-lynx-0.1.pt'
+
+        self.recoloring = True
+
         self._args = SimpleNamespace(arch_testing=False,
                                      dino_lora=True,
-                                     clip_applied=True,
+                                     clip_applied=False, # True for 1024, False for 256
                                      pattern_text=False,
                                      lora_r=128,
                                      prompt_backbone_trainable=False,
-                                     num_query=100,
+                                     num_query=50, # 100 for 1024, 50 for 256
                                      lora=True,
                                      if_encoder_lora_layer=True,
                                      encoder_lora_layer=[],
                                      if_decoder_lora_layer=True,
                                      mask_decoder_trainable=False,
                                      backbone='dino_v2')
-
+        
+        self.configure_for_patch_size(patch_size)
 
         self.est_patches_per_sec = 280 # Only used for estimating inference time -- need to modify this
 
@@ -59,10 +64,7 @@ class seasoned_lynx_model(pipeline_pytorch_model):
 
         self.model.to(self.device)
         self.sam_model.to(self.device)
-
-        # Modifiable parameters
-        self.batch_size = 10
-        self.patch_size = 1024 # need to modify this patch size
+        
         patch_overlap_dict = {'1024': 256,
                               '512': 128,
                               '256': 64, }
@@ -82,6 +84,32 @@ class seasoned_lynx_model(pipeline_pytorch_model):
         self.sam_model.eval()
 
         return self.model, self.sam_model
+
+    def configure_for_patch_size(self, patch_size):
+        if patch_size == 1024:
+            self._args.num_query = 100
+            self._checkpoint = 'seasoned-lynx-0.1.pt'
+            self.version = '0.1'
+            self._args.clip_applied = True
+            self.patch_size = patch_size
+            self.batch_size = 12
+        elif patch_size == 512:
+            self._args.num_query = 50
+            self._args.lora_r = 64
+            self._checkpoint = 'seasoned-lynx-0.3.pt'
+            self.version = '0.3'
+            self._args.clip_applied = False
+            self.patch_size = patch_size
+            self.batch_size = 12
+        elif patch_size == 256:
+            self._args.num_query = 50
+            self._checkpoint = 'seasoned-lynx-0.2.pt'
+            self.version = '0.2'
+            self._args.clip_applied = False
+            self.patch_size = patch_size
+            self.batch_size = 12
+        else:
+            raise ValueError(f"Unsupported patch size: {patch_size}")
     
     def my_norm(self, data):
         data = data / 255.0
@@ -89,6 +117,39 @@ class seasoned_lynx_model(pipeline_pytorch_model):
         std = torch.tensor([0.229, 0.224, 0.225]).to(self.device)[None, :, None, None].expand(*data.shape)
         data = (data - mean)/std
         return data
+    
+    def mask_margins(self, image, margin=0.1):
+        """Masks the margins of an image (grayscale or color) by setting margin pixels to black."""
+        h, w = image.shape[1], image.shape[2]  
+        # Calculate 10% margin size
+        margin_h = int(h * margin)
+        margin_w = int(w * margin)
+        
+        mask = np.ones((h, w), dtype=bool)
+        mask[:margin_h, :] = False  # Top margin
+        mask[-margin_h:, :] = False  # Bottom margin
+        mask[:, :margin_w] = False  # Left margin
+        mask[:, -margin_w:] = False  # Right margin
+        
+        # Apply the mask: set masked pixels (margins) to black
+        masked_image = image.copy()
+        masked_image[:, ~mask] = 0
+        
+        return masked_image
+    
+    def extract_dominant_colors(self, image, n_colors=1):
+        pixels = image.reshape(-1, 3)
+
+        # Remove black pixels (if necessary)
+        non_black_pixels = pixels[np.any(pixels != [0, 0, 0], axis=-1)]
+
+        # If no non-black pixels are found, return a default color (e.g., black)
+        if non_black_pixels.shape[0] == 0:
+            return np.array([[0, 0, 0]])  # Returning black as default
+        
+        kmeans = KMeans(n_clusters=n_colors, random_state=0).fit(non_black_pixels)
+        return kmeans.cluster_centers_
+
 
     # @override
     def inference(self, image, legend_images, data_id=-1):
@@ -96,12 +157,19 @@ class seasoned_lynx_model(pipeline_pytorch_model):
         # For profiling memory usage 
         #torch.cuda.memory._record_memory_history()
 
+        # make sure the device is correctly updated
+        self.model.to(self.device)
+        self.sam_model.to(self.device)
+
+
         # Get the size of the map
         map_channels, map_height, map_width = image.shape
 
         # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
         if map_channels == 1: # This is tmp fix!    
             image = np.concatenate([image,image,image], axis=0)
+
+        
 
         # Generate patches
         # Pad image so we get a size that can be evenly divided into patches.
@@ -118,7 +186,8 @@ class seasoned_lynx_model(pipeline_pytorch_model):
 
         # we use the DINOv2 processing pipeline to normalize the patches
         with torch.no_grad():
-            map_img_DINO_patches = self.dino_processor(map_patches, return_tensors="pt")['pixel_values'].to(self.device)       
+            map_patches_transpose = map_patches.transpose(0, 2, 3, 1)
+            map_img_DINO_patches = self.dino_processor(map_patches_transpose, return_tensors="pt")['pixel_values'].to(self.device)       
 
         map_patches = torch.Tensor(map_patches).to(self.device)
         map_patches = self.my_norm(map_patches)
@@ -126,17 +195,32 @@ class seasoned_lynx_model(pipeline_pytorch_model):
         # pipeline_manager.log(logging.DEBUG, f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
         map_prediction = np.zeros((1, map_height, map_width), dtype=np.float32)
         map_confidence = np.zeros((1, map_height, map_width), dtype=np.float32)
+
+        # domain color extraction from legend images
+        map_legend_extraction = {}
+
+        # make sure to check the model and args
+        # pipeline_manager.log(logging.DEBUG, f"\t args: {self._args}")
+        # pipeline_manager.log(logging.DEBUG, f"\t model: {self.patch_size} {self._checkpoint}")
+
         legend_index = 1
         for label, legend_img in legend_images.items():
             lgd_stime = time()
-            
+
             # Reshape maps with 1 channel legends (greyscale) to 3 channels for inference
             if legend_img.shape[0] == 1:
-                legend_img = np.concatenate([legend_img,legend_img,legend_img], axis=0)
+                legend_img = np.concatenate([legend_img, legend_img, legend_img], axis=0)
 
+            if str(legend_index) not in map_legend_extraction:
+                curr_legend_img = legend_img.copy()
+                curr_legend_img = self.mask_margins(curr_legend_img, margin=0.1)
+                dominant_colors = self.extract_dominant_colors(curr_legend_img, n_colors=1)
+                map_legend_extraction[str(legend_index)] = dominant_colors
+            
             with torch.no_grad():
-                legend_img_DINO = self.dino_processor(legend_img, return_tensors="pt")['pixel_values'][0].to(self.device)
-                legend_img_CLIP = self.clip_processor(text=None, images=legend_img, return_tensors="pt")['pixel_values'][0].to(self.device)
+                legend_img_transpose = legend_img.transpose(1, 2, 0)
+                legend_img_DINO = self.dino_processor(legend_img_transpose, return_tensors="pt")['pixel_values'][0].to(self.device)
+                legend_img_CLIP = self.clip_processor(text=None, images=legend_img_transpose, return_tensors="pt")['pixel_values'][0].to(self.device)
                 legend_mask = torch.ones_like(legend_img_DINO)[0].to(self.device)
                 legend_mask[0:14, :] = 0
                 legend_mask[-14:, :] = 0
@@ -187,11 +271,75 @@ class seasoned_lynx_model(pipeline_pytorch_model):
         # Minimum confidence threshold for a prediction
         map_prediction[map_confidence < 0.333] = 0
 
-        # For profiling memory usage 
-        # torch.cuda.memory._dump_snapshot(f'gpu_snapshots/{data_id}_inference.pickle')
-        # torch.cuda.reset_max_memory_allocated(0)
-        # pipeline_manager.log_to_monitor(data_id, {'GPU Mem (Alloc/Reserve/Avail)' : f'-'})
+        if legend_index == 1:
+            return map_prediction
+
+        # # return map_prediction
+        if not self.recoloring:
+            return map_prediction
         
-        return map_prediction
+        # make a new map_prediction container
+        postprocessed_map_prediction = np.zeros_like(map_prediction)
+
+        for legend_idx_from_map in range(1, legend_index):
+        # get the mask from map_prediction for the current legend
+            mask = np.zeros_like(map_prediction)
+            mask[map_prediction == legend_idx_from_map] = 1
+            # get the dominant color on the map for the current legend idx
+            masked_image = image * mask
+            dominant_colors = self.extract_dominant_colors(padded_image, n_colors=1)
+
+            # find the closest legend color to the map color
+            closest_legend_color = None
+            closest_legend_color_distance = float('inf')
+            for legend_idx, legend_color in map_legend_extraction.items():
+                distance = np.linalg.norm(legend_color - dominant_colors)
+                if distance < closest_legend_color_distance:
+                    closest_legend_color = legend_idx
+                    closest_legend_color_distance = distance
+
+            # update the map_prediction with the closest legend color
+            postprocessed_map_prediction[map_prediction == legend_idx_from_map] = int(closest_legend_color)
+
+        return postprocessed_map_prediction
+
+        # # For profiling memory usage 
+        # # torch.cuda.memory._dump_snapshot(f'gpu_snapshots/{data_id}_inference.pickle')
+        # # torch.cuda.reset_max_memory_allocated(0)
+        # # pipeline_manager.log_to_monitor(data_id, {'GPU Mem (Alloc/Reserve/Avail)' : f'-'})
+        
+        # # return map_prediction
+        # return postprocessed_map_prediction
     
 
+
+
+        # num_patches_x = map_prediction.shape[1] // self.patch_size
+        # num_patches_y = map_prediction.shape[2] // self.patch_size
+
+        # for patch_x in range(num_patches_x):
+        #     for patch_y in range(num_patches_y):
+        #         # Extract the patch from map_prediction
+        #         patch = map_prediction[:, patch_x * self.patch_size:(patch_x + 1) * self.patch_size, patch_y * self.patch_size:(patch_y + 1) * self.patch_size]
+
+        #         # Post-process each patch based on closest color matching
+        #         for legend_idx_from_map in range(1, legend_index):
+        #             # Get mask from map prediction
+        #             mask = np.zeros_like(patch)
+        #             mask[patch == legend_idx_from_map] = 1
+
+        #             # Extract dominant colors in the patch
+        #             masked_patch = image[:, patch_x * self.patch_size:(patch_x + 1) * self.patch_size, patch_y * self.patch_size:(patch_y + 1) * self.patch_size] * mask
+        #             dominant_colors = self.extract_dominant_colors(masked_patch, n_colors=1)
+
+        #             # Find the closest legend color
+        #             closest_legend_color = None
+        #             closest_legend_color_distance = float('inf')
+        #             for legend_idx, legend_color in map_legend_extraction.items():
+        #                 distance = np.linalg.norm(legend_color - dominant_colors)
+        #                 if distance < closest_legend_color_distance:
+        #                     closest_legend_color = legend_idx
+        #                     closest_legend_color_distance = distance
+
+        #             # Update map_prediction for the current patch
+        #             postprocessed_map_prediction[:, patch_x * self.patch_size:(patch_x + 1) * self.patch_size, patch_y * self.patch_size:(patch_y + 1) * self.patch_size][patch == legend_idx_from_map] = int(closest_legend_color)

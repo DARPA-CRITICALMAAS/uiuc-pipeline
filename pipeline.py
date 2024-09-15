@@ -28,7 +28,7 @@ AVAILABLE_MODELS = [
 
 # Lazy load only the model we are going to use
 from src.models.pipeline_model import pipeline_model
-def load_pipeline_model(model_dir : str, model_name : str, override_batch_size=None) -> pipeline_model :
+def load_pipeline_model(model_dir : str, model_name : str, override_batch_size=None, override_patch_size=None) -> pipeline_model :
     """Utility function to only import and load the model we are going to use. Returns loaded model"""
     log.info(f'Loading model {model_name}')
     model_stime = time()
@@ -55,7 +55,8 @@ def load_pipeline_model(model_dir : str, model_name : str, override_batch_size=N
         model = icy_resin_model()
     if model_name == 'seasoned_lynx':
         from src.models.seasoned_lynx_model import seasoned_lynx_model
-        model = seasoned_lynx_model()
+        patch_size = 1024 if override_patch_size is None else override_patch_size
+        model = seasoned_lynx_model(patch_size)
     if not os.path.exists(os.path.join(model_dir, model._checkpoint)):
         msg = f'Could not load {model_name}. Model checkpoint file "{model._checkpoint}" not found in model directory "{model_dir}"'
         log.error(msg)
@@ -253,6 +254,11 @@ def parse_command_line():
                         type=str,
                         default=os.getenv("CDR_SYSTEM_VERSION", "0.3.0"),
                         help='The version of the cdr system that will be used to generate cdrs. Default is 1.0')
+    # for seasoned_lynx
+    optional_args.add_argument('--patch_size',
+                        type=int,
+                        default=None,
+                        help='Option to override the default patch size for the seasoned lynx model. Default is 1024')
     
     # Flags
     flag_group = parser.add_argument_group('Flags', '')
@@ -413,7 +419,7 @@ def construct_pipeline(args):
     p = pipeline_manager()
     legend_model = yolo_legend_model()
     legend_model.load_model(args.checkpoint_dir)
-    segmentation_model = load_pipeline_model(args.checkpoint_dir, args.model, override_batch_size=args.batch_size)
+    segmentation_model = load_pipeline_model(args.checkpoint_dir, args.model, override_batch_size=args.batch_size, override_patch_size=args.patch_size)
     drab_volcano_legend = False
     if segmentation_model.name == 'drab volcano':
         log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')
@@ -457,7 +463,7 @@ def construct_amqp_pipeline(args):
     p = pipeline_manager(monitor=file_monitor())
     legend_model = yolo_legend_model()
     legend_model.load_model(args.checkpoint_dir)
-    segmentation_model = load_pipeline_model(args.checkpoint_dir, args.model, override_batch_size=args.batch_size)
+    segmentation_model = load_pipeline_model(args.checkpoint_dir, args.model, override_batch_size=args.batch_size, override_patch_size=args.patch_size)
     drab_volcano_legend = False
     if segmentation_model.name == 'drab volcano':
         log.warning('Drab Volcano uses a pretrained set of map units for segmentation and is not promptable by the legend')
