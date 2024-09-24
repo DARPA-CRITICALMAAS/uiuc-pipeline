@@ -54,9 +54,12 @@ def load_pipeline_model(model_dir : str, model_name : str, override_batch_size=N
         from src.models.icy_resin_model import icy_resin_model
         model = icy_resin_model()
     if model_name == 'seasoned_lynx':
-        from src.models.seasoned_lynx_model import seasoned_lynx_model
+        # from src.models.seasoned_lynx_model import seasoned_lynx_model
+        from src.models.seasoned_lynx_model_recolor import seasoned_lynx_model
         patch_size = 1024 if override_patch_size is None else override_patch_size
         model = seasoned_lynx_model(patch_size)
+
+
     if not os.path.exists(os.path.join(model_dir, model._checkpoint)):
         msg = f'Could not load {model_name}. Model checkpoint file "{model._checkpoint}" not found in model directory "{model_dir}"'
         log.error(msg)

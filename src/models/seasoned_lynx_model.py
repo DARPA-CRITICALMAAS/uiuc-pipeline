@@ -244,11 +244,6 @@ class seasoned_lynx_model(pipeline_pytorch_model):
                                     legend_img_CLIP_patches[:len(map_patches[i:i+self.batch_size])])
                     
                     _, prediction = self.sam_model(map_patches[i:i+self.batch_size], None, protos)
-
-                    # print(torch.cuda.memory_summary(device=self.device, abbreviated=True))
-
-                    # prediction = self.model.model(map_patches[i:i+self.batch_size], legend_patches[:len(map_patches[i:i+self.batch_size])])
-                    # prediction = torch.softmax(prediction.float(), dim=1)[:,-1].cpu().numpy().astype(np.float32)
                     prediction = torch.sigmoid(prediction).cpu().numpy().astype(np.float32)
                     prediction_patches.append(prediction)
                     
@@ -269,7 +264,8 @@ class seasoned_lynx_model(pipeline_pytorch_model):
             # pipeline_manager.log(logging.DEBUG, "\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
 
         # Minimum confidence threshold for a prediction
-        map_prediction[map_confidence < 0.333] = 0
+        # map_prediction[map_confidence < 0.333] = 0
+        map_prediction[map_confidence < 0.15] = 0
 
         if legend_index == 1:
             return map_prediction
@@ -283,11 +279,22 @@ class seasoned_lynx_model(pipeline_pytorch_model):
 
         for legend_idx_from_map in range(1, legend_index):
         # get the mask from map_prediction for the current legend
-            mask = np.zeros_like(map_prediction)
-            mask[map_prediction == legend_idx_from_map] = 1
-            # get the dominant color on the map for the current legend idx
-            masked_image = image * mask
-            dominant_colors = self.extract_dominant_colors(padded_image, n_colors=1)
+            # mask = np.zeros_like(map_prediction)
+            # mask[map_prediction == legend_idx_from_map] = 1
+            # # get the dominant color on the map for the current legend idx
+            # masked_image = image * mask
+            mask = (map_prediction == legend_idx_from_map)
+
+            masked_expanded = np.expand_dims(mask, axis=0)  # Expand dimensions to match image shape
+            # Extract the dominant color from the masked part of the image
+            # masked_image = image[mask]
+            masked_image = image * masked_expanded
+            
+
+            if masked_image.size == 0 or np.sum(mask) == 0:
+                continue
+
+            dominant_colors = self.extract_dominant_colors(masked_image, n_colors=1)
 
             # find the closest legend color to the map color
             closest_legend_color = None
@@ -299,7 +306,8 @@ class seasoned_lynx_model(pipeline_pytorch_model):
                     closest_legend_color_distance = distance
 
             # update the map_prediction with the closest legend color
-            postprocessed_map_prediction[map_prediction == legend_idx_from_map] = int(closest_legend_color)
+            # postprocessed_map_prediction[map_prediction == legend_idx_from_map] = int(closest_legend_color)
+            postprocessed_map_prediction[mask] = int(closest_legend_color)
 
         return postprocessed_map_prediction
 
