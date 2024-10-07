@@ -10,6 +10,7 @@ from src.pipeline_manager import pipeline_manager
 from time import time
 import multiprocessing as mp
 
+# region Load Data
 def load_data(data_id, image_path:str, legend_dir:str=None, layout_dir:str=None):
     """Wrapper with a custom display for the monitor"""
     map_name = os.path.splitext(os.path.basename(image_path))[0]
@@ -52,6 +53,8 @@ def amqp_load_data(data_id, cog_tuple):
     map_data.georef = GeoReference(provenance=Provenance(name='GeoTIFF'), crs=crs, transform=transform)
     pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
     return map_data
+# endregion Load Data
+
 
 def gen_layout(data_id, map_data:CMAAS_Map):
     # Generate layout if not precomputed
@@ -61,6 +64,7 @@ def gen_layout(data_id, map_data:CMAAS_Map):
         pass
     return map_data
 
+# region Legend Generation
 def gen_legend(data_id, map_data:CMAAS_Map, model, max_legends=300, drab_volcano_legend:bool=False):
     # Generate legend if not precomputed
     if map_data.legend is None:
@@ -191,7 +195,9 @@ def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_m
             fig.savefig(legend_save_path)
             plt.close(fig)
         # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved legend preview to "{legend_save_path}"', pid=mp.current_process().pid)
+# endregion Legend Generation
 
+# region Segmentation
 def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
     # Device is set on a per process basis
     from torch import device
@@ -256,7 +262,9 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
         pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Drab Volcano predicted {len(features_present)}/48 features', pid=mp.current_process().pid)
 
     return map_data
+# endregion Segmentation
 
+# region Vectorization
 def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
     model_provenance = Provenance(name=model_name, version=model_version)
     if map_data.point_segmentation_mask is not None:
@@ -278,7 +286,9 @@ def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
     pipeline_manager.log_to_monitor(data_id, {'Segments': total_occurances})
     
     return map_data
+# endregion Vectorization
 
+# region Output
 import os
 from math import ceil, floor
 import matplotlib.pyplot as plt
@@ -308,7 +318,8 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
             # pipeline_manager.log(logging.WARNING, f'{map_data.name} - Feature label before sanitization: {feature.label}')
             feature.label = sanitize_filename(feature.label).replace(' ', '_') # Need to sanitize feature names before saving geopackage
             # pipeline_manager.log(logging.WARNING, f'{map_data.name} - Feature label after sanitization: {feature.label}')
-        io.saveGeoPackage(gpkg_filename, map_data, coord_type)
+        # io.saveGeoPackage(gpkg_filename, map_data)
+        test_saveGeoPackage(gpkg_filename, map_data)
         # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
 
     # Save Raster masks
@@ -334,7 +345,9 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
             # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved raster_mask to "{filepath}", pid=mp.current_process().pid')
             legend_index += 1
     return map_data.name
+# endregion Output
 
+# region Validation
 import pandas as pd
 from submodules.validation.src.grading import grade_point_raster, grade_poly_raster, usgs_grade_poly_raster    
 def validation(data_id, map_data: CMAAS_Map, true_mask_dir, output_dir, feedback_dir, use_usgs_scores=False):
@@ -441,6 +454,40 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, output_dir, feedback
     pipeline_manager.log_to_monitor(data_id, {'F1 Score': f'{f1s:.2f}'})
 
     return 
+# endregion Validation
+
+# region Testing
+def test_saveGeoPackage(filepath, map_data: CMAAS_Map, coord_type='pixel'):
+    import geopandas as gpd
+    from shapely.geometry import Polygon, Point, LineString
+    from shapely.affinity import affine_transform
+    from rasterio.crs import CRS
+    
+    # Create a GeoDataFrame to store all features
+    gdf = gpd.GeoDataFrame()
+    
+    # Get the crs
+    if map_data.georef and map_data.georef.crs:
+        crs = map_data.georef.crs
+    else:
+        crs = CRS.from_epsg(4326)
+
+    # Process each feature in the legend
+    for feature in map_data.legend.features:
+        if feature.segmentation and feature.segmentation.geometry:
+            geometries = feature.segmentation.geometry
+            
+            # Apply transform
+            if map_data.georef and map_data.georef.transform:
+                transform = map_data.georef.transform
+                affine_params = [transform.a, transform.b, transform.d, transform.e, transform.xoff, transform.yoff]
+                geometries = [affine_transform(geom, affine_params) for geom in geometries]
+            
+            # Create a GeoDataFrame for this feature    
+            gdf = gpd.GeoDataFrame(geometry=geometries, crs=crs)
+
+            # Save to GeoPackage
+            gdf.to_file(filepath, layer=feature.label, driver="GPKG")
 
 from time import sleep
 def test_step(data_id, filename):
@@ -463,3 +510,4 @@ def tmp_fix_layout(layout):
     if layout.correlation_diagram is not None:
         layout.correlation_diagram = np.array(layout.correlation_diagram).squeeze().astype(int)
     return layout
+# endregion Testing
