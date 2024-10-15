@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Updated save_output step to support new segmentation mask format
 - Updated validation step to support new segmentation mask format
 
+
 ## [0.4.5] - 2024-08-20
 
 ### Changed

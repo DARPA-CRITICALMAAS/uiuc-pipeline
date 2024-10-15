@@ -90,7 +90,7 @@ class yolo_legend_model(pipeline_pytorch_model):
                 label = f'{unit_type.to_str()}_{i}'
                 ocr_conf = 0
             
-            legend.features.append(MapUnit(type=unit_type, label=label, label_bbox=bbox, label_confidence=bbox_confidence*ocr_conf ))
+            legend.features.append(MapUnit(type=unit_type, label=label, abbreviation=label, label_bbox=bbox, label_confidence=bbox_confidence*ocr_conf ))
         
         return legend
 
