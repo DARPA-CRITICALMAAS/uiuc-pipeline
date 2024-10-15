@@ -51,12 +51,13 @@ class yolo_legend_model(pipeline_pytorch_model):
 
         # Prep image for legend extraction
         legend_areas = []
-        if layout.polygon_legend is not None:
-            legend_areas.append(layout.polygon_legend)
-        if layout.line_legend is not None:
-            legend_areas.append(layout.line_legend)
-        if layout.point_legend is not None:
-            legend_areas.append(layout.point_legend)
+        if layout is not None:
+            if layout.polygon_legend is not None:
+                legend_areas.append(layout.polygon_legend)
+            if layout.line_legend is not None:
+                legend_areas.append(layout.line_legend)
+            if layout.point_legend is not None:
+                legend_areas.append(layout.point_legend)
         if len(legend_areas) == 0:
             legend_areas = None
 
@@ -89,7 +90,7 @@ class yolo_legend_model(pipeline_pytorch_model):
                 label = f'{unit_type.to_str()}_{i}'
                 ocr_conf = 0
             
-            legend.features.append(MapUnit(type=unit_type, label=label, label_bbox=bbox, label_confidence=bbox_confidence*ocr_conf ))
+            legend.features.append(MapUnit(type=unit_type, label=label, abbreviation=label, label_bbox=bbox, label_confidence=bbox_confidence*ocr_conf ))
         
         return legend
 
