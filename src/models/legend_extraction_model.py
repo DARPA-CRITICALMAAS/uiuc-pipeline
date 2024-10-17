@@ -4,7 +4,7 @@ import easyocr
 
 from .pipeline_pytorch_model import pipeline_pytorch_model
 from submodules.models.yolo_legend.src.yolo_interface import YoloInterface
-from cmaas_utils.types import Legend, MapUnit, MapUnitType, Provenance
+from cmaas_utils.types import Layout, Legend, MapUnit, MapUnitType, Provenance
 
 class yolo_legend_model(pipeline_pytorch_model):
     """
@@ -34,7 +34,7 @@ class yolo_legend_model(pipeline_pytorch_model):
         self.model = YoloInterface(model_path)
         return self.model
     
-    def inference(self, image, layout, data_id=-1) -> Legend:
+    def inference(self, image, layout:Layout, data_id=-1) -> Legend:
         """
         Extracts the legend from an image. Currently fills out the label, bounding box and confidence fields of the map
         unit object. Polygons are named after the text found in the polygon swatch, points and lines are currently just
@@ -42,6 +42,7 @@ class yolo_legend_model(pipeline_pytorch_model):
         
         Args:
             image : numpy array of an image shape (C,H,W)
+            layout : Layout object containing the layout of the image
             data_id : internal pipeline id of the data being processed, used for identifying the data in logs
 
         Returns:
@@ -51,13 +52,12 @@ class yolo_legend_model(pipeline_pytorch_model):
 
         # Prep image for legend extraction
         legend_areas = []
-        if layout is not None:
-            if layout.polygon_legend is not None:
-                legend_areas.append(layout.polygon_legend)
-            if layout.line_legend is not None:
-                legend_areas.append(layout.line_legend)
-            if layout.point_legend is not None:
-                legend_areas.append(layout.point_legend)
+        for area in layout.polygon_legend:
+            legend_areas.append(area)
+        for area in layout.line_legend:
+            legend_areas.append(area)
+        for area in layout.point_legend:
+            legend_areas.append(area)
         if len(legend_areas) == 0:
             legend_areas = None
 

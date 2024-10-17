@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+- Updated cmaas_utils to version 2.0
+- Updated cdr_schemas to version 4.9.0
+- Mask and crop functions moved from this repo to cmaas_utils
+- Updated mask and crop calls to use cmaas_utils version
+- Changed internal segmentation mask format to support storing confidence and provenance.
+- Updated segmentation step to support new layout format
+- Updated generate_geometry step to new layout format
+- Updated save_output step to support new segmentation mask format
+- Updated validation step to support new segmentation mask format
 
 
 ## [0.4.5] - 2024-08-20
