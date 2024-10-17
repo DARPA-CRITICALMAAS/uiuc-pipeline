@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import cmaas_utils.io as io
 import cmaas_utils.cdr as cdr
-from cmaas_utils.types import CMAAS_Map, GeoReference, Layout, MapSegmentation, MapUnitType, Provenance
+from cmaas_utils.types import CMAAS_Map, GeoReference, MapSegmentation, MapUnitType, Provenance
 from cmaas_utils.utilities import generate_point_geometry, generate_poly_geometry, mask_and_crop
 from src.utils import boundingBox, sanitize_filename
 from src.pipeline_manager import pipeline_manager
@@ -239,7 +239,7 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
     # Resize cutout to full map
     if len(map_data.layout.map) > 0:
         result_image = np.zeros((1, *map_data.image.shape[1:]), dtype=np.float32)
-        result_image[:,offset[1]:offset[1]+result_mask.shape[2], offset[0]:offset[0]+result_mask.shape[1]] = result_mask
+        result_image[:,offset[1]:offset[1]+result_mask.shape[1], offset[0]:offset[0]+result_mask.shape[2]] = result_mask
         result_mask = result_image
     
     # Save mask to appropriate feature type
