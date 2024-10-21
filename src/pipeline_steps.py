@@ -282,6 +282,7 @@ def generate_geometry(data_id, map_data:CMAAS_Map):
 
 # region Output
 def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_types, system, system_version):
+    pipeline_manager.log(logging.DEBUG, f'{map_name} - Started save_output', pid=mp.current_process().pid)
     # Save CDR schema
     if 'cdr_json' in output_types:
         cog_id = None
@@ -294,7 +295,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
         cdr_schema = cdr.exportMapToCDR(map_data, cog_id=cog_id, system=system, system_version=system_version)
         cdr_filename = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_cdr.json'))
         io.saveCDRFeatureResults(cdr_filename, cdr_schema)
-        # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
+        pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
 
     # Save GeoPackage
     if 'geopackage' in output_types:
@@ -309,7 +310,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
             # pipeline_manager.log(logging.WARNING, f'{map_data.name} - Feature label after sanitization: {feature.label}')
         # io.saveGeoPackage(gpkg_filename, map_data)
         test_saveGeoPackage(gpkg_filename, map_data)
-        # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
+        pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
 
     # Save Raster masks
     if 'raster_masks' in output_types:
