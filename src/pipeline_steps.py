@@ -265,9 +265,9 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
 def generate_geometry(data_id, map_data:CMAAS_Map):
     for mask in map_data.segmentations:
         if mask.type == MapUnitType.POINT:
-            generate_point_geometry(mask, mask.provenance)
+            generate_point_geometry(mask, map_data.legend)
         if mask.type == MapUnitType.POLYGON:
-            generate_poly_geometry(mask, mask.provenance)
+            generate_poly_geometry(mask, map_data.legend)
 
     total_occurances = 0 
     for feature in map_data.legend.features:
@@ -282,7 +282,7 @@ def generate_geometry(data_id, map_data:CMAAS_Map):
 
 # region Output
 def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_types, system, system_version):
-    pipeline_manager.log(logging.DEBUG, f'{map_name} - Started save_output', pid=mp.current_process().pid)
+    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Started save_output', pid=mp.current_process().pid)
     # Save CDR schema
     if 'cdr_json' in output_types:
         cog_id = None
