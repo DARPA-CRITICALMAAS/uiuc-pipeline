@@ -282,7 +282,7 @@ def generate_geometry(data_id, map_data:CMAAS_Map):
 
 # region Output
 def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_types, system, system_version):
-    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Started save_output', pid=mp.current_process().pid)
+    # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Started save_output', pid=mp.current_process().pid)
     # Save CDR schema
     if 'cdr_json' in output_types:
         cog_id = None
