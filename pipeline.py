@@ -426,7 +426,7 @@ def construct_pipeline(args):
         legsave_step = p.add_step(func=pipeline_steps.save_legend, args=(legend_step.output(), args.feedback), display='Saving Legend', workers=1)
     # Segmentation Inference
     infer_step = p.add_step(func=pipeline_steps.segmentation_inference, args=(legend_step.output(), segmentation_model, devices), display='Segmenting Map Units', workers=infer_workers)
-    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output()), display='Generating Vector Geometry', workers=infer_workers*2)
+    geom_step = p.add_step(func=pipeline_steps.generate_geometry, args=(infer_step.output(),), display='Generating Vector Geometry', workers=infer_workers*2)
     # Save Output
     cdr_system_model = f"{args.cdr_system}-{args.model}".replace('_', '-').lower()
     save_step = p.add_step(func=pipeline_steps.save_output, args=(geom_step.output(), args.output, args.feedback, args.output_types, cdr_system_model, args.cdr_system_version), display='Saving Output', workers=infer_workers*2)
