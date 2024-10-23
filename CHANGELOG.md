@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [0.4.6] - 2024-10-23
+
+### Changed
 - Updated cmaas_utils to version 2.0
 - Updated cdr_schemas to version 4.9.0
 - Mask and crop functions moved from this repo to cmaas_utils
