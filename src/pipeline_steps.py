@@ -1,14 +1,16 @@
-import cv2
+import os
 import logging
 import numpy as np
 import cmaas_utils.io as io
 import cmaas_utils.cdr as cdr
-from cmaas_utils.types import CMAAS_Map, GeoReference, Layout, MapUnitType, Provenance
-import src.utils as utils
+from cmaas_utils.types import CMAAS_Map, GeoReference, MapSegmentation, MapUnitType, Provenance
+from cmaas_utils.utilities import generate_point_geometry, generate_poly_geometry, mask_and_crop
 from src.utils import boundingBox, sanitize_filename
 from src.pipeline_manager import pipeline_manager
 from time import time
+from math import ceil, floor
 import multiprocessing as mp
+import matplotlib.pyplot as plt
 
 # region Load Data
 def load_data(data_id, image_path:str, legend_dir:str=None, layout_dir:str=None):
@@ -47,7 +49,6 @@ def amqp_load_data(data_id, cog_tuple):
         map_data = CMAAS_Map.parse_raw(fh.read())
     map_data.name = map_name
     map_data.cog_id = cog_id
-    map_data.layout = tmp_fix_layout(map_data.layout)
     image, crs, transform = io.loadGeoTiff(image_path)
     map_data.image = image
     map_data.georef = GeoReference(provenance=Provenance(name='GeoTIFF'), crs=crs, transform=transform)
@@ -72,7 +73,6 @@ def gen_legend(data_id, map_data:CMAAS_Map, model, max_legends=300, drab_volcano
             map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
         else:
             pipeline_manager.log(logging.DEBUG, f'{map_data.name} - No legend data found, generating legend', pid=mp.current_process().pid)
-            
             
             # Generate legend
             map_data.legend = model.inference(map_data.image, map_data.layout, data_id=data_id)
@@ -105,61 +105,61 @@ def gen_legend(data_id, map_data:CMAAS_Map, model, max_legends=300, drab_volcano
     
     return map_data
 
-def old_gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend:bool=False):
-    from submodules.legend_extraction.src.extraction import extractLegends
-    def convertLegendtoCMASS(legend):
-        from cmaas_utils.types import Legend, MapUnit
-        features = []
-        for feature in legend:
-            features.append(MapUnit(type=MapUnitType.POLYGON, label=feature['label'], bounding_box=feature['points']))
-        return Legend(provenance=Provenance(name='UIUC Heuristic Model', version='0.1'), features=features)
+# def old_gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend:bool=False):
+#     from submodules.legend_extraction.src.extraction import extractLegends
+#     def convertLegendtoCMASS(legend):
+#         from cmaas_utils.types import Legend, MapUnit
+#         features = []
+#         for feature in legend:
+#             features.append(MapUnit(type=MapUnitType.POLYGON, label=feature['label'], bounding_box=feature['points']))
+#         return Legend(provenance=Provenance(name='UIUC Heuristic Model', version='0.1'), features=features)
 
-    if map_data.legend is None:
-        if drab_volcano_legend:
-            map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
-        else:
-            # Mask legend area before prediction.
-            if map_data.layout is not None and map_data.layout.polygon_legend is not None:
-                image = map_data.image.transpose(1,2,0).copy()
-                mask = np.zeros_like(image)
-                cv2.fillPoly(mask, pts=[map_data.layout.polygon_legend], color=(255,255,255))
-                image = cv2.bitwise_and(image, mask)
-                image = image.transpose(2,0,1)
-            else:
-                image = map_data.image
+#     if map_data.legend is None:
+#         if drab_volcano_legend:
+#             map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
+#         else:
+#             # Mask legend area before prediction.
+#             if map_data.layout is not None and map_data.layout.polygon_legend is not None:
+#                 image = map_data.image.transpose(1,2,0).copy()
+#                 mask = np.zeros_like(image)
+#                 cv2.fillPoly(mask, pts=[map_data.layout.polygon_legend], color=(255,255,255))
+#                 image = cv2.bitwise_and(image, mask)
+#                 image = image.transpose(2,0,1)
+#             else:
+#                 image = map_data.image
 
-            # Generate legend
-            pipeline_manager.log(logging.DEBUG, f'{map_data.name} - No legend data found, generating legend', pid=mp.current_process().pid)
-            lgd = extractLegends(image.transpose(1,2,0))
-            map_data.legend = convertLegendtoCMASS(lgd)
+#             # Generate legend
+#             pipeline_manager.log(logging.DEBUG, f'{map_data.name} - No legend data found, generating legend', pid=mp.current_process().pid)
+#             lgd = extractLegends(image.transpose(1,2,0))
+#             map_data.legend = convertLegendtoCMASS(lgd)
 
-    # Reduce duplicates
-    legend_features = {}
-    for feature in map_data.legend.features:
-        legend_features[feature.label] = feature
+#     # Reduce duplicates
+#     legend_features = {}
+#     for feature in map_data.legend.features:
+#         legend_features[feature.label] = feature
 
-    map_data.legend.features = list(legend_features.values())
+#     map_data.legend.features = list(legend_features.values())
 
-    # Count distribution of map units for log.
-    pt, ln, py, un = 0,0,0,0
-    for feature in map_data.legend.features:
-        if feature.type == MapUnitType.POINT:
-            pt += 1
-        if feature.type == MapUnitType.LINE:
-            ln += 1
-        if feature.type == MapUnitType.POLYGON:
-            py += 1
-        if feature.type == MapUnitType.UNKNOWN:
-            un += 1
+#     # Count distribution of map units for log.
+#     pt, ln, py, un = 0,0,0,0
+#     for feature in map_data.legend.features:
+#         if feature.type == MapUnitType.POINT:
+#             pt += 1
+#         if feature.type == MapUnitType.LINE:
+#             ln += 1
+#         if feature.type == MapUnitType.POLYGON:
+#             py += 1
+#         if feature.type == MapUnitType.UNKNOWN:
+#             un += 1
 
-    # TMP solution for maps with too many features (most likely from bad legend extraction)
-    if len(map_data.legend.features) > max_legends:
-        raise Exception(f'{map_data.name} - Too many features found in legend. Found {len(map_data.legend.features)} features. Max is {max_legends}')
+#     # TMP solution for maps with too many features (most likely from bad legend extraction)
+#     if len(map_data.legend.features) > max_legends:
+#         raise Exception(f'{map_data.name} - Too many features found in legend. Found {len(map_data.legend.features)} features. Max is {max_legends}')
 
-    pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Found {len(map_data.legend.features)} Total map units. ({pt} pt, {ln} ln, {py} poly, {un} unknown)', pid=mp.current_process().pid)
-    pipeline_manager.log_to_monitor(data_id, {'Map Units': len(map_data.legend.features)})
+#     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Found {len(map_data.legend.features)} Total map units. ({pt} pt, {ln} ln, {py} poly, {un} unknown)', pid=mp.current_process().pid)
+#     pipeline_manager.log_to_monitor(data_id, {'Map Units': len(map_data.legend.features)})
     
-    return map_data
+#     return map_data
 
 def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_mode:str = 'single_image'):
     # Create directory for that map
@@ -217,11 +217,11 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
         #     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Skipping inference for {feature.label} as it is not a {model.feature_type.name} feature', pid=mp.current_process().pid)
 
     # Cutout map portion of image
-    if map_data.layout is not None and map_data.layout.map is not None:
-        min_pt, max_pt = boundingBox(map_data.layout.map)
-        image = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]].copy()
+    if len(map_data.layout.map) > 0:
+        image, offset = mask_and_crop(map_data.image, map_data.layout.map)
     else:
         image = map_data.image
+        offset = (0,0)
 
     # Log how many map units are being processed and the estimated time to perform inference
     est_patches = ceil(image.shape[1]/model.patch_size)*ceil(image.shape[2]/model.patch_size)
@@ -237,23 +237,20 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Real inference time: {real_time:.2f} secs, {(est_patches*len(legend_images))/real_time:.2f} patches/sec', pid=mp.current_process().pid)
 
     # Resize cutout to full map
-    if map_data.layout is not None and map_data.layout.map is not None:
+    if len(map_data.layout.map) > 0:
         result_image = np.zeros((1, *map_data.image.shape[1:]), dtype=np.float32)
-        result_image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]] = result_mask
+        result_image[:,offset[1]:offset[1]+result_mask.shape[1], offset[0]:offset[0]+result_mask.shape[2]] = result_mask
         result_mask = result_image
     
     # Save mask to appropriate feature type
-    if model.feature_type == MapUnitType.POINT:
-        map_data.point_segmentation_mask = result_mask
-    if model.feature_type == MapUnitType.POLYGON:
-        map_data.poly_segmentation_mask = result_mask
+    map_data.segmentations.append(MapSegmentation(provenance=Provenance(name=model.name, version=model.version), type=model.feature_type, image=result_mask)) # confidence=?
 
     # Drab volcano only : Filter out features that were not present
     if model.name == 'drab volcano':
         legend_index = 1
         features_present = []
         for feature in map_data.legend.features:
-            if np.any(map_data.point_segmentation_mask == legend_index):
+            if np.any(result_mask == legend_index):
                 features_present.append(feature)
             legend_index += 1
         # Set legend to only features that had predictions
@@ -265,18 +262,13 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
 # endregion Segmentation
 
 # region Vectorization
-def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
-    model_provenance = Provenance(name=model_name, version=model_version)
-    if map_data.point_segmentation_mask is not None:
-        map_data.generate_point_geometry(model_provenance)
-        # Scrub leading 0.0
-        # TODO: put this fix into cmaas_util
-        for feature in map_data.legend.features:
-            if feature.segmentation is not None:
-                feature.segmentation.geometry = [[pt[0][1:]] for pt in feature.segmentation.geometry]
+def generate_geometry(data_id, map_data:CMAAS_Map):
+    for mask in map_data.segmentations:
+        if mask.type == MapUnitType.POINT:
+            generate_point_geometry(mask, map_data.legend)
+        if mask.type == MapUnitType.POLYGON:
+            generate_poly_geometry(mask, map_data.legend)
 
-    if map_data.poly_segmentation_mask is not None:
-        map_data.generate_poly_geometry(model_provenance)
     total_occurances = 0 
     for feature in map_data.legend.features:
         if feature.segmentation is not None and feature.segmentation.geometry is not None:
@@ -289,10 +281,8 @@ def generate_geometry(data_id, map_data:CMAAS_Map, model_name, model_version):
 # endregion Vectorization
 
 # region Output
-import os
-from math import ceil, floor
-import matplotlib.pyplot as plt
 def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_types, system, system_version):
+    # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Started save_output', pid=mp.current_process().pid)
     # Save CDR schema
     if 'cdr_json' in output_types:
         cog_id = None
@@ -305,7 +295,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
         cdr_schema = cdr.exportMapToCDR(map_data, cog_id=cog_id, system=system, system_version=system_version)
         cdr_filename = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_cdr.json'))
         io.saveCDRFeatureResults(cdr_filename, cdr_schema)
-        # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
+        pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved CDR schema to "{cdr_filename}"', pid=mp.current_process().pid)
 
     # Save GeoPackage
     if 'geopackage' in output_types:
@@ -320,7 +310,7 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
             # pipeline_manager.log(logging.WARNING, f'{map_data.name} - Feature label after sanitization: {feature.label}')
         # io.saveGeoPackage(gpkg_filename, map_data)
         test_saveGeoPackage(gpkg_filename, map_data)
-        # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
+        pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved GeoPackage to "{gpkg_filename}"', pid=mp.current_process().pid)
 
     # Save Raster masks
     if 'raster_masks' in output_types:
@@ -329,17 +319,27 @@ def save_output(data_id, map_data: CMAAS_Map, output_dir, feedback_dir, output_t
             if feature.type in [MapUnitType.LINE, MapUnitType.UNKNOWN]:
                 continue
             if feature.type == MapUnitType.POINT:
-                if map_data.point_segmentation_mask is None:
+                point_mask = None
+                for mask in map_data.segmentations:
+                    if mask.type == MapUnitType.POINT:
+                        point_mask = mask.image
+                        break
+                if point_mask is None:
                     # pipeline_manager.log(logging.WARNING, f"{map_data.name} - Can\'t save feature {feature.label}. No predicted point_segmentation mask present.")
                     continue
-                feature_mask = np.zeros_like(map_data.point_segmentation_mask, dtype=np.uint8)
-                feature_mask[map_data.point_segmentation_mask == legend_index] = 1
+                feature_mask = np.zeros_like(point_mask, dtype=np.uint8)
+                feature_mask[point_mask == legend_index] = 1
             if feature.type == MapUnitType.POLYGON:
-                if map_data.poly_segmentation_mask is None:
+                poly_mask = None
+                for mask in map_data.segmentations:
+                    if mask.type == MapUnitType.POLYGON:
+                        poly_mask = mask.image
+                        break
+                if poly_mask is None:
                     # pipeline_manager.log(logging.WARNING, f"{map_data.name} - Can\'t save feature {feature.label}. No predicted poly_segmentation mask present.")
                     continue
-                feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
-                feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
+                feature_mask = np.zeros_like(poly_mask, dtype=np.uint8)
+                feature_mask[poly_mask == legend_index] = 1
             filepath = os.path.join(output_dir, sanitize_filename(f'{map_data.name}_{feature.label}_{feature.type}.tif'))
             io.saveGeoTiff(filepath, feature_mask, map_data.georef.crs, map_data.georef.transform)
             # pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Saved raster_mask to "{filepath}", pid=mp.current_process().pid')
@@ -370,17 +370,27 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, output_dir, feedback
         else:
             if feature.type == MapUnitType.POINT:
                 # Skip features there isn't a predicted mask for
-                if map_data.point_segmentation_mask is None:
+                point_mask = None
+                for mask in map_data.segmentations:
+                    if mask.type == MapUnitType.POINT:
+                        point_mask = mask.image
+                        break
+                if point_mask is None:
                     continue
-                feature_mask = np.zeros_like(map_data.point_segmentation_mask, dtype=np.uint8)
-                feature_mask[map_data.point_segmentation_mask == legend_index] = 1
+                feature_mask = np.zeros_like(point_mask, dtype=np.uint8)
+                feature_mask[point_mask == legend_index] = 1
 
             if feature.type == MapUnitType.POLYGON:
                 # Skip features there isn't a predicted mask for
-                if map_data.poly_segmentation_mask is None:
+                poly_mask = None
+                for mask in map_data.segmentations:
+                    if mask.type == MapUnitType.POLYGON:
+                        poly_mask = mask.image
+                        break
+                if poly_mask is None:
                     continue
-                feature_mask = np.zeros_like(map_data.poly_segmentation_mask, dtype=np.uint8)
-                feature_mask[map_data.poly_segmentation_mask == legend_index] = 1
+                feature_mask = np.zeros_like(poly_mask, dtype=np.uint8)
+                feature_mask[poly_mask == legend_index] = 1
 
         # Get true mask
         true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{feature.label.replace(" ","_")}_{feature.type}.tif')
@@ -495,19 +505,4 @@ def test_step(data_id, filename):
     pipeline_manager.log_to_monitor(data_id, {'filename' :os.basename(filename)})
     sleep(1)
     return filename
-
-def tmp_fix_layout(layout):
-    if layout.map is not None:
-        layout.map = np.array(layout.map).squeeze().astype(int)
-    if layout.polygon_legend is not None:
-        layout.polygon_legend = np.array(layout.polygon_legend).squeeze().astype(int)
-    if layout.point_legend is not None:
-        layout.point_legend = np.array(layout.point_legend).squeeze().astype(int)
-    if layout.line_legend is not None:
-        layout.line_legend = np.array(layout.line_legend).squeeze().astype(int)
-    if layout.cross_section is not None:
-        layout.cross_section = np.array(layout.cross_section).squeeze().astype(int)
-    if layout.correlation_diagram is not None:
-        layout.correlation_diagram = np.array(layout.correlation_diagram).squeeze().astype(int)
-    return layout
 # endregion Testing
