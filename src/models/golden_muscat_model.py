@@ -51,16 +51,20 @@ class golden_muscat_model(pipeline_pytorch_model):
 
     # @override
     def inference(self, image, legend_images, data_id=-1):
-        """Image data is in CHW format. legend_images is a dictionary of label to map_unit label images in CHW format."""         
+        """
+        Args:
+            image (np.array): Image data in CHW format.
+            legend_images (list): List of map_unit swatch images in CHW format.
+            data_id (int): Data id for logging purposes.
+        
+        Returns:
+            np.array: Prediction mask in CHW format.
+        """           
         # For profiling memory usage 
         #torch.cuda.memory._record_memory_history()
 
         # Get the size of the map
         map_channels, map_height, map_width = image.shape
-
-        # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
-        if map_channels == 1: # This is tmp fix!    
-            image = np.concatenate([image,image,image], axis=0)
 
         # Generate patches
         # Pad image so we get a size that can be evenly divided into patches.
@@ -81,15 +85,7 @@ class golden_muscat_model(pipeline_pytorch_model):
         map_prediction = np.zeros((1, map_height, map_width), dtype=np.float32)
         map_confidence = np.zeros((1, map_height, map_width), dtype=np.float32)
         legend_index = 1
-        for label, legend_img in legend_images.items():
-            # Debugging GPU memory usage
-            # device_num = 0
-            # alloc_mem = torch.cuda.max_memory_allocated(device_num)/(1024**3)
-            # resev_mem = torch.cuda.memory_reserved(device_num)/(1024**3)
-            # free_mem = torch.cuda.mem_get_info(device_num)[0]/(1024**3)
-            # pipeline_manager.log_to_monitor(data_id, {'GPU Mem (Alloc/Reserve/Avail)' : f'{alloc_mem:.2f}/{resev_mem:.2f}/{free_mem:.2f} GB'})
-
-            # pipeline_manager.log(logging.DEBUG, f'\t\tInferencing legend: {label}')
+        for legend_img in legend_images:
             lgd_stime = time()
             # Reshape maps with 1 channel legends (greyscale) to 3 channels for inference
             if legend_img.shape[0] == 1:
