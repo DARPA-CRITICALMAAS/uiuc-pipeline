@@ -35,14 +35,18 @@ class pipeline_pytorch_model(pipeline_model):
 
     # Optional to override this method
     def inference(self, image, legend_images, data_id=-1):
-        """Image data is in CHW format. legend_images is a dictionary of label to map_unit label images in CHW format."""         
+        """
+        Args:
+            image (np.array): Image data in CHW format.
+            legend_images (list): List of map_unit swatch images in CHW format.
+            data_id (int): Data id for logging purposes.
+        
+        Returns:
+            np.array: Prediction mask in CHW format.
+        """        
 
         # Get the size of the map
-        map_channels, map_height, map_width = image.shape
-
-        # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
-        if map_channels == 1: # This is tmp fix!
-            image = np.concatenate([image,image,image], axis=0)        
+        map_channels, map_height, map_width = image.shape   
 
         # Generate patches
         # Pad image so we get a size that can be evenly divided into patches.
@@ -63,7 +67,7 @@ class pipeline_pytorch_model(pipeline_model):
         map_prediction = np.zeros((1, map_height, map_width), dtype=np.float32)
         map_confidence = np.zeros((1, map_height, map_width), dtype=np.float32)
         legend_index = 1
-        for label, legend_img in legend_images.items():
+        for legend_img in legend_images:
             # pipeline_manager.log(logging.DEBUG, f'\t\tInferencing legend: {label}')
             lgd_stime = time()
 
