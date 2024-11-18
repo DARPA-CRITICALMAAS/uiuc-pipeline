@@ -49,6 +49,7 @@ def load_map_files(data_id, image_path:str, legend_dir:str=None, layout_dir:str=
         if not os.path.exists(layout_path):
             layout_path = None
     map_data = io.loadCMAASMapFromFiles(image_path, legend_path, layout_path)
+    pipeline_manager.log(logging.WARNING, f'Map loaded with {len(map_data.legend.features)} Map units')
     pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
     return map_data
 
@@ -95,11 +96,13 @@ def gen_legend(data_id, map_data:CMAAS_Map, model, max_legends=300, drab_volcano
             map_data.legend = model.inference(map_data.image, map_data.layout, data_id=data_id)
 
     # Reduce duplicates
-    legend_features = {}
-    for feature in map_data.legend.features:
-        legend_features[feature.label] = feature
-
-    map_data.legend.features = list(legend_features.values())
+    if map_data.legend.provenance.name != 'polymer': # Skip de-duplication for polymer legends
+        legend_features = {}
+        for feature in map_data.legend.features:
+            legend_features[feature.label] = feature
+    if isinstance(map_data.legend.features, dict):
+        map_data.legend.features = list(legend_features.values())
+    pipeline_manager.log(logging.WARNING, f'Map features after de duplication : {len(map_data.legend.features)} Map units')
 
     # TMP solution for maps with too many features (most likely from bad legend extraction)
     if len(map_data.legend.features) > max_legends:
@@ -122,71 +125,15 @@ def gen_legend(data_id, map_data:CMAAS_Map, model, max_legends=300, drab_volcano
     
     return map_data
 
-# def old_gen_legend(data_id, map_data:CMAAS_Map, max_legends=300, drab_volcano_legend:bool=False):
-#     from submodules.legend_extraction.src.extraction import extractLegends
-#     def convertLegendtoCMASS(legend):
-#         from cmaas_utils.types import Legend, MapUnit
-#         features = []
-#         for feature in legend:
-#             features.append(MapUnit(type=MapUnitType.POLYGON, label=feature['label'], bounding_box=feature['points']))
-#         return Legend(provenance=Provenance(name='UIUC Heuristic Model', version='0.1'), features=features)
-
-#     if map_data.legend is None:
-#         if drab_volcano_legend:
-#             map_data.legend = io.loadLegendJson('src/models/drab_volcano_legend.json')
-#         else:
-#             # Mask legend area before prediction.
-#             if map_data.layout is not None and map_data.layout.polygon_legend is not None:
-#                 image = map_data.image.transpose(1,2,0).copy()
-#                 mask = np.zeros_like(image)
-#                 cv2.fillPoly(mask, pts=[map_data.layout.polygon_legend], color=(255,255,255))
-#                 image = cv2.bitwise_and(image, mask)
-#                 image = image.transpose(2,0,1)
-#             else:
-#                 image = map_data.image
-
-#             # Generate legend
-#             pipeline_manager.log(logging.DEBUG, f'{map_data.name} - No legend data found, generating legend', pid=mp.current_process().pid)
-#             lgd = extractLegends(image.transpose(1,2,0))
-#             map_data.legend = convertLegendtoCMASS(lgd)
-
-#     # Reduce duplicates
-#     legend_features = {}
-#     for feature in map_data.legend.features:
-#         legend_features[feature.label] = feature
-
-#     map_data.legend.features = list(legend_features.values())
-
-#     # Count distribution of map units for log.
-#     pt, ln, py, un = 0,0,0,0
-#     for feature in map_data.legend.features:
-#         if feature.type == MapUnitType.POINT:
-#             pt += 1
-#         if feature.type == MapUnitType.LINE:
-#             ln += 1
-#         if feature.type == MapUnitType.POLYGON:
-#             py += 1
-#         if feature.type == MapUnitType.UNKNOWN:
-#             un += 1
-
-#     # TMP solution for maps with too many features (most likely from bad legend extraction)
-#     if len(map_data.legend.features) > max_legends:
-#         raise Exception(f'{map_data.name} - Too many features found in legend. Found {len(map_data.legend.features)} features. Max is {max_legends}')
-
-#     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Found {len(map_data.legend.features)} Total map units. ({pt} pt, {ln} ln, {py} poly, {un} unknown)', pid=mp.current_process().pid)
-#     pipeline_manager.log_to_monitor(data_id, {'Map Units': len(map_data.legend.features)})
-    
-#     return map_data
-
 def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_mode:str = 'single_image'):
     # Create directory for that map
     os.makedirs(os.path.join(feedback_dir, map_data.name), exist_ok=True)
 
     # Cutout map unit labels from image
-    legend_images = {}
+    legend_images = []
     for feature in map_data.legend.features:
         min_pt, max_pt = boundingBox(feature.label_bbox) # Need this as points order can be reverse or could have quad
-        legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
+        legend_images.append((feature.label, map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]))
 
     # Save preview of legend labels
     if len(legend_images) > 0:
@@ -195,8 +142,9 @@ def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_m
             with open(os.path.join(feedback_dir, map_data.name, sanitize_filename(map_data.name + '_legend.json')), 'w') as fh:
                 fh.write(map_data.legend.model_dump_json())
         if legend_feedback_mode == 'individual_images':
-            legend_save_path = os.path.join(feedback_dir, map_data.name, sanitize_filename('lgd_' + map_data.name + '_' + feature.label + '.tif'))
-            io.saveGeoTiff(legend_save_path, legend_images[feature.label], None, None)
+            for label, image in legend_images:
+                legend_save_path = os.path.join(feedback_dir, map_data.name, sanitize_filename('lgd_' + map_data.name + '_' + label + '.tif'))
+                io.saveGeoTiff(legend_save_path, image, None, None)
         if legend_feedback_mode == 'single_image':
             cols = 4
             rows = ceil(len(legend_images)/cols)
@@ -204,10 +152,11 @@ def save_legend(data_id, map_data:CMAAS_Map, feedback_dir:str, legend_feedback_m
             ax = ax.reshape(rows, cols) # Force 2d shape if less the 4 items
             for r,c in np.ndindex(ax.shape):
                 ax[r][c].axis('off')
-            for i, label in enumerate(legend_images):
+            for i, f_tuple in enumerate(legend_images):
+                label, image = f_tuple
                 row, col  = floor(i/cols), i%cols
                 ax[row][col].set_title(label)
-                ax[row][col].imshow(legend_images[label].transpose(1,2,0))
+                ax[row][col].imshow(image.transpose(1,2,0))
             legend_save_path = os.path.join(feedback_dir, map_data.name, sanitize_filename(map_data.name + '_labels'  + '.png'))
             fig.savefig(legend_save_path)
             plt.close(fig)
@@ -225,11 +174,11 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
         model.model.to(target_device)
 
     # Cutout Legends
-    legend_images = {}
+    legend_images = []
     for feature in map_data.legend.features:
         if feature.type == model.feature_type:
             min_pt, max_pt = boundingBox(feature.label_bbox) # Need this as points order can be reverse or could have quad
-            legend_images[feature.label] = map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]]
+            legend_images.append(map_data.image[:,min_pt[1]:max_pt[1], min_pt[0]:max_pt[0]])
         # else:
         #     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Skipping inference for {feature.label} as it is not a {model.feature_type.name} feature', pid=mp.current_process().pid)
 
@@ -240,7 +189,11 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
         image = map_data.image
         offset = (0,0)
 
-    pipeline_manager.log(logging.WARNING, f'{map_data.name} - Shape : {image.shape}, Offset: {offset}', pid=mp.current_process().pid)
+
+    # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
+    map_channels, map_height, map_width = image.shape
+    if map_channels == 1: 
+        image = np.concatenate([image,image,image], axis=0)
 
     # Log how many map units are being processed and the estimated time to perform inference
     est_patches = ceil(image.shape[1]/model.patch_size)*ceil(image.shape[2]/model.patch_size)
