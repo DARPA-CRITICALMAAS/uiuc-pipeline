@@ -13,7 +13,24 @@ import multiprocessing as mp
 import matplotlib.pyplot as plt
 
 # region Load Data
-def load_data(data_id, image_path:str, legend_dir:str=None, layout_dir:str=None):
+def load_map_data(data_id, image_path:str, map_data_dir:str):
+    """Load function for loading cmaas_utils CMAAS_Map object from files"""
+    map_name = os.path.splitext(os.path.basename(image_path))[0]
+    pipeline_manager.log(logging.DEBUG, f'{map_name} - Started processing', pid=mp.current_process().pid)
+    if len(map_name) > 50:
+        pipeline_manager.log_to_monitor(data_id, {'Name' : map_name[:24] + '...' + map_name[-24:]})
+    else:
+        pipeline_manager.log_to_monitor(data_id, {'Name': map_name})
+    map_data_path = os.path.join(map_data_dir, map_name + '.json')
+    with open(map_data_path, 'r') as fh:
+        map_data = CMAAS_Map.parse_raw(fh.read())
+    image, crs, transform = io.loadGeoTiff(image_path)
+    map_data.image = image
+    map_data.georef = GeoReference(provenance=Provenance(name='GeoTIFF'), crs=crs, transform=transform)
+    pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
+    return map_data
+
+def load_map_files(data_id, image_path:str, legend_dir:str=None, layout_dir:str=None):
     """Wrapper with a custom display for the monitor"""
     map_name = os.path.splitext(os.path.basename(image_path))[0]
     pipeline_manager.log(logging.DEBUG, f'{map_name} - Started processing', pid=mp.current_process().pid)
@@ -222,6 +239,8 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
     else:
         image = map_data.image
         offset = (0,0)
+
+    pipeline_manager.log(logging.WARNING, f'{map_data.name} - Shape : {image.shape}, Offset: {offset}', pid=mp.current_process().pid)
 
     # Log how many map units are being processed and the estimated time to perform inference
     est_patches = ceil(image.shape[1]/model.patch_size)*ceil(image.shape[2]/model.patch_size)
