@@ -111,6 +111,7 @@ def gen_legend(data_id, map_data:CMAAS_Map, model, max_legends=300, drab_volcano
     # Remove features with no label swatch
     map_data.legend.features = [f for f in map_data.legend.features if f.label_bbox]
 
+
     # Count distribution of map units for log.
     pt, ln, py, un = 0,0,0,0
     for feature in map_data.legend.features:
