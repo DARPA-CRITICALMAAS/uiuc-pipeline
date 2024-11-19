@@ -91,6 +91,9 @@ def gen_legend(data_id, map_data:CMAAS_Map, model, max_legends=300, drab_volcano
     if len(map_data.legend.features) > max_legends:
         raise Exception(f'{map_data.name} - Too many features found in legend. Found {len(map_data.legend.features)} features. Max is {max_legends}')
 
+    # Remove features with no label swatch
+    map_data.legend.features = [f for f in map_data.legend.features if f.label_bbox] # Remove empty labels
+
     # Count distribution of map units for log.
     pt, ln, py, un = 0,0,0,0
     for feature in map_data.legend.features:
