@@ -13,7 +13,24 @@ import multiprocessing as mp
 import matplotlib.pyplot as plt
 
 # region Load Data
-def load_data(data_id, image_path:str, legend_dir:str=None, layout_dir:str=None):
+def load_map_data(data_id, image_path:str, map_data_dir:str):
+    """Load function for loading cmaas_utils CMAAS_Map object from files"""
+    map_name = os.path.splitext(os.path.basename(image_path))[0]
+    pipeline_manager.log(logging.DEBUG, f'{map_name} - Started processing', pid=mp.current_process().pid)
+    if len(map_name) > 50:
+        pipeline_manager.log_to_monitor(data_id, {'Name' : map_name[:24] + '...' + map_name[-24:]})
+    else:
+        pipeline_manager.log_to_monitor(data_id, {'Name': map_name})
+    map_data_path = os.path.join(map_data_dir, map_name + '.json')
+    with open(map_data_path, 'r') as fh:
+        map_data = CMAAS_Map.parse_raw(fh.read())
+    image, crs, transform = io.loadGeoTiff(image_path)
+    map_data.image = image
+    map_data.georef = GeoReference(provenance=Provenance(name='GeoTIFF'), crs=crs, transform=transform)
+    pipeline_manager.log_to_monitor(data_id, {'Shape': map_data.image.shape})
+    return map_data
+
+def load_map_files(data_id, image_path:str, legend_dir:str=None, layout_dir:str=None):
     """Wrapper with a custom display for the monitor"""
     map_name = os.path.splitext(os.path.basename(image_path))[0]
     pipeline_manager.log(logging.DEBUG, f'{map_name} - Started processing', pid=mp.current_process().pid)
@@ -85,14 +102,15 @@ def gen_legend(data_id, map_data:CMAAS_Map, model, max_legends=300, drab_volcano
             legend_features[feature.label] = feature
     if isinstance(map_data.legend.features, dict):
         map_data.legend.features = list(legend_features.values())
-    pipeline_manager.log(logging.WARNING, f'Map features after de duplication : {len(map_data.legend.features)} Map units')
+    # pipeline_manager.log(logging.WARNING, f'Map features after de duplication : {len(map_data.legend.features)} Map units')
 
     # TMP solution for maps with too many features (most likely from bad legend extraction)
     if len(map_data.legend.features) > max_legends:
         raise Exception(f'{map_data.name} - Too many features found in legend. Found {len(map_data.legend.features)} features. Max is {max_legends}')
 
     # Remove features with no label swatch
-    map_data.legend.features = [f for f in map_data.legend.features if f.label_bbox] # Remove empty labels
+    map_data.legend.features = [f for f in map_data.legend.features if f.label_bbox]
+
 
     # Count distribution of map units for log.
     pt, ln, py, un = 0,0,0,0
@@ -174,6 +192,7 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
     else:
         image = map_data.image
         offset = (0,0)
+
 
     # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
     map_channels, map_height, map_width = image.shape
