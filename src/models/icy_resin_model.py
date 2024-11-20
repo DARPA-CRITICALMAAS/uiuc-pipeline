@@ -125,7 +125,7 @@ class icy_resin_model(pipeline_pytorch_model):
             # pipeline_manager.log(logging.DEBUG, "\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
 
         # Minimum confidence threshold for a prediction
-        map_prediction[map_confidence < 0.333] = 0
+        map_prediction[map_confidence < 0.1] = 0
 
         # For profiling memory usage 
         # torch.cuda.memory._dump_snapshot(f'gpu_snapshots/{data_id}_inference.pickle')
