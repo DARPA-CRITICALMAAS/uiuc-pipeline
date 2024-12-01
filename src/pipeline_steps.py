@@ -154,7 +154,8 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
     # Device is set on a per process basis
     from torch import device
     previous_device = model.device
-    target_device = device(devices[mp.current_process().pid % len(devices)])
+    # target_device = device(devices[mp.current_process().pid % len(devices)])
+    target_device = device(devices[mp.current_process()._identity[0] % len(devices)])
     if model.device != target_device: # Move model to device if needed
         model.device = target_device
         model.model.to(target_device)

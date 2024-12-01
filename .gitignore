@@ -23,3 +23,8 @@ venv
 
 # HPC output/error jobs
 *.[oe][0-9]*
+
+# seasoned_lynx model
+/feedback/
+/logs/
+tmp_*.png

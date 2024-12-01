@@ -1,0 +1,50 @@
+Looking in indexes: https://pypi.org/simple, https://test.pypi.org/simple/
+Collecting git+https://github.com/DARPA-CRITICALMAAS/cdr_schemas.git@v0.2.6+draft
+  Cloning https://github.com/DARPA-CRITICALMAAS/cdr_schemas.git (to revision v0.2.6+draft) to /tmp/pip-req-build-nu0p80e8
+  Resolved https://github.com/DARPA-CRITICALMAAS/cdr_schemas.git to commit f49d594157b39e1a7ff5d1c1d308a2c07adbb566
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting cmaas_utils
+  Downloading https://test-files.pythonhosted.org/packages/84/f8/ddc84026b19a4787fca31b21b3e4abd69fc798788d9ca96454c942c69d58/cmaas_utils-0.1.14-py3-none-any.whl.metadata (7.8 kB)
+Requirement already satisfied: pydantic in ./venv/lib/python3.10/site-packages (2.8.2)
+Requirement already satisfied: geopandas in ./venv/lib/python3.10/site-packages (from cmaas_utils) (1.0.1)
+Requirement already satisfied: numpy in ./venv/lib/python3.10/site-packages (from cmaas_utils) (1.26.4)
+Requirement already satisfied: rasterio in ./venv/lib/python3.10/site-packages (from cmaas_utils) (1.3.10)
+Requirement already satisfied: annotated-types>=0.4.0 in ./venv/lib/python3.10/site-packages (from pydantic) (0.7.0)
+Requirement already satisfied: pydantic-core==2.20.1 in ./venv/lib/python3.10/site-packages (from pydantic) (2.20.1)
+Requirement already satisfied: typing-extensions>=4.6.1 in ./venv/lib/python3.10/site-packages (from pydantic) (4.12.2)
+Requirement already satisfied: pyogrio>=0.7.2 in ./venv/lib/python3.10/site-packages (from geopandas->cmaas_utils) (0.9.0)
+Requirement already satisfied: packaging in ./venv/lib/python3.10/site-packages (from geopandas->cmaas_utils) (24.1)
+Requirement already satisfied: pandas>=1.4.0 in ./venv/lib/python3.10/site-packages (from geopandas->cmaas_utils) (2.2.2)
+Requirement already satisfied: pyproj>=3.3.0 in ./venv/lib/python3.10/site-packages (from geopandas->cmaas_utils) (3.6.1)
+Requirement already satisfied: shapely>=2.0.0 in ./venv/lib/python3.10/site-packages (from geopandas->cmaas_utils) (2.0.6)
+Requirement already satisfied: affine in ./venv/lib/python3.10/site-packages (from rasterio->cmaas_utils) (2.4.0)
+Requirement already satisfied: attrs in ./venv/lib/python3.10/site-packages (from rasterio->cmaas_utils) (24.2.0)
+Requirement already satisfied: certifi in ./venv/lib/python3.10/site-packages (from rasterio->cmaas_utils) (2024.7.4)
+Requirement already satisfied: click>=4.0 in ./venv/lib/python3.10/site-packages (from rasterio->cmaas_utils) (8.1.7)
+Requirement already satisfied: cligj>=0.5 in ./venv/lib/python3.10/site-packages (from rasterio->cmaas_utils) (0.7.2)
+Requirement already satisfied: snuggs>=1.4.1 in ./venv/lib/python3.10/site-packages (from rasterio->cmaas_utils) (1.4.7)
+Requirement already satisfied: click-plugins in ./venv/lib/python3.10/site-packages (from rasterio->cmaas_utils) (1.1.1)
+Requirement already satisfied: setuptools in ./venv/lib/python3.10/site-packages (from rasterio->cmaas_utils) (65.5.0)
+Requirement already satisfied: python-dateutil>=2.8.2 in ./venv/lib/python3.10/site-packages (from pandas>=1.4.0->geopandas->cmaas_utils) (2.9.0.post0)
+Requirement already satisfied: pytz>=2020.1 in ./venv/lib/python3.10/site-packages (from pandas>=1.4.0->geopandas->cmaas_utils) (2024.1)
+Requirement already satisfied: tzdata>=2022.7 in ./venv/lib/python3.10/site-packages (from pandas>=1.4.0->geopandas->cmaas_utils) (2024.1)
+Requirement already satisfied: pyparsing>=2.1.6 in ./venv/lib/python3.10/site-packages (from snuggs>=1.4.1->rasterio->cmaas_utils) (3.1.4)
+Requirement already satisfied: six>=1.5 in ./venv/lib/python3.10/site-packages (from python-dateutil>=2.8.2->pandas>=1.4.0->geopandas->cmaas_utils) (1.16.0)
+Downloading https://test-files.pythonhosted.org/packages/84/f8/ddc84026b19a4787fca31b21b3e4abd69fc798788d9ca96454c942c69d58/cmaas_utils-0.1.14-py3-none-any.whl (17 kB)
+Building wheels for collected packages: cdr_schemas
+  Building wheel for cdr_schemas (pyproject.toml): started
+  Building wheel for cdr_schemas (pyproject.toml): finished with status 'done'
+  Created wheel for cdr_schemas: filename=cdr_schemas-0.2.6+draft-py3-none-any.whl size=17254 sha256=112a1c8bee97fd2125aff01dba3992b4c0f093072bac4f95eef46f49de7df9cb
+  Stored in directory: /tmp/pip-ephem-wheel-cache-sgp3fcx0/wheels/72/58/31/75d1ae21f832e4bca4b96ed0f27bc2c9320e1fe0b5045698e4
+Successfully built cdr_schemas
+Installing collected packages: cdr_schemas, cmaas_utils
+  Attempting uninstall: cdr_schemas
+    Found existing installation: cdr_schemas 0.4.2
+    Uninstalling cdr_schemas-0.4.2:
+      Successfully uninstalled cdr_schemas-0.4.2
+Successfully installed cdr_schemas-0.2.6+draft cmaas_utils-0.1.14
