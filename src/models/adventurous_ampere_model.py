@@ -30,7 +30,7 @@ class adventurous_ampere_model(pipeline_pytorch_model):
         self.device = torch.device("cuda")
 
         # Modifiable parameters
-        self.batch_size = 32
+        self.batch_size = 64
         self.patch_size = 256
         self.patch_overlap = 64
         self.unpatch_mode = 'discard'
@@ -46,168 +46,98 @@ class adventurous_ampere_model(pipeline_pytorch_model):
 
         return self.model
     
-    def lab_norm(self, lab_batch):
+    def convert_to_lab_cpu(self, rgb_np):
         """
-        Normalize a batch of Lab images (NCHW format).
+        rgb_np shape: (N, 3, H, W), dtype=uint8 or float32 in [0,255].
+        Convert on CPU using OpenCV, return float32 array in Lab space.
         """
-        resized_batches = []
-        chunk_size = 8  # Adjust based on memory capacity
-        for i in range(0, lab_batch.size(0), chunk_size):
-            chunk = lab_batch[i:i+chunk_size]
-            resized_chunk = F.interpolate(chunk, size=(self.patch_size, self.patch_size), mode='bilinear', align_corners=False)
-            resized_batches.append(resized_chunk)
 
-        lab_batch = torch.cat(resized_batches, dim=0)
-        mean = torch.tensor([39.101, -128.178, -126.484]).to(self.device).view(1, -1, 1, 1)
-        std = torch.tensor([25.0, 7.736, 12.594]).to(self.device).view(1, -1, 1, 1)
-        return (lab_batch - mean) / std
+        nhwc = np.transpose(rgb_np, (0, 2, 3, 1)).astype(np.uint8)
+        lab = np.array([cv2.cvtColor(img, cv2.COLOR_RGB2Lab).astype(np.float32) for img in nhwc])
+        # Rescale L from [0..255] to [0..100]
+        lab[..., 0] = lab[..., 0] / 255.0 * 100.0
+        # Shift a,b from [0..255] to [-128..127]
+        lab[..., 1:] -= 128.0
+        return np.transpose(lab, (0, 3, 1, 2))
 
-    def hsv_norm(self, hsv_batch):
+    def convert_to_hsv_cpu(self, rgb_np):
+        nhwc = np.transpose(rgb_np, (0, 2, 3, 1)).astype(np.uint8)
+        hsv = np.array([cv2.cvtColor(img, cv2.COLOR_RGB2HSV).astype(np.float32) for img in nhwc])
+        # Rescale:
+        # H in [0..179], scale to [0..360]
+        hsv[..., 0] = hsv[..., 0] / 179.0 * 360.0
+        # S, V in [0..255], scale to [0..1]
+        hsv[..., 1:] /= 255.0
+        return np.transpose(hsv, (0, 3, 1, 2))
+
+    def convert_to_yuv_cpu(self, rgb_np):
+        nhwc = np.transpose(rgb_np, (0, 2, 3, 1)).astype(np.uint8)
+        yuv = np.array([cv2.cvtColor(img, cv2.COLOR_RGB2YUV).astype(np.float32) for img in nhwc])
+        return np.transpose(yuv, (0, 3, 1, 2))
+
+    def convert_to_hed_cpu(self, rgb_np):
+        nhwc = np.transpose(rgb_np, (0, 2, 3, 1)).astype(np.float32) / 255.0  # Scale to [0, 1]
+        eps = 1e-8
+        od = -np.log((nhwc + eps) / (1.0 + eps))  # Optical density
+
+        # Fixed conversion matrix
+        conversion_matrix = np.array([
+            [0.65, 0.70, 0.29],
+            [0.07, 0.99, 0.11],
+            [0.27, 0.57, 0.78]
+        ], dtype=np.float32)
+
+        # Apply matrix multiplication across the batch
+        hed = np.tensordot(od, conversion_matrix, axes=([3], [0]))
+        return np.transpose(hed, (0, 3, 1, 2))
+
+    def convert_to_rgb_cpu(self, rgb_np):
+
+        return rgb_np.astype(np.float32)
+
+    def resize_image(self, image, target_size=(256, 256)):
         """
-        Normalize a batch of HSV images (NCHW format).
+        Resize image to target_size.
+        Args:
+            image (np.array): Image data in CHW format.
+            target_size (tuple): Target size (H, W).
+        Returns:
+            np.array: Resized image in CHW format.
         """
-        resized_batches = []
-        chunk_size = 8  # Adjust based on memory capacity
-        for i in range(0, hsv_batch.size(0), chunk_size):
-            chunk = hsv_batch[i:i+chunk_size]
-            resized_chunk = F.interpolate(chunk, size=(self.patch_size, self.patch_size), mode='bilinear', align_corners=False)
-            resized_batches.append(resized_chunk)
-        
-        hsv_batch = torch.cat(resized_batches, dim=0)
-        mean = torch.tensor([230.569 / 360.0, 0.001, 0.816]).to(self.device).view(1, -1, 1, 1)
-        std = torch.tensor([212.114 / 360.0, 0.001, 0.215]).to(self.device).view(1, -1, 1, 1)
-        return (hsv_batch - mean) / std
-    
-    def rgb_norm(self, rgb_batch):
-        """
-        Normalize a batch of RGB images (NCHW format).
-        """
-        resized_batches = []
-        chunk_size = 8  # Adjust based on memory capacity
-        for i in range(0, rgb_batch.size(0), chunk_size):
-            chunk = rgb_batch[i:i+chunk_size]
-            resized_chunk = F.interpolate(chunk, size=(self.patch_size, self.patch_size), mode='bilinear', align_corners=False)
-            resized_batches.append(resized_chunk)
+        image = np.transpose(image, (1, 2, 0))
+        image = cv2.resize(image, target_size, interpolation=cv2.INTER_LINEAR)
+        image = np.transpose(image, (2, 0, 1))
+        return image
 
-        rgb_batch = torch.cat(resized_batches, dim=0)
-        rgb_batch = rgb_batch / 255.0
-        mean = torch.tensor([0.485, 0.456, 0.406]).to(self.device).view(1, -1, 1, 1)
-        std = torch.tensor([0.229, 0.224, 0.225]).to(self.device).view(1, -1, 1, 1)
-        return (rgb_batch - mean) / std
-    
-    def yuv_norm(self, yuv_batch):
-        """
-        Normalize a batch of YUV images (NCHW format).
-        """
-        resized_batches = []
-        chunk_size = 8  # Adjust based on memory capacity
-        for i in range(0, yuv_batch.size(0), chunk_size):
-            chunk = yuv_batch[i:i+chunk_size]
-            resized_chunk = F.interpolate(chunk, size=(self.patch_size, self.patch_size), mode='bilinear', align_corners=False)
-            resized_batches.append(resized_chunk)
+    # -----------
+    # Normalization (CPU)
+    # -----------
+    def lab_norm_cpu(self, lab_np):
+        # lab_np shape: (N, 3, H, W)
+        mean = np.array([39.101, -128.178, -126.484], dtype=np.float32).reshape(1, -1, 1, 1)
+        std = np.array([25.0, 7.736, 12.594], dtype=np.float32).reshape(1, -1, 1, 1)
+        return (lab_np - mean) / std
 
-        yuv_batch = torch.cat(resized_batches, dim=0)
-        mean = torch.tensor([187.340, -11.024, 7.415]).to(self.device).view(1, -1, 1, 1)
-        std = torch.tensor([56.760, 21.319, 24.885]).to(self.device).view(1, -1, 1, 1)
-        return (yuv_batch - mean) / std
-    
-    def hed_norm(self, hed_batch):
-        """
-        Normalize a batch of HED images (NCHW format).
-        """
-        resized_batches = []
-        chunk_size = 8  # Adjust based on memory capacity
-        for i in range(0, hed_batch.size(0), chunk_size):
-            chunk = hed_batch[i:i+chunk_size]
-            resized_chunk = F.interpolate(chunk, size=(self.patch_size, self.patch_size), mode='bilinear', align_corners=False)
-            resized_batches.append(resized_chunk)
+    def hsv_norm_cpu(self, hsv_np):
+        mean = np.array([230.569/360.0, 0.001, 0.816], dtype=np.float32).reshape(1, -1, 1, 1)
+        std = np.array([212.114/360.0, 0.001, 0.215], dtype=np.float32).reshape(1, -1, 1, 1)
+        return (hsv_np - mean) / std
 
-        hed_batch = torch.cat(resized_batches, dim=0)
-        mean = torch.tensor([0.569, 1.313, 0.882]).to(self.device).view(1, -1, 1, 1)
-        std = torch.tensor([1.381, 3.029, 2.244]).to(self.device).view(1, -1, 1, 1)
-        return (hed_batch - mean) / std
+    def rgb_norm_cpu(self, rgb_np):
+        rgb_np = rgb_np / 255.0
+        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, -1, 1, 1)
+        std  = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, -1, 1, 1)
+        return (rgb_np - mean) / std
 
-    def convert_to_lab_batch(self, rgb_batch):
-        """
-        Convert a batch of RGB images (NCHW format) to Lab (NCHW format).
-        """
-        rgb_batch = rgb_batch.transpose(0, 2, 3, 1)
+    def yuv_norm_cpu(self, yuv_np):
+        mean = np.array([187.340, -11.024, 7.415], dtype=np.float32).reshape(1, -1, 1, 1)
+        std = np.array([56.760, 21.319, 24.885], dtype=np.float32).reshape(1, -1, 1, 1)
+        return (yuv_np - mean) / std
 
-        # Convert all images in the batch to Lab using vectorized OpenCV
-        lab_batch = np.stack([
-            cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_RGB2Lab).astype(np.float32) for img in rgb_batch
-        ])
-
-        # Rescale Lab values
-        lab_batch[..., 0] = lab_batch[..., 0] / 255.0 * 100.0  # Scale L to [0, 100]
-        lab_batch[..., 1:] = lab_batch[..., 1:] - 128.0        # Shift a and b to [-128, 127]
-
-        # Convert back to PyTorch tensor
-        lab_batch = torch.tensor(lab_batch).permute(0, 3, 1, 2).to(self.device)  # Convert to NCHW
-        return lab_batch
-
-
-    def convert_to_hsv_batch(self, rgb_batch):
-        """
-        Convert a batch of RGB images (NCHW format) to HSV (NCHW format).
-        """
-        rgb_batch = rgb_batch.transpose(0, 2, 3, 1)
-
-        # Convert all images in the batch to HSV using vectorized OpenCV
-        hsv_batch = np.stack([
-            cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_RGB2HSV).astype(np.float32) for img in rgb_batch
-        ])
-
-        # Rescale HSV values
-        hsv_batch[..., 0] = hsv_batch[..., 0] / 179.0 * 360.0  # Scale H to [0, 360]
-        hsv_batch[..., 1:] = hsv_batch[..., 1:] / 255.0        # Scale S and V to [0, 1]
-
-        # Convert back to PyTorch tensor
-        hsv_batch = torch.tensor(hsv_batch).permute(0, 3, 1, 2).to(self.device)  # Convert to NCHW
-        return hsv_batch
-    
-    def convert_to_rgb_batch(self, rgb_batch):
-        """
-        Convert a batch of RGB images (NCHW format) to RGB (NCHW format).
-        """
-        
-        new_rgb_batch = torch.tensor(rgb_batch, dtype=torch.float32).to(self.device)
-
-        return new_rgb_batch
-    
-    def convert_to_yuv_batch(self, rgb_batch):
-        """
-        Convert a batch of RGB images (NCHW format) to YUV (NCHW format).
-        """
-        rgb_batch = rgb_batch.transpose(0, 2, 3, 1)
-
-        # Convert all images in the batch to YUV using vectorized OpenCV
-        yuv_batch = np.stack([
-            cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_RGB2YUV).astype(np.float32) for img in rgb_batch
-        ])
-
-        yuv_batch = torch.tensor(yuv_batch).permute(0, 3, 1, 2).to(self.device)  # Convert to NCHW
-        return yuv_batch
-    
-    def convert_to_hed_batch(self, rgb_batch):
-        """
-        Convert a batch of RGB images (NCHW format) to HED (NCHW format).
-        """
-        hed_batch = rgb_batch.transpose(0, 2, 3, 1)  # Convert to NHWC format for processing
-
-        hed_batch = hed_batch / 255.0  # Scale to [0, 1]
-        od = -np.log((hed_batch + 1e-8) / (1 + 1e-8))
-        hed_batch = np.dot(
-            od, 
-            np.array([[0.65, 0.70, 0.29],
-                    [0.07, 0.99, 0.11],
-                    [0.27, 0.57, 0.78]])
-        )
-
-        hed_batch = torch.tensor(hed_batch).permute(0, 3, 1, 2).to(self.device)  # Convert back to NCHW format
-
-        return hed_batch
-        
+    def hed_norm_cpu(self, hed_np):
+        mean = np.array([0.569, 1.313, 0.882], dtype=np.float32).reshape(1, -1, 1, 1)
+        std  = np.array([1.381, 3.029, 2.244], dtype=np.float32).reshape(1, -1, 1, 1)
+        return (hed_np - mean) / std
 
     # @override
     def inference(self, image, legend_images, data_id=-1):
@@ -239,21 +169,16 @@ class adventurous_ampere_model(pipeline_pytorch_model):
         # Flatten row col dims and normalize map patches to [0,1]
         map_patches = map_patches.reshape(-1, 3, self.patch_size, self.patch_size)
 
-        map_lab_patches = self.convert_to_lab_batch(map_patches).to(self.device)
-        map_hsv_patches = self.convert_to_hsv_batch(map_patches).to(self.device)
-        map_rgb_patches = self.convert_to_rgb_batch(map_patches).to(self.device)
-        map_yuv_patches = self.convert_to_yuv_batch(map_patches).to(self.device)
-        map_hed_patches = self.convert_to_hed_batch(map_patches).to(self.device)
-
-        map_lab_patches = self.lab_norm(map_lab_patches)
-        map_hsv_patches = self.hsv_norm(map_hsv_patches)
-        map_rgb_patches = self.rgb_norm(map_rgb_patches)
-        map_yuv_patches = self.yuv_norm(map_yuv_patches)
-        map_hed_patches = self.hed_norm(map_hed_patches)
+        map_lab = self.lab_norm_cpu(self.convert_to_lab_cpu(map_patches))
+        map_hsv = self.hsv_norm_cpu(self.convert_to_hsv_cpu(map_patches))
+        map_rgb = self.rgb_norm_cpu(self.convert_to_rgb_cpu(map_patches))
+        map_yuv = self.yuv_norm_cpu(self.convert_to_yuv_cpu(map_patches))
+        map_hed = self.hed_norm_cpu(self.convert_to_hed_cpu(map_patches))
 
         # pipeline_manager.log(logging.DEBUG, f"\tMap size: {map_width}, {map_height} patched into : {rows} x {cols} = {rows*cols} patches")
         map_prediction = np.zeros((1, map_height, map_width), dtype=np.float32)
         map_confidence = np.zeros((1, map_height, map_width), dtype=np.float32)
+
         legend_index = 1
         for legend_img in legend_images:
             lgd_stime = time()
@@ -267,41 +192,63 @@ class adventurous_ampere_model(pipeline_pytorch_model):
             # Reshape maps with 1 channel legends (greyscale) to 3 channels for inference
             if legend_img.shape[0] == 1:
                 legend_img = np.concatenate([legend_img,legend_img,legend_img], axis=0)
-
+            
+            legend_img = self.resize_image(legend_img, target_size=(self.patch_size, self.patch_size))
             legend_img = np.expand_dims(legend_img, axis=0)
-            legend_lab = self.convert_to_lab_batch(legend_img).to(self.device)
-            legend_hsv = self.convert_to_hsv_batch(legend_img).to(self.device)
-            legend_rgb = self.convert_to_rgb_batch(legend_img).to(self.device)
-            legend_yuv = self.convert_to_yuv_batch(legend_img).to(self.device)
-            legend_hed = self.convert_to_hed_batch(legend_img).to(self.device)
 
-            legend_lab = self.lab_norm(legend_lab)
-            legend_hsv = self.hsv_norm(legend_hsv)
-            legend_rgb = self.rgb_norm(legend_rgb)
-            legend_yuv = self.yuv_norm(legend_yuv)
-            legend_hed = self.hed_norm(legend_hed)
+            legend_lab = self.lab_norm_cpu(self.convert_to_lab_cpu(legend_img))
+            legend_hsv = self.hsv_norm_cpu(self.convert_to_hsv_cpu(legend_img))
+            legend_rgb = self.rgb_norm_cpu(self.convert_to_rgb_cpu(legend_img))
+            legend_yuv = self.yuv_norm_cpu(self.convert_to_yuv_cpu(legend_img))
+            legend_hed = self.hed_norm_cpu(self.convert_to_hed_cpu(legend_img))
 
-            legend_lab_patches = torch.stack([legend_lab[0] for i in range(self.batch_size)], dim=0)
-            legend_hsv_patches = torch.stack([legend_hsv[0] for i in range(self.batch_size)], dim=0)
-            legend_rgb_patches = torch.stack([legend_rgb[0] for i in range(self.batch_size)], dim=0)
-            legend_yuv_patches = torch.stack([legend_yuv[0] for i in range(self.batch_size)], dim=0)
-            legend_hed_patches = torch.stack([legend_hed[0] for i in range(self.batch_size)], dim=0)
+            legend_lab_t = torch.from_numpy(legend_lab).to(self.device)
+            legend_hsv_t = torch.from_numpy(legend_hsv).to(self.device)
+            legend_rgb_t = torch.from_numpy(legend_rgb).to(self.device)
+            legend_yuv_t = torch.from_numpy(legend_yuv).to(self.device)
+            legend_hed_t = torch.from_numpy(legend_hed).to(self.device)
 
 
             # Perform Inference in batches
             prediction_patches = []
-            with torch.no_grad():
-                for i in range(0, len(map_patches), self.batch_size):
-                    # order : lab, hsv, hed, yuv, rgb
-                    lab_stack = torch.cat([map_lab_patches[i:i+self.batch_size], legend_lab_patches[:len(map_lab_patches[i:i+self.batch_size])]], dim=1).float()
-                    hsv_stack = torch.cat([map_hsv_patches[i:i+self.batch_size], legend_hsv_patches[:len(map_hsv_patches[i:i+self.batch_size])]], dim=1).float()
-                    rgb_stack = torch.cat([map_rgb_patches[i:i+self.batch_size], legend_rgb_patches[:len(map_rgb_patches[i:i+self.batch_size])]], dim=1).float()
-                    yuv_stack = torch.cat([map_yuv_patches[i:i+self.batch_size], legend_yuv_patches[:len(map_yuv_patches[i:i+self.batch_size])]], dim=1).float()
-                    hed_stack = torch.cat([map_hed_patches[i:i+self.batch_size], legend_hed_patches[:len(map_hed_patches[i:i+self.batch_size])]], dim=1).float()
 
-                    prediction = self.model(lab_stack, hsv_stack, hed_stack, yuv_stack, rgb_stack)[0]
+            N = map_patches.shape[0]
+            with torch.no_grad():
+                for start_idx in range(0, N, self.batch_size):
+                    end_idx = start_idx + self.batch_size
+
+                    # Convert sub-batch to torch (already in color spaces, just slice)
+                    lab_sub_t = torch.from_numpy(map_lab[start_idx:end_idx]).to(self.device)
+                    hsv_sub_t = torch.from_numpy(map_hsv[start_idx:end_idx]).to(self.device)
+                    rgb_sub_t = torch.from_numpy(map_rgb[start_idx:end_idx]).to(self.device)
+                    yuv_sub_t = torch.from_numpy(map_yuv[start_idx:end_idx]).to(self.device)
+                    hed_sub_t = torch.from_numpy(map_hed[start_idx:end_idx]).to(self.device)
+
+                    subB = lab_sub_t.shape[0]
+                    # Repeat the legend for sub-batch
+                    legend_lab_batch = legend_lab_t.repeat(subB, 1, 1, 1)
+                    legend_hsv_batch = legend_hsv_t.repeat(subB, 1, 1, 1)
+                    legend_rgb_batch = legend_rgb_t.repeat(subB, 1, 1, 1)
+                    legend_yuv_batch = legend_yuv_t.repeat(subB, 1, 1, 1)
+                    legend_hed_batch = legend_hed_t.repeat(subB, 1, 1, 1)
+
+                    # concat each sub-batch with the legend
+                    lab_sub_t = torch.cat([lab_sub_t, legend_lab_batch], dim=1)
+                    hsv_sub_t = torch.cat([hsv_sub_t, legend_hsv_batch], dim=1)
+                    rgb_sub_t = torch.cat([rgb_sub_t, legend_rgb_batch], dim=1)
+                    yuv_sub_t = torch.cat([yuv_sub_t, legend_yuv_batch], dim=1)
+                    hed_sub_t = torch.cat([hed_sub_t, legend_hed_batch], dim=1)
+
+                    # Forward
+                    prediction = self.model(
+                        lab_sub_t, hsv_sub_t, hed_sub_t, yuv_sub_t, rgb_sub_t
+                    )[0]  # shape (subB,2,ph,pw)
                     prediction = torch.softmax(prediction, dim=1)[:,-1].cpu().numpy().astype(np.float32)
                     prediction_patches.append(prediction)
+
+                    # clean up
+                    del lab_sub_t, hsv_sub_t, rgb_sub_t, yuv_sub_t, hed_sub_t
+                    del legend_lab_batch, legend_hsv_batch, legend_rgb_batch, legend_yuv_batch, legend_hed_batch
                     
             # unpatch
             prediction_patches = np.concatenate(prediction_patches, axis=0)
@@ -317,15 +264,8 @@ class adventurous_ampere_model(pipeline_pytorch_model):
 
             legend_index += 1
             lgd_time = time() - lgd_stime
-            # pipeline_manager.log(logging.DEBUG, "\t\tExecution time for {} legend: {:.2f} seconds. {:.2f} patches per second".format(label, lgd_time, (rows*cols)/lgd_time))
-
         # Minimum confidence threshold for a prediction
         map_prediction[map_confidence < 0.333] = 0
-
-        # For profiling memory usage 
-        # torch.cuda.memory._dump_snapshot(f'gpu_snapshots/{data_id}_inference.pickle')
-        # torch.cuda.reset_max_memory_allocated(0)
-        # pipeline_manager.log_to_monitor(data_id, {'GPU Mem (Alloc/Reserve/Avail)' : f'-'})
         
         return map_prediction
     
