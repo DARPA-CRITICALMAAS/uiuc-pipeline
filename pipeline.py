@@ -501,6 +501,7 @@ def run_in_amqp_mode(args):
     INPUT_QUEUE = f'{RABBITMQ_QUEUE_PREFIX}{args.model}'
     ERROR_QUEUE = f'{INPUT_QUEUE}.error'
     UPLOAD_QUEUE = f'upload'
+    CLEANUP_QUEUE = f'cleanup'
     
     # connect to rabbitmq
     log.info('Connecting to RabbitMQ server')
@@ -587,6 +588,7 @@ def run_in_amqp_mode(args):
                             shutil.move(tmp_location, final_location)
 
                         channel.basic_publish(exchange='', routing_key=ERROR_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
+                        channel.basic_publish(exchange='', routing_key=CLEANUP_QUEUE, body=json.dumps(map_handle['data']), properties=map_handle['properties'])
                         channel.basic_ack(delivery_tag=map_handle['method'].delivery_tag)
 
                     
