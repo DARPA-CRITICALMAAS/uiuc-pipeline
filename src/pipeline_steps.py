@@ -168,17 +168,19 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
         # else:
         #     pipeline_manager.log(logging.DEBUG, f'{map_data.name} - Skipping inference for {feature.label} as it is not a {model.feature_type.name} feature', pid=mp.current_process().pid)
 
+    # pipeline_manager.log(logging.DEBUG, f'{map_data.image.shape} - Preforming inference on {len(legend_images)} {model.feature_type.to_str().capitalize()} features', pid=mp.current_process().pid)
+    
+    # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
+    map_channels, map_height, map_width = map_data.image.shape
+    if map_channels == 1: 
+        map_data.image = np.concatenate([map_data.image,map_data.image,map_data.image], axis=0)
+
     # Cutout map portion of image
     if len(map_data.layout.map) > 0:
         image, offset = mask_and_crop(map_data.image, map_data.layout.map)
     else:
         image = map_data.image
         offset = (0,0)
-
-    # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
-    map_channels, map_height, map_width = image.shape
-    if map_channels == 1: 
-        image = np.concatenate([image,image,image], axis=0)
 
     # Log how many map units are being processed and the estimated time to perform inference
     est_patches = ceil(image.shape[1]/model.patch_size)*ceil(image.shape[2]/model.patch_size)
