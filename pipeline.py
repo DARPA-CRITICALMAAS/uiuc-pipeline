@@ -22,7 +22,8 @@ AVAILABLE_MODELS = [
     'blaring_foundry',
     'flat_iceberg',
     'drab_volcano',
-    'icy_resin'
+    'icy_resin',
+    'adventurous_ampere',
 ]
 
 # Lazy load only the model we are going to use
@@ -42,6 +43,9 @@ def load_pipeline_model(model_dir : str, model_name : str, override_batch_size=N
     if model_name == 'blaring_foundry':
         from src.models.blaring_foundry_model import blaring_foundry_model
         model = blaring_foundry_model()
+    if model_name == 'adventurous_ampere':
+        from src.models.adventurous_ampere_model import adventurous_ampere_model
+        model = adventurous_ampere_model()
     # Point Models
     if model_name == 'flat_iceberg':
         from src.models.flat_iceberg_model import flat_iceberg_model
