@@ -171,9 +171,9 @@ def segmentation_inference(data_id, map_data:CMAAS_Map, model, devices=None):
     # pipeline_manager.log(logging.DEBUG, f'{map_data.image.shape} - Preforming inference on {len(legend_images)} {model.feature_type.to_str().capitalize()} features', pid=mp.current_process().pid)
     
     # Reshape maps with 1 channel images (greyscale) to 3 channels for inference
-    map_channels, map_height, map_width = image.shape
+    map_channels, map_height, map_width = map_data.image.shape
     if map_channels == 1: 
-        image = np.concatenate([image,image,image], axis=0)
+        map_data.image = np.concatenate([map_data.image,map_data.image,map_data.image], axis=0)
 
     # Cutout map portion of image
     if len(map_data.layout.map) > 0:
