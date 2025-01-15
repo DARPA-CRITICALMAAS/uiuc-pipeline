@@ -68,8 +68,14 @@ class golden_muscat_model(pipeline_pytorch_model):
 
         # Generate patches
         # Pad image so we get a size that can be evenly divided into patches.
-        right_pad = self.patch_size - (map_width % self.patch_size)
-        bottom_pad = self.patch_size - (map_height % self.patch_size)
+        if image.shape[1] < self.patch_size:
+            bottom_pad = self.patch_size - image.shape[1]
+        else:
+            bottom_pad = self.patch_size - (map_height % self.patch_size)
+        if image.shape[2] < self.patch_size:
+            right_pad = self.patch_size - image.shape[2]
+        else:
+            right_pad = self.patch_size - (map_width % self.patch_size)
         padded_image = np.pad(image, ((0,0), (0, bottom_pad), (0, right_pad)), mode='constant', constant_values=0)
         map_patches = patchify(padded_image, (3, self.patch_size, self.patch_size), step=self.patch_size-self.patch_overlap)
 

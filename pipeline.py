@@ -183,6 +183,12 @@ def parse_command_line():
 
     # Optional Arguments
     optional_args = parser.add_argument_group('optional arguments', '')
+    optional_args.add_argument('--map_data',
+                        type=parse_directory,
+                        default=None,
+                        help='Optional directory containing precomputed map data in CMAAS utils json format. If option is \
+                                provided, the pipeline will use the precomputed map data instead of generating its own. \
+                                Overrides --legend and --layouts')
     optional_args.add_argument('--legends',
                         type=parse_directory,
                         default=None,
@@ -271,9 +277,10 @@ def parse_command_line():
         args.data = post_parse_data(args.data)
     return args
 
-def main():
+def main(args):
+    global device_count, get_device_name, get_device_properties
+    from torch.cuda import device_count, get_device_name, get_device_properties # import statement is here on purpose, please do not move
     main_time = time()
-    args = parse_command_line()
 
     # Start logger
     if args.verbose:
@@ -418,7 +425,10 @@ def construct_pipeline(args):
     input_stream = parameter_data_stream(args.data)
 
     # Data Loading and preprocessing
-    load_step = p.add_step(func=pipeline_steps.load_data, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
+    if args.map_data:
+        load_step = p.add_step(func=pipeline_steps.load_map_data, args=(input_stream, args.map_data), display='Loading Data', workers=infer_workers*2)
+    else:
+        load_step = p.add_step(func=pipeline_steps.load_map_files, args=(input_stream, args.legends, args.layouts), display='Loading Data', workers=infer_workers*2)
     # layout_step = p.add_step(func=pipeline_steps.gen_layout, args=(load_step.output(),), display='Generating Layout', workers=1)
     legend_step = p.add_step(func=pipeline_steps.gen_legend, args=(load_step.output(), legend_model, args.max_legends, drab_volcano_legend), display='Generating Legend', workers=infer_workers*2)
 
@@ -632,5 +642,6 @@ def run_in_amqp_mode(args):
 
 if __name__=='__main__':
     mp.set_start_method('spawn')
-    from torch.cuda import device_count, get_device_name, get_device_properties # import statement is here on purpose, please do not move
-    main()
+    
+    args = parse_command_line()
+    main(args)
