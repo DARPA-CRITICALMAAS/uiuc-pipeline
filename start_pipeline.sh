@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Copyright (c) 2025 The Trustees of the University of Illinois
+# licensed under the MIT License
+# see "LICENSE" file in the distribution root directory
+
 echo "Job $SLURM_JOB_ID running on $(hostname)"
 
 # Env Setup
