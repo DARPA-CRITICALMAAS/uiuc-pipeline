@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.4.7] - 2025-01-13
 - Fixed bug were map units from polymer with no label or duplicate labels would get dropped from results.
+- add a new model, Happy Facet
 
 ## [0.4.6] - 2024-10-23
 

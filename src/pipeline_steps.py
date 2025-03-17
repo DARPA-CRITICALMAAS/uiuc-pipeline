@@ -350,7 +350,7 @@ def validation(data_id, map_data: CMAAS_Map, true_mask_dir, output_dir, feedback
                 feature_mask[poly_mask == legend_index] = 1
 
         # Get true mask
-        true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{feature.label.replace(" ","_")}_{feature.type}.tif')
+        true_mask_path = os.path.join(true_mask_dir, f'{map_data.name}_{feature.label.replace(" ","_")}_poly.tif')
         
         # Skip features that don't have a true mask available
         if not os.path.exists(true_mask_path):
