@@ -19,3 +19,6 @@
 [submodule "submodules/models/yolo_legend"]
 	path = submodules/models/yolo_legend
 	url = https://github.com/abodeuis/yolo_legend_model
+[submodule "submodules/models/seasoned_lynx"]
+	path = submodules/models/seasoned_lynx
+	url = https://github.com/dou0000/DARPA_Seasoned_Lynx.git
