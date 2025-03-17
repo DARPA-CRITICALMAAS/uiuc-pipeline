@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 python:3.10
+FROM python:3.10
 
 # setup packages needed
 RUN apt-get update && \
